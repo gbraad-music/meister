@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "gridLayout": "4x4",
+  "midiChannel": 0,
+  "pads": [
+    { "label": "PLAY\nPAUSE", "cc": 41 },
+    { "label": "STOP", "cc": 42 },
+    { "label": "RETRIG", "cc": 45 },
+    { "label": "LOOP\nTOGGLE", "cc": 46 },
+    { "label": "NEXT\nORDER", "cc": 44 },
+    { "label": "PREV\nORDER", "cc": 43 },
+    { "label": "SYNC\nTEMPO", "cc": 70 },
+    { "label": "RECV\nSTART", "cc": 71 },
+    { "label": "RECV\nSPP", "cc": 72 },
+    { "label": "SEND\nCLOCK", "cc": 73 },
+    { "label": "SEND\nSTART", "cc": 74 },
+    { "label": "SEND\nSPP", "cc": 75 },
+    { "label": "SPP\nMODE", "cc": 76 },
+    { "label": "FILE\nLOAD", "cc": 60 },
+    { "label": "FILE\nNEXT", "cc": 62 },
+    { "label": "FILE\nPREV", "cc": 61 }
+  ]
+}
