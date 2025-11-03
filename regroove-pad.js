@@ -67,15 +67,14 @@ class RegroovePad extends HTMLElement {
                     height: 100%;
                     cursor: pointer;
                     user-select: none;
-                    padding: 2px;
                 }
 
                 .pad {
                     width: 100%;
                     height: 100%;
-                    background: #1a1a1a;
-                    border: 1px solid #0a0a0a;
-                    border-radius: 4px;
+                    background: #6b7b8c;
+                    border: 2px solid #000000;
+                    border-radius: 6px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -90,8 +89,8 @@ class RegroovePad extends HTMLElement {
                 }
 
                 .pad.state-on {
-                    background: #2a2a2a;
-                    border-color: #333;
+                    background: #7b8b9c;
+                    border-color: #000;
                 }
 
                 .label {
@@ -99,7 +98,7 @@ class RegroovePad extends HTMLElement {
                     font-weight: normal;
                     text-align: center;
                     line-height: 1.3;
-                    color: #888;
+                    color: #d0d0d0;
                     white-space: pre-line;
                     letter-spacing: 0.02em;
                 }
@@ -110,7 +109,7 @@ class RegroovePad extends HTMLElement {
                 }
 
                 .pad.state-on .label {
-                    color: #aaa;
+                    color: #ffffff;
                 }
 
                 .sublabel {
@@ -121,13 +120,13 @@ class RegroovePad extends HTMLElement {
                 }
 
                 .pad:active:not(.active) {
-                    background: #333;
+                    background: #7b8b9c;
                 }
 
                 /* Empty pad styling */
                 .pad.empty {
-                    background: #0a0a0a;
-                    border-color: #0a0a0a;
+                    background: #1a1a1a;
+                    border-color: #000000;
                     cursor: default;
                 }
             </style>

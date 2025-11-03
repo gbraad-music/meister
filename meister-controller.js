@@ -20,7 +20,7 @@ class MeisterController {
         this.waaClockEvent = null;
 
         // SPP Position tracking
-        this.receiveSPP = false;
+        this.receiveSPP = true;
         this.currentPosition = 0; // In MIDI beats (1/16th notes)
         this.patternLength = 64; // Default pattern length
 
@@ -719,11 +719,6 @@ class MeisterController {
             if ((i + 1) % 4 === 0) {
                 button.classList.add('quarter');
             }
-
-            const label = document.createElement('div');
-            label.className = 'seq-label';
-            label.textContent = i.toString();
-            button.appendChild(label);
 
             // Click to send SPP to this position
             button.addEventListener('click', () => {
