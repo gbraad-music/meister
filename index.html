@@ -32,8 +32,8 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: repeat(4, 1fr);
-            gap: 0;
-            padding: 0;
+            gap: 4px;
+            padding: 4px;
             min-height: 0; /* Important for flex children with grid */
         }
 
@@ -60,8 +60,10 @@
             background: #1a1a1a;
             border: 1px solid #0a0a0a;
             cursor: pointer;
-            transition: background 0.05s;
+            transition: background 0.3s ease-out, border-color 0.3s ease-out;
             position: relative;
+            border-radius: 3px;
+            margin: 2px;
         }
 
         .seq-button:hover {
@@ -73,13 +75,14 @@
         }
 
         .seq-button.active {
-            background: #3a3a3a;
-            border-color: #666;
-            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.1);
+            background: #4ade80;
+            border-color: #6ee7a7;
+            transition: background 0.05s ease-in, border-color 0.05s ease-in;
         }
 
         .seq-button.quarter {
             border-right: 2px solid #333;
+            margin-right: 4px;
         }
 
         .seq-label {
@@ -94,7 +97,8 @@
         }
 
         .seq-button.active .seq-label {
-            color: #aaa;
+            color: #ffffff;
+            font-weight: bold;
         }
 
         /* Settings overlay */

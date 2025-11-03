@@ -46,7 +46,7 @@ class RegroovePad extends HTMLElement {
         setTimeout(() => {
             this._active = false;
             this.updateVisuals();
-        }, 100);
+        }, 150);
     }
 
     render() {
@@ -67,6 +67,7 @@ class RegroovePad extends HTMLElement {
                     height: 100%;
                     cursor: pointer;
                     user-select: none;
+                    padding: 2px;
                 }
 
                 .pad {
@@ -74,6 +75,7 @@ class RegroovePad extends HTMLElement {
                     height: 100%;
                     background: #1a1a1a;
                     border: 1px solid #0a0a0a;
+                    border-radius: 4px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -83,7 +85,8 @@ class RegroovePad extends HTMLElement {
                 }
 
                 .pad.active {
-                    background: #2a2a2a;
+                    background: #4a9eff !important;
+                    border-color: #6ab0ff !important;
                 }
 
                 .pad.state-on {
@@ -102,7 +105,8 @@ class RegroovePad extends HTMLElement {
                 }
 
                 .pad.active .label {
-                    color: #aaa;
+                    color: #ffffff !important;
+                    font-weight: bold;
                 }
 
                 .pad.state-on .label {
@@ -116,7 +120,7 @@ class RegroovePad extends HTMLElement {
                     text-align: center;
                 }
 
-                .pad:active {
+                .pad:active:not(.active) {
                     background: #333;
                 }
 
