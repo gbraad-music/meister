@@ -8,7 +8,7 @@ class RegroovePad extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['label', 'sublabel', 'cc', 'note', 'active', 'state'];
+        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'active', 'state'];
     }
 
     connectedCallback() {
@@ -52,6 +52,12 @@ class RegroovePad extends HTMLElement {
     render() {
         const label = this.getAttribute('label') || '';
         const sublabel = this.getAttribute('sublabel') || '';
+
+        // Check if this pad has any message type
+        const hasCC = this.getAttribute('cc') !== null;
+        const hasNote = this.getAttribute('note') !== null;
+        const hasMMC = this.getAttribute('mmc') !== null;
+        const isEmpty = !hasCC && !hasNote && !hasMMC;
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -122,9 +128,9 @@ class RegroovePad extends HTMLElement {
                 }
             </style>
 
-            <div class="pad ${!label ? 'empty' : ''}">
-                ${label ? `
-                    <div class="label">${label}</div>
+            <div class="pad ${isEmpty ? 'empty' : ''}">
+                ${!isEmpty ? `
+                    ${label ? `<div class="label">${label}</div>` : '<div class="label">•</div>'}
                     ${sublabel ? `<div class="sublabel">${sublabel}</div>` : ''}
                 ` : ''}
             </div>
@@ -161,8 +167,12 @@ class RegroovePad extends HTMLElement {
     }
 
     handlePress() {
-        const label = this.getAttribute('label');
-        if (!label) return; // Empty pad
+        // Check if pad has any message type
+        const hasCC = this.getAttribute('cc') !== null;
+        const hasNote = this.getAttribute('note') !== null;
+        const hasMMC = this.getAttribute('mmc') !== null;
+
+        if (!hasCC && !hasNote && !hasMMC) return; // Empty pad
 
         this.trigger();
         this.dispatchEvent(new CustomEvent('pad-press', {
@@ -171,7 +181,8 @@ class RegroovePad extends HTMLElement {
             detail: {
                 cc: this.getAttribute('cc'),
                 note: this.getAttribute('note'),
-                label: label
+                mmc: this.getAttribute('mmc'),
+                label: this.getAttribute('label') || ''
             }
         }));
     }

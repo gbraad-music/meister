@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "gridLayout": "2x4",
+  "midiChannel": 0,
+  "pads": [
+    { "label": "MMC\nSTOP", "mmc": "stop" },
+    { "label": "MMC\nPLAY", "mmc": "play" },
+    { "label": "MMC\nPAUSE", "mmc": "pause" },
+    { "label": "MMC\nRECORD", "mmc": "record_strobe" },
+    { "label": "MMC\nREWIND", "mmc": "rewind" },
+    { "label": "MMC\nFF", "mmc": "fast_forward" },
+    { "label": "MMC\nRESET", "mmc": "reset" },
+    { "label": "MMC\nEJECT", "mmc": "eject" }
+  ]
+}
