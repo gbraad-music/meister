@@ -8,6 +8,16 @@ class MeisterController {
         this.pads = [];
         this.editingPadIndex = null;
 
+        // MIDI Clock Master
+        this.clockMaster = false;
+        this.clockBPM = 120;
+        this.clockInterval = null;
+
+        // SPP Position tracking
+        this.receiveSPP = false;
+        this.currentPosition = 0; // In MIDI beats (1/16th notes)
+        this.patternLength = 64; // Default pattern length
+
         this.init();
     }
 
@@ -49,9 +59,53 @@ class MeisterController {
             this.midiAccess = await navigator.requestMIDIAccess({ sysex: true });
             console.log('MIDI Access granted (with SysEx)');
             this.populateMIDIOutputs();
-            this.midiAccess.onstatechange = () => this.populateMIDIOutputs();
+            this.setupMIDIInputs();
+            this.midiAccess.onstatechange = () => {
+                this.populateMIDIOutputs();
+                this.setupMIDIInputs();
+            };
         } catch (err) {
             console.error('MIDI Access failed:', err);
+        }
+    }
+
+    setupMIDIInputs() {
+        if (!this.midiAccess) return;
+
+        // Listen to all MIDI inputs for SPP messages
+        for (let input of this.midiAccess.inputs.values()) {
+            input.onmidimessage = (event) => this.handleMIDIMessage(event);
+        }
+    }
+
+    handleMIDIMessage(event) {
+        const [status, data1, data2] = event.data;
+
+        // SPP (Song Position Pointer) - 0xF2
+        if (status === 0xF2 && this.receiveSPP) {
+            // SPP is in MIDI beats (1/16th notes)
+            // data1 = LSB, data2 = MSB
+            this.currentPosition = (data2 << 7) | data1;
+            this.updatePositionBar();
+            console.log(`SPP Position: ${this.currentPosition} (${Math.floor(this.currentPosition / 4)} beats)`);
+        }
+
+        // MIDI Clock (0xF8) - could be used for position tracking
+        if (status === 0xF8 && this.receiveSPP) {
+            // Increment position on each clock tick (24 ppqn)
+            // This is optional - mainly use SPP for position
+        }
+
+        // Start (0xFA) - Reset position
+        if (status === 0xFA && this.receiveSPP) {
+            this.currentPosition = 0;
+            this.updatePositionBar();
+        }
+
+        // Stop (0xFC) - Keep position
+        if (status === 0xFC && this.receiveSPP) {
+            // Position stays where it is
+            this.updatePositionBar();
         }
     }
 
@@ -164,6 +218,39 @@ class MeisterController {
         // Message type selector
         document.getElementById('pad-message-type').addEventListener('change', (e) => {
             this.updatePadEditorFields(e.target.value);
+        });
+
+        // MIDI Clock Master
+        document.getElementById('clock-master').addEventListener('change', (e) => {
+            this.clockMaster = e.target.checked;
+            if (this.clockMaster) {
+                this.startClock();
+            } else {
+                this.stopClock();
+            }
+            this.saveConfig();
+        });
+
+        document.getElementById('clock-bpm').addEventListener('change', (e) => {
+            this.clockBPM = parseInt(e.target.value) || 120;
+            if (this.clockMaster) {
+                this.stopClock();
+                this.startClock();
+            }
+            this.saveConfig();
+        });
+
+        // Receive SPP
+        document.getElementById('receive-spp').addEventListener('change', (e) => {
+            this.receiveSPP = e.target.checked;
+            const sequencer = document.getElementById('position-sequencer');
+            sequencer.style.display = this.receiveSPP ? 'flex' : 'none';
+
+            if (this.receiveSPP) {
+                this.createSequencerButtons();
+            }
+
+            this.saveConfig();
         });
 
         // Show status bar on mouse movement
@@ -497,9 +584,118 @@ class MeisterController {
         console.log(`Sent MMC: ${command} (0x${cmdByte.toString(16).toUpperCase()})`);
     }
 
+    // MIDI Clock Master functions
+    startClock() {
+        if (!this.midiOutput) {
+            console.warn('No MIDI output selected - cannot start clock');
+            return;
+        }
+
+        // Send MIDI Start
+        this.midiOutput.send([0xFA]);
+
+        // Calculate interval for MIDI clock (24 ppqn)
+        const msPerBeat = 60000 / this.clockBPM;
+        const msPerClock = msPerBeat / 24;
+
+        this.clockInterval = setInterval(() => {
+            if (this.midiOutput) {
+                this.midiOutput.send([0xF8]); // MIDI Clock
+            }
+        }, msPerClock);
+
+        console.log(`MIDI Clock Master started at ${this.clockBPM} BPM`);
+    }
+
+    stopClock() {
+        if (this.clockInterval) {
+            clearInterval(this.clockInterval);
+            this.clockInterval = null;
+        }
+
+        if (this.midiOutput) {
+            this.midiOutput.send([0xFC]); // MIDI Stop
+        }
+
+        console.log('MIDI Clock Master stopped');
+    }
+
+    createSequencerButtons() {
+        const container = document.getElementById('sequencer-buttons');
+        container.innerHTML = '';
+
+        // Create 16 buttons (representing 16 rows/beats)
+        for (let i = 0; i < 16; i++) {
+            const button = document.createElement('div');
+            button.className = 'seq-button';
+
+            // Mark every 4th button (quarter notes)
+            if ((i + 1) % 4 === 0) {
+                button.classList.add('quarter');
+            }
+
+            const label = document.createElement('div');
+            label.className = 'seq-label';
+            label.textContent = i.toString();
+            button.appendChild(label);
+
+            // Click to send SPP to this position
+            button.addEventListener('click', () => {
+                this.sendSPP(i * 4); // Each button = 4 16th notes (1 beat)
+            });
+
+            container.appendChild(button);
+        }
+    }
+
+    updatePositionBar() {
+        if (!this.receiveSPP) return;
+
+        // Update active button based on current position
+        const buttons = document.querySelectorAll('.seq-button');
+        const currentBeat = Math.floor(this.currentPosition / 4);
+
+        buttons.forEach((button, index) => {
+            if (index === currentBeat) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        });
+    }
+
+    sendSPP(position) {
+        if (!this.midiOutput) {
+            console.warn('No MIDI output selected');
+            return;
+        }
+
+        // SPP position is in MIDI beats (6 per quarter note)
+        // But we're working in 16th notes, so convert
+        const sppPosition = position; // position is already in 16th notes
+
+        // Split into LSB and MSB (14-bit value)
+        const lsb = sppPosition & 0x7F;
+        const msb = (sppPosition >> 7) & 0x7F;
+
+        // Send SPP message: 0xF2 + LSB + MSB
+        this.midiOutput.send([0xF2, lsb, msb]);
+
+        console.log(`Sent SPP: position ${position} (beat ${Math.floor(position / 4)})`);
+
+        // Update local position for visual feedback
+        this.currentPosition = position;
+        this.updatePositionBar();
+    }
+
     // Configuration management
     saveConfig() {
         try {
+            // Add clock and SPP settings to config
+            this.config.clockMaster = this.clockMaster;
+            this.config.clockBPM = this.clockBPM;
+            this.config.receiveSPP = this.receiveSPP;
+
             localStorage.setItem('meisterConfig', JSON.stringify(this.config));
         } catch (e) {
             console.error('Failed to save config to localStorage:', e);
@@ -516,6 +712,27 @@ class MeisterController {
                 document.getElementById('grid-layout').value = this.config.gridLayout || '4x4';
                 document.getElementById('midi-channel').value = this.config.midiChannel || 0;
                 this.midiChannel = this.config.midiChannel || 0;
+
+                // Load clock and SPP settings
+                this.clockMaster = this.config.clockMaster || false;
+                this.clockBPM = this.config.clockBPM || 120;
+                this.receiveSPP = this.config.receiveSPP || false;
+
+                document.getElementById('clock-master').checked = this.clockMaster;
+                document.getElementById('clock-bpm').value = this.clockBPM;
+                document.getElementById('receive-spp').checked = this.receiveSPP;
+
+                const sequencer = document.getElementById('position-sequencer');
+                sequencer.style.display = this.receiveSPP ? 'flex' : 'none';
+
+                if (this.receiveSPP) {
+                    this.createSequencerButtons();
+                }
+
+                // Auto-start clock if it was enabled
+                if (this.clockMaster && this.midiOutput) {
+                    this.startClock();
+                }
 
                 this.applyGridLayout();
             }
