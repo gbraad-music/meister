@@ -14,6 +14,10 @@ class MeisterController {
         this.clockInterval = null;
         this.clockStartTime = 0;
         this.clockTickCount = 0;
+        this.useWAAClock = false; // Use Web Audio API clock for better precision
+        this.waaClock = null;
+        this.waaContext = null;
+        this.waaClockEvent = null;
 
         // SPP Position tracking
         this.receiveSPP = false;
@@ -166,9 +170,19 @@ class MeisterController {
                 this.midiOutput = this.midiAccess.outputs.get(outputId);
                 this.updateConnectionStatus(true);
                 this.saveConfig();
+
+                // Auto-start clock if it was enabled
+                if (this.clockMaster) {
+                    this.startClock();
+                }
             } else {
                 this.midiOutput = null;
                 this.updateConnectionStatus(false);
+
+                // Stop clock if output disconnected
+                if (this.clockMaster) {
+                    this.stopClock();
+                }
             }
         });
 
@@ -241,6 +255,16 @@ class MeisterController {
 
         document.getElementById('clock-bpm').addEventListener('change', (e) => {
             this.clockBPM = parseInt(e.target.value) || 120;
+            if (this.clockMaster) {
+                this.stopClock();
+                this.startClock();
+            }
+            this.saveConfig();
+        });
+
+        // WAAClock option
+        document.getElementById('use-waaclock').addEventListener('change', (e) => {
+            this.useWAAClock = e.target.checked;
             if (this.clockMaster) {
                 this.stopClock();
                 this.startClock();
@@ -602,56 +626,84 @@ class MeisterController {
         // Note: We do NOT send MIDI Start (0xFA) here
         // Only send clock pulses, let the slave control its own transport
 
-        // Reset timing counters
-        this.clockStartTime = performance.now();
-        this.clockTickCount = 0;
-
-        // Use self-correcting timer to prevent drift
-        this.sendClockTick();
-
-        console.log(`MIDI Clock Master started at ${this.clockBPM} BPM (no START message sent, drift-compensated)`);
+        if (this.useWAAClock) {
+            this.startWAAClock();
+        } else {
+            this.startJSClock();
+        }
     }
 
-    sendClockTick() {
-        if (!this.clockInterval && this.clockTickCount === 0) {
-            // Clock was stopped before first tick
-            return;
-        }
-
-        // Send MIDI Clock
-        if (this.midiOutput) {
-            this.midiOutput.send([0xF8]);
-        }
-
-        this.clockTickCount++;
-
-        // Calculate when the NEXT tick should happen (drift compensation)
+    startJSClock() {
+        // Calculate interval (24 ppqn)
+        const PULSES_PER_QUARTER_NOTE = 24;
         const msPerBeat = 60000 / this.clockBPM;
-        const msPerClock = msPerBeat / 24; // 24 ppqn
-        const nextTickTime = this.clockStartTime + (this.clockTickCount * msPerClock);
-        const now = performance.now();
-        const delay = Math.max(0, nextTickTime - now);
+        const interval = msPerBeat / PULSES_PER_QUARTER_NOTE;
 
-        // Schedule next tick with corrected delay
-        this.clockInterval = setTimeout(() => {
-            this.sendClockTick();
-        }, delay);
+        // Use simple setInterval for consistent timing
+        this.clockInterval = setInterval(() => {
+            if (this.midiOutput) {
+                this.midiOutput.send([0xF8]);
+            }
+        }, interval);
+    }
+
+    startWAAClock() {
+        try {
+            // Create Web Audio context if needed
+            if (!this.waaContext) {
+                this.waaContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Check if WAAClock is available
+            if (typeof WAAClock === 'undefined') {
+                console.error('WAAClock not loaded! Falling back to JavaScript clock.');
+                alert('WAAClock library not found. Using standard clock instead.\n\nTo use WAAClock, include the library:\n<script src="https://cdn.jsdelivr.net/npm/waaclock@latest/dist/WAAClock.min.js"></script>');
+                this.useWAAClock = false;
+                this.startJSClock();
+                return;
+            }
+
+            // Create WAAClock instance
+            if (!this.waaClock) {
+                this.waaClock = new WAAClock(this.waaContext);
+                this.waaClock.start();
+            }
+
+            // Calculate interval (24 ppqn)
+            const PULSES_PER_QUARTER_NOTE = 24;
+            const interval = 60 / this.clockBPM / PULSES_PER_QUARTER_NOTE;
+
+            // Schedule repeating MIDI clock - start slightly in the future
+            const startTime = this.waaContext.currentTime + 0.005; // Start 5ms in the future
+
+            this.waaClockEvent = this.waaClock.callbackAtTime((event) => {
+                if (this.midiOutput) {
+                    this.midiOutput.send([0xF8]);
+                }
+            }, startTime).repeat(interval).tolerance({ late: 0.01, early: 0.01 });
+        } catch (err) {
+            console.error('Failed to start WAAClock:', err);
+            this.useWAAClock = false;
+            this.startJSClock();
+        }
     }
 
     stopClock() {
+        // Stop JavaScript clock
         if (this.clockInterval) {
-            clearTimeout(this.clockInterval); // Changed from clearInterval to clearTimeout
+            clearInterval(this.clockInterval);
             this.clockInterval = null;
         }
 
-        // Reset counters
-        this.clockTickCount = 0;
+        // Stop WAAClock
+        if (this.waaClockEvent) {
+            this.waaClockEvent.clear();
+            this.waaClockEvent = null;
+        }
 
         // Note: We do NOT send MIDI Stop (0xFC) here
         // Only stop sending clock pulses
         // This allows the slave to continue running if desired
-
-        console.log('MIDI Clock Master stopped (no STOP message sent)');
     }
 
     createSequencerButtons() {
@@ -733,6 +785,7 @@ class MeisterController {
             this.config.clockMaster = this.clockMaster;
             this.config.clockBPM = this.clockBPM;
             this.config.receiveSPP = this.receiveSPP;
+            this.config.useWAAClock = this.useWAAClock;
 
             localStorage.setItem('meisterConfig', JSON.stringify(this.config));
         } catch (e) {
@@ -755,10 +808,12 @@ class MeisterController {
                 this.clockMaster = this.config.clockMaster || false;
                 this.clockBPM = this.config.clockBPM || 120;
                 this.receiveSPP = this.config.receiveSPP || false;
+                this.useWAAClock = this.config.useWAAClock || false;
 
                 document.getElementById('clock-master').checked = this.clockMaster;
                 document.getElementById('clock-bpm').value = this.clockBPM;
                 document.getElementById('receive-spp').checked = this.receiveSPP;
+                document.getElementById('use-waaclock').checked = this.useWAAClock;
 
                 const sequencer = document.getElementById('position-sequencer');
                 sequencer.style.display = this.receiveSPP ? 'flex' : 'none';

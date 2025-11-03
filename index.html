@@ -260,6 +260,7 @@
             margin-bottom: 10px;
         }
     </style>
+    <script src="./WAAClock.js"></script>
     <script type="module" src="./regroove-pad.js"></script>
     <script type="module" src="./meister-controller.js"></script>
 </head>
@@ -350,6 +351,10 @@
                 <div style="color: #555; font-size: 0.8em; margin-top: 5px;">
                     Tempo (BPM): <input type="number" id="clock-bpm" min="20" max="300" value="120"
                         style="width: 60px; padding: 5px; background: #0a0a0a; color: #888; border: 1px solid #333;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                    <input type="checkbox" id="use-waaclock" style="width: auto;">
+                    <label for="use-waaclock" style="margin: 0; color: #888;">Use WAAClock (Web Audio, more precise)</label>
                 </div>
             </div>
 
