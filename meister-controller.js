@@ -12,6 +12,8 @@ class MeisterController {
         this.clockMaster = false;
         this.clockBPM = 120;
         this.clockInterval = null;
+        this.clockStartTime = 0;
+        this.clockTickCount = 0;
 
         // SPP Position tracking
         this.receiveSPP = false;
@@ -85,9 +87,13 @@ class MeisterController {
         if (status === 0xF2 && this.receiveSPP) {
             // SPP is in MIDI beats (1/16th notes)
             // data1 = LSB, data2 = MSB
-            this.currentPosition = (data2 << 7) | data1;
+            const rawPosition = (data2 << 7) | data1;
+
+            // Modulo 64 to get position within pattern (Regroove sends 64-row patterns)
+            this.currentPosition = rawPosition % 64;
+
             this.updatePositionBar();
-            console.log(`SPP Position: ${this.currentPosition} (${Math.floor(this.currentPosition / 4)} beats)`);
+            console.log(`SPP Received: ${rawPosition} -> Position in pattern: ${this.currentPosition} (row ${this.currentPosition})`);
         }
 
         // MIDI Clock (0xF8) - could be used for position tracking
@@ -100,12 +106,14 @@ class MeisterController {
         if (status === 0xFA && this.receiveSPP) {
             this.currentPosition = 0;
             this.updatePositionBar();
+            console.log('MIDI Start received - position reset');
         }
 
         // Stop (0xFC) - Keep position
         if (status === 0xFC && this.receiveSPP) {
             // Position stays where it is
             this.updatePositionBar();
+            console.log('MIDI Stop received');
         }
     }
 
@@ -591,33 +599,59 @@ class MeisterController {
             return;
         }
 
-        // Send MIDI Start
-        this.midiOutput.send([0xFA]);
+        // Note: We do NOT send MIDI Start (0xFA) here
+        // Only send clock pulses, let the slave control its own transport
 
-        // Calculate interval for MIDI clock (24 ppqn)
+        // Reset timing counters
+        this.clockStartTime = performance.now();
+        this.clockTickCount = 0;
+
+        // Use self-correcting timer to prevent drift
+        this.sendClockTick();
+
+        console.log(`MIDI Clock Master started at ${this.clockBPM} BPM (no START message sent, drift-compensated)`);
+    }
+
+    sendClockTick() {
+        if (!this.clockInterval && this.clockTickCount === 0) {
+            // Clock was stopped before first tick
+            return;
+        }
+
+        // Send MIDI Clock
+        if (this.midiOutput) {
+            this.midiOutput.send([0xF8]);
+        }
+
+        this.clockTickCount++;
+
+        // Calculate when the NEXT tick should happen (drift compensation)
         const msPerBeat = 60000 / this.clockBPM;
-        const msPerClock = msPerBeat / 24;
+        const msPerClock = msPerBeat / 24; // 24 ppqn
+        const nextTickTime = this.clockStartTime + (this.clockTickCount * msPerClock);
+        const now = performance.now();
+        const delay = Math.max(0, nextTickTime - now);
 
-        this.clockInterval = setInterval(() => {
-            if (this.midiOutput) {
-                this.midiOutput.send([0xF8]); // MIDI Clock
-            }
-        }, msPerClock);
-
-        console.log(`MIDI Clock Master started at ${this.clockBPM} BPM`);
+        // Schedule next tick with corrected delay
+        this.clockInterval = setTimeout(() => {
+            this.sendClockTick();
+        }, delay);
     }
 
     stopClock() {
         if (this.clockInterval) {
-            clearInterval(this.clockInterval);
+            clearTimeout(this.clockInterval); // Changed from clearInterval to clearTimeout
             this.clockInterval = null;
         }
 
-        if (this.midiOutput) {
-            this.midiOutput.send([0xFC]); // MIDI Stop
-        }
+        // Reset counters
+        this.clockTickCount = 0;
 
-        console.log('MIDI Clock Master stopped');
+        // Note: We do NOT send MIDI Stop (0xFC) here
+        // Only stop sending clock pulses
+        // This allows the slave to continue running if desired
+
+        console.log('MIDI Clock Master stopped (no STOP message sent)');
     }
 
     createSequencerButtons() {
@@ -651,9 +685,13 @@ class MeisterController {
     updatePositionBar() {
         if (!this.receiveSPP) return;
 
-        // Update active button based on current position
+        // currentPosition is in rows (16th notes), 0-63
+        // Each button represents 4 rows (1 beat)
+        // So button index = floor(position / 4)
         const buttons = document.querySelectorAll('.seq-button');
         const currentBeat = Math.floor(this.currentPosition / 4);
+
+        console.log(`Updating position bar: position ${this.currentPosition}, beat ${currentBeat}`);
 
         buttons.forEach((button, index) => {
             if (index === currentBeat) {
