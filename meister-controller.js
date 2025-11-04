@@ -90,12 +90,20 @@ class MeisterController {
     }
 
     setupMIDIInputs() {
-        if (!this.midiAccess) return;
+        if (!this.midiAccess) {
+            console.warn('[Meister] setupMIDIInputs called but midiAccess is null');
+            return;
+        }
 
+        console.log('[Meister] Setting up MIDI input listeners...');
+        let count = 0;
         // Listen to all MIDI inputs for SPP messages
         for (let input of this.midiAccess.inputs.values()) {
             input.onmidimessage = (event) => this.handleMIDIMessage(event);
+            console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
+            count++;
         }
+        console.log(`[Meister] ${count} MIDI input(s) configured`);
     }
 
     handleMIDIMessage(event) {
