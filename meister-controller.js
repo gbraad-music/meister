@@ -24,6 +24,20 @@ class MeisterController {
         this.currentPosition = 0; // In MIDI beats (1/16th notes)
         this.patternLength = 64; // Default pattern length
 
+        // Player state tracking
+        this.playerState = {
+            playing: false,
+            mode: 0, // 00=song, 01=pattern/loop, 10=performance, 11=record
+            order: 0,
+            row: 0,
+            pattern: 0,
+            totalRows: 0,
+            numChannels: 0,
+            mutedChannels: []
+        };
+        this.statePollingInterval = null;
+        this.regrooveDeviceId = 0; // Target Regroove device ID
+
         this.init();
     }
 
@@ -85,7 +99,17 @@ class MeisterController {
     }
 
     handleMIDIMessage(event) {
-        const [status, data1, data2] = event.data;
+        const data = event.data;
+        const status = data[0];
+
+        // Check for SysEx messages (0xF0)
+        if (status === 0xF0) {
+            this.handleSysExMessage(data);
+            return;
+        }
+
+        const data1 = data[1];
+        const data2 = data[2];
 
         // SPP (Song Position Pointer) - 0xF2
         if (status === 0xF2 && this.receiveSPP) {
@@ -119,6 +143,76 @@ class MeisterController {
             this.updatePositionBar();
             console.log('MIDI Stop received');
         }
+    }
+
+    handleSysExMessage(data) {
+        // Check for Regroove SysEx: F0 7D <device_id> <command> [data...] F7
+        if (data.length < 5) return;
+        if (data[0] !== 0xF0 || data[1] !== 0x7D) return; // Not Regroove SysEx
+        if (data[data.length - 1] !== 0xF7) return; // Invalid end
+
+        const deviceId = data[2];
+        const command = data[3];
+        const payload = data.slice(4, -1); // Extract data between command and F7
+
+        console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
+
+        // PLAYER_STATE_RESPONSE = 0x61
+        if (command === 0x61) {
+            this.parsePlayerStateResponse(payload);
+        }
+    }
+
+    parsePlayerStateResponse(data) {
+        if (data.length < 6) {
+            console.warn('[SysEx] PLAYER_STATE_RESPONSE too short');
+            return;
+        }
+
+        // Parse header
+        const flags = data[0];
+        const order = data[1];
+        const row = data[2];
+        const pattern = data[3];
+        const totalRows = data[4];
+        const numChannels = data[5];
+
+        // Extract playback state
+        const playing = (flags & 0x01) !== 0;
+        const mode = (flags >> 1) & 0x03; // bits 1-2
+
+        // Parse bit-packed mute data
+        const muteBytes = Math.ceil(numChannels / 8);
+        if (data.length < 6 + muteBytes) {
+            console.warn('[SysEx] PLAYER_STATE_RESPONSE incomplete mute data');
+            return;
+        }
+
+        const mutedChannels = [];
+        for (let ch = 0; ch < numChannels; ch++) {
+            const byteIdx = 6 + Math.floor(ch / 8);
+            const bitIdx = ch % 8;
+            if (data[byteIdx] & (1 << bitIdx)) {
+                mutedChannels.push(ch);
+            }
+        }
+
+        // Update state
+        this.playerState = {
+            playing,
+            mode,
+            order,
+            row,
+            pattern,
+            totalRows,
+            numChannels,
+            mutedChannels
+        };
+
+        console.log(`[State] Playing:${playing} Mode:${mode} Order:${order} Row:${row} Pattern:${pattern} Muted:${mutedChannels.length}ch`);
+
+        // Update pad colors
+        this.updatePadColors();
     }
 
     populateMIDIOutputs() {
@@ -175,6 +269,9 @@ class MeisterController {
                 if (this.clockMaster) {
                     this.startClock();
                 }
+
+                // Start state polling
+                this.startStatePolling();
             } else {
                 this.midiOutput = null;
                 this.updateConnectionStatus(false);
@@ -183,6 +280,9 @@ class MeisterController {
                 if (this.clockMaster) {
                     this.stopClock();
                 }
+
+                // Stop state polling
+                this.stopStatePolling();
             }
         });
 
@@ -568,6 +668,82 @@ class MeisterController {
         } else {
             console.warn('No MIDI output selected');
         }
+    }
+
+    requestPlayerState() {
+        if (!this.midiOutput) return;
+
+        // Build GET_PLAYER_STATE message: F0 7D <device> 0x60 F7
+        const message = [
+            0xF0,                      // SysEx start
+            0x7D,                      // Regroove manufacturer ID
+            this.regrooveDeviceId,     // Target device
+            0x60,                      // GET_PLAYER_STATE command
+            0xF7                       // SysEx end
+        ];
+
+        this.midiOutput.send(message);
+    }
+
+    startStatePolling() {
+        if (this.statePollingInterval) return; // Already polling
+
+        // Poll every 100ms for responsive UI
+        this.statePollingInterval = setInterval(() => {
+            this.requestPlayerState();
+        }, 100);
+
+        console.log('[State] Started polling player state');
+    }
+
+    stopStatePolling() {
+        if (this.statePollingInterval) {
+            clearInterval(this.statePollingInterval);
+            this.statePollingInterval = null;
+            console.log('[State] Stopped polling player state');
+        }
+    }
+
+    updatePadColors() {
+        // Update all pads based on player state
+        this.pads.forEach((pad, index) => {
+            const padConfig = this.config.pads[index];
+            if (!padConfig) return;
+
+            const label = padConfig.label || '';
+            let color = null;
+
+            // Check for PLAY pad
+            if (label.includes('PLAY')) {
+                color = this.playerState.playing ? 'green' : null;
+            }
+            // Check for STOP pad
+            else if (label.includes('STOP')) {
+                color = !this.playerState.playing ? 'red' : null;
+            }
+            // Check for LOOP pad
+            else if (label.includes('LOOP')) {
+                // Mode 01 = pattern/loop
+                const loopEnabled = (this.playerState.mode === 0x01);
+                color = loopEnabled ? 'yellow' : null;
+            }
+            // Check for MUTE CH pads (e.g., "MUTE\nCH1", "MUTE\nCH 2", etc.)
+            else if (label.includes('MUTE') && label.match(/CH\s*(\d+)/i)) {
+                const match = label.match(/CH\s*(\d+)/i);
+                if (match) {
+                    const channel = parseInt(match[1]) - 1; // Convert to 0-indexed
+                    const isMuted = this.playerState.mutedChannels.includes(channel);
+                    color = isMuted ? 'red' : null;
+                }
+            }
+
+            // Apply color to pad
+            if (color) {
+                pad.setAttribute('color', color);
+            } else {
+                pad.removeAttribute('color');
+            }
+        });
     }
 
     sendMMC(command) {

@@ -8,7 +8,7 @@ class RegroovePad extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'active', 'state'];
+        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'active', 'state', 'color'];
     }
 
     connectedCallback() {
@@ -93,6 +93,37 @@ class RegroovePad extends HTMLElement {
                     border-color: #000;
                 }
 
+                /* Color states */
+                .pad.color-green {
+                    background: #2a5a2a;
+                    border-color: #3a7a3a;
+                }
+
+                .pad.color-red {
+                    background: #5a2a2a;
+                    border-color: #7a3a3a;
+                }
+
+                .pad.color-yellow {
+                    background: #5a5a2a;
+                    border-color: #7a7a3a;
+                }
+
+                .pad.active.color-green {
+                    background: #3a8a3a !important;
+                    border-color: #5aaa5a !important;
+                }
+
+                .pad.active.color-red {
+                    background: #8a3a3a !important;
+                    border-color: #aa5a5a !important;
+                }
+
+                .pad.active.color-yellow {
+                    background: #8a8a3a !important;
+                    border-color: #aaaa5a !important;
+                }
+
                 .label {
                     font-size: 0.85em;
                     font-weight: normal;
@@ -146,7 +177,13 @@ class RegroovePad extends HTMLElement {
         const pad = this.shadowRoot.querySelector('.pad');
         if (!pad) return;
 
-        pad.classList.remove('active', 'state-on');
+        pad.classList.remove('active', 'state-on', 'color-green', 'color-red', 'color-yellow');
+
+        // Apply color if set
+        const color = this.getAttribute('color');
+        if (color) {
+            pad.classList.add(`color-${color}`);
+        }
 
         if (this._active) {
             pad.classList.add('active');
