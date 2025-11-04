@@ -95,33 +95,30 @@ class RegroovePad extends HTMLElement {
 
                 /* Color states */
                 .pad.color-green {
-                    background: #2a5a2a;
-                    border-color: #3a7a3a;
+                    background: #26A626;
+                    border-color: #2ec02e;
                 }
 
                 .pad.color-red {
-                    background: #5a2a2a;
-                    border-color: #7a3a3a;
+                    background: #B31F24;
+                    border-color: #d92730;
                 }
 
                 .pad.color-yellow {
-                    background: #5a5a2a;
-                    border-color: #7a7a3a;
+                    background: #B3801A;
+                    border-color: #d99820;
                 }
 
                 .pad.active.color-green {
-                    background: #3a8a3a !important;
-                    border-color: #5aaa5a !important;
+                    background: #2ec02e !important;
                 }
 
                 .pad.active.color-red {
-                    background: #8a3a3a !important;
-                    border-color: #aa5a5a !important;
+                    background: #d92730 !important;
                 }
 
                 .pad.active.color-yellow {
-                    background: #8a8a3a !important;
-                    border-color: #aaaa5a !important;
+                    background: #d99820 !important;
                 }
 
                 .label {

@@ -300,6 +300,14 @@ class MeisterController {
             this.saveConfig();
         });
 
+        // SysEx Device ID
+        document.getElementById('sysex-device-id').addEventListener('change', (e) => {
+            this.regrooveDeviceId = parseInt(e.target.value);
+            this.config.sysexDeviceId = this.regrooveDeviceId;
+            this.saveConfig();
+            console.log(`[Config] SysEx Device ID set to ${this.regrooveDeviceId}`);
+        });
+
         // Load config
         document.getElementById('load-config').addEventListener('click', () => {
             document.getElementById('file-input').click();
@@ -975,6 +983,10 @@ class MeisterController {
                 document.getElementById('midi-channel').value = this.config.midiChannel || 0;
                 this.midiChannel = this.config.midiChannel || 0;
 
+                // Load SysEx device ID
+                document.getElementById('sysex-device-id').value = this.config.sysexDeviceId || 0;
+                this.regrooveDeviceId = this.config.sysexDeviceId || 0;
+
                 // Load clock and SPP settings
                 this.clockMaster = this.config.clockMaster || false;
                 this.clockBPM = this.config.clockBPM || 120;
@@ -1020,6 +1032,10 @@ class MeisterController {
                 if (config.midiChannel !== undefined) {
                     document.getElementById('midi-channel').value = config.midiChannel;
                     this.midiChannel = config.midiChannel;
+                }
+                if (config.sysexDeviceId !== undefined) {
+                    document.getElementById('sysex-device-id').value = config.sysexDeviceId;
+                    this.regrooveDeviceId = config.sysexDeviceId;
                 }
 
                 this.applyGridLayout();
