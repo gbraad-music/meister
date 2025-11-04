@@ -38,6 +38,12 @@ class MeisterController {
         this.statePollingInterval = null;
         this.regrooveDeviceId = 0; // Target Regroove device ID
 
+        // Connection watchdog
+        this.lastStateUpdate = null;
+        this.stateTimeoutMs = 3000; // 3 seconds without update = disconnected
+        this.connectionWatchdog = null;
+        this.isConnectedToRegroove = false;
+
         this.init();
     }
 
@@ -163,7 +169,10 @@ class MeisterController {
         const command = data[3];
         const payload = data.slice(4, -1); // Extract data between command and F7
 
-        console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
+        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE)
+        if (command !== 0x60 && command !== 0x61) {
+            console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
+        }
 
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
@@ -217,7 +226,18 @@ class MeisterController {
             mutedChannels
         };
 
-        console.log(`[State] Playing:${playing} Mode:${mode} Order:${order} Row:${row} Pattern:${pattern} Muted:${mutedChannels.length}ch`);
+        // Update connection timestamp
+        this.lastStateUpdate = Date.now();
+        if (!this.isConnectedToRegroove) {
+            this.isConnectedToRegroove = true;
+            console.log('[Regroove] Connected - receiving state updates');
+        }
+
+        // Start watchdog if not already running
+        this.startConnectionWatchdog();
+
+        // State updates happen frequently - only log on significant changes or enable for debugging
+        // console.log(`[State] Playing:${playing} Mode:${mode} Order:${order} Row:${row} Pattern:${pattern} Muted:${mutedChannels.length}ch`);
 
         // Update pad colors
         this.updatePadColors();
@@ -613,8 +633,12 @@ class MeisterController {
             const padElement = document.createElement('regroove-pad');
 
             if (padConfig) {
-                if (padConfig.label) padElement.setAttribute('label', padConfig.label);
-                if (padConfig.sublabel) padElement.setAttribute('sublabel', padConfig.sublabel);
+                // Store original label for later replacement
+                padElement._originalLabel = padConfig.label;
+                padElement._originalSublabel = padConfig.sublabel;
+
+                if (padConfig.label) padElement.setAttribute('label', this.replacePlaceholders(padConfig.label));
+                if (padConfig.sublabel) padElement.setAttribute('sublabel', this.replacePlaceholders(padConfig.sublabel));
                 if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
                 if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
                 if (padConfig.mmc !== undefined) padElement.setAttribute('mmc', padConfig.mmc);
@@ -704,12 +728,12 @@ class MeisterController {
     startStatePolling() {
         if (this.statePollingInterval) return; // Already polling
 
-        // Poll every 100ms for responsive UI
+        // Poll every 500ms (2 times per second) - good balance between responsiveness and bandwidth
         this.statePollingInterval = setInterval(() => {
             this.requestPlayerState();
-        }, 100);
+        }, 500);
 
-        console.log('[State] Started polling player state');
+        console.log('[State] Started polling player state every 500ms');
     }
 
     stopStatePolling() {
@@ -720,11 +744,28 @@ class MeisterController {
         }
     }
 
+    replacePlaceholders(text) {
+        if (!text) return text;
+
+        return text
+            .replace(/\{order\}/gi, this.playerState.order)
+            .replace(/\{pattern\}/gi, this.playerState.pattern)
+            .replace(/\{row\}/gi, this.playerState.row);
+    }
+
     updatePadColors() {
         // Update all pads based on player state
         this.pads.forEach((pad, index) => {
             const padConfig = this.config.pads[index];
             if (!padConfig) return;
+
+            // Update placeholders in labels
+            if (pad._originalLabel) {
+                pad.setAttribute('label', this.replacePlaceholders(pad._originalLabel));
+            }
+            if (pad._originalSublabel) {
+                pad.setAttribute('sublabel', this.replacePlaceholders(pad._originalSublabel));
+            }
 
             const label = padConfig.label || '';
             let color = null;
@@ -743,6 +784,15 @@ class MeisterController {
                 const loopEnabled = (this.playerState.mode === 0x01);
                 color = loopEnabled ? 'yellow' : null;
             }
+            // Check for SOLO CH pads (e.g., "SOLO\nCH1", "SOLO\nCH 2", etc.)
+            else if (label.includes('SOLO') && label.match(/CH\s*(\d+)/i)) {
+                const match = label.match(/CH\s*(\d+)/i);
+                if (match) {
+                    const channel = parseInt(match[1]) - 1; // Convert to 0-indexed
+                    const isSolo = this.isChannelSolo(channel);
+                    color = isSolo ? 'red' : null;
+                }
+            }
             // Check for MUTE CH pads (e.g., "MUTE\nCH1", "MUTE\nCH 2", etc.)
             else if (label.includes('MUTE') && label.match(/CH\s*(\d+)/i)) {
                 const match = label.match(/CH\s*(\d+)/i);
@@ -760,6 +810,26 @@ class MeisterController {
                 pad.removeAttribute('color');
             }
         });
+    }
+
+    isChannelSolo(channel) {
+        // A channel is solo'd if it's NOT muted and all other channels ARE muted
+        const { numChannels, mutedChannels } = this.playerState;
+
+        // Check if this channel is unmuted
+        if (mutedChannels.includes(channel)) {
+            return false; // Can't be solo if it's muted
+        }
+
+        // Check if all other channels are muted
+        for (let ch = 0; ch < numChannels; ch++) {
+            if (ch !== channel && !mutedChannels.includes(ch)) {
+                return false; // Another channel is also unmuted
+            }
+        }
+
+        // Only this channel is unmuted (and there are other channels muted)
+        return mutedChannels.length > 0;
     }
 
     sendMMC(command) {
@@ -1073,6 +1143,52 @@ class MeisterController {
         URL.revokeObjectURL(url);
 
         console.log('Configuration downloaded');
+    }
+
+    startConnectionWatchdog() {
+        if (this.connectionWatchdog) return; // Already running
+
+        this.connectionWatchdog = setInterval(() => {
+            const now = Date.now();
+            const timeSinceLastUpdate = this.lastStateUpdate ? (now - this.lastStateUpdate) : Infinity;
+
+            if (timeSinceLastUpdate > this.stateTimeoutMs && this.isConnectedToRegroove) {
+                // Connection lost
+                console.log('[Regroove] Disconnected - no state updates for ' + Math.round(timeSinceLastUpdate / 1000) + 's');
+                this.handleRegrooveDisconnect();
+            }
+        }, 1000); // Check every second
+    }
+
+    stopConnectionWatchdog() {
+        if (this.connectionWatchdog) {
+            clearInterval(this.connectionWatchdog);
+            this.connectionWatchdog = null;
+        }
+    }
+
+    handleRegrooveDisconnect() {
+        this.isConnectedToRegroove = false;
+
+        // Reset player state to defaults
+        this.playerState = {
+            playing: false,
+            mode: 0,
+            order: 0,
+            row: 0,
+            pattern: 0,
+            totalRows: 0,
+            numChannels: 0,
+            mutedChannels: []
+        };
+
+        // Clear all pad colors (reset to default state)
+        this.pads.forEach((pad) => {
+            pad.removeAttribute('color');
+        });
+
+        // Update labels to show default placeholders (will show 0s)
+        this.updatePadColors();
     }
 }
 

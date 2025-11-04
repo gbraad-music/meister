@@ -395,15 +395,18 @@
             <div class="settings-header" id="pad-editor-title">EDIT PAD</div>
 
             <div class="setting-group">
-                <label class="setting-label">LABEL (use \n for line breaks)</label>
+                <label class="setting-label">LABEL (use \n for line breaks, {order} {pattern} {row} for position)</label>
                 <input type="text" id="pad-label" placeholder="PLAY\nPAUSE" style="width: 100%;">
                 <div id="pad-label-error" style="color: #ff6b6b; font-size: 0.8em; margin-top: 5px; display: none;">
                     ⚠ Label is required (or use CLEAR to remove pad)
                 </div>
+                <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
+                    Examples: "Order {order}" or "Pat {pattern}\nRow {row}"
+                </div>
             </div>
 
             <div class="setting-group">
-                <label class="setting-label">SUBLABEL (optional)</label>
+                <label class="setting-label">SUBLABEL (optional, supports {order} {pattern} {row})</label>
                 <input type="text" id="pad-sublabel" placeholder="Small text" style="width: 100%;">
             </div>
 
