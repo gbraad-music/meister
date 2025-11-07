@@ -407,6 +407,10 @@
 <body>
     <div class="status-bar" id="status-bar">
         <div>MEISTER</div>
+        <select id="scene-selector" style="background: #0a0a0a; color: #888; border: 1px solid #1a1a1a; padding: 2px 5px; font-size: 0.75em;">
+            <option value="pads">Pads</option>
+            <option value="mixer">Mixer</option>
+        </select>
         <div class="midi-indicator" id="midi-indicator">MIDI</div>
     </div>
 
@@ -777,6 +781,7 @@
         import './meister-controller.js';
         import { integrateActionSystem } from './meister-actions-integration.js';
         import { SettingsUI } from './settings-ui.js';
+        import { SceneManager } from './scene-manager.js';
 
         // Wait for controller to be initialized
         function waitForController() {
@@ -788,6 +793,28 @@
                 // Initialize settings UI
                 window.meisterController.settingsUI = new SettingsUI(window.meisterController);
                 console.log('[Meister] Settings UI initialized');
+
+                // Initialize scene manager
+                window.meisterController.sceneManager = new SceneManager(window.meisterController);
+                console.log('[Meister] Scene manager initialized');
+
+                // Setup scene selector
+                const sceneSelector = document.getElementById('scene-selector');
+                if (sceneSelector) {
+                    sceneSelector.addEventListener('change', (e) => {
+                        window.meisterController.sceneManager.switchScene(e.target.value);
+                    });
+                }
+
+                // Hook into player state updates to update mixer
+                const originalUpdatePadColors = window.meisterController.updatePadColors;
+                window.meisterController.updatePadColors = function() {
+                    originalUpdatePadColors.call(this);
+                    // Update mixer if active
+                    if (this.sceneManager) {
+                        this.sceneManager.updateMixerFromState();
+                    }
+                };
             } else {
                 // Retry after a short delay
                 setTimeout(waitForController, 50);
