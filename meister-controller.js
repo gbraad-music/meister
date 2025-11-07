@@ -1193,6 +1193,7 @@ class MeisterController {
 }
 
 // Initialize controller when DOM is ready
+// Action system integration will be done from index.html module script
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.meisterController = new MeisterController();

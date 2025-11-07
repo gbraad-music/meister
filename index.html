@@ -421,54 +421,64 @@
             </div>
 
             <div class="setting-group" id="pad-regroove-field">
-                <label class="setting-label">REGROOVE ACTION</label>
+                <label class="setting-label">ACTION (supports both legacy CC and new action IDs)</label>
                 <select id="pad-regroove-action">
                     <optgroup label="Transport">
-                        <option value="41">Play/Pause</option>
-                        <option value="42">Stop</option>
-                        <option value="45">Retrigger</option>
-                        <option value="46">Loop Toggle</option>
-                        <option value="44">Next Order</option>
-                        <option value="43">Previous Order</option>
+                        <option value="41" data-action="102">Play/Pause</option>
+                        <option value="42" data-action="101">Stop</option>
+                        <option value="45" data-action="103">Retrigger</option>
+                        <option value="46" data-action="104">Loop Toggle</option>
+                        <option value="44" data-action="110">Next Order</option>
+                        <option value="43" data-action="111">Previous Order</option>
                     </optgroup>
                     <optgroup label="File Browser">
-                        <option value="60">File Load</option>
-                        <option value="61">File Previous</option>
-                        <option value="62">File Next</option>
+                        <option value="60" data-action="120">File Load</option>
+                        <option value="61" data-action="122">File Previous</option>
+                        <option value="62" data-action="121">File Next</option>
                     </optgroup>
                     <optgroup label="MIDI Sync">
-                        <option value="70">Sync Tempo Toggle</option>
-                        <option value="71">Receive Transport Toggle</option>
-                        <option value="72">Receive SPP Toggle</option>
-                        <option value="73">Send Clock Toggle</option>
-                        <option value="74">Send Transport Toggle</option>
+                        <option value="70" data-action="140">Sync Tempo Toggle</option>
+                        <option value="71" data-action="141">Receive Transport Toggle</option>
+                        <option value="72" data-action="142">Receive SPP Toggle</option>
+                        <option value="73" data-action="143">Receive Sync Toggle</option>
+                        <option value="74" data-action="144">Send Sync Toggle</option>
                         <option value="75">Send SPP Toggle</option>
                         <option value="76">SPP Sync Mode Toggle</option>
                         <option value="77">Sync Module Toggle</option>
                     </optgroup>
+                    <optgroup label="MIDI Clock">
+                        <option value="" data-action="200">Clock Master Toggle</option>
+                        <option value="" data-action="201">Clock Start</option>
+                        <option value="" data-action="202">Clock Stop</option>
+                        <option value="" data-action="204">Clock BPM +1</option>
+                        <option value="" data-action="205">Clock BPM -1</option>
+                    </optgroup>
                     <optgroup label="Channel Control">
-                        <option value="48">Channel 1 Mute</option>
-                        <option value="49">Channel 2 Mute</option>
-                        <option value="50">Channel 3 Mute</option>
-                        <option value="51">Channel 4 Mute</option>
-                        <option value="52">Channel 5 Mute</option>
-                        <option value="53">Channel 6 Mute</option>
-                        <option value="54">Channel 7 Mute</option>
-                        <option value="55">Channel 8 Mute</option>
-                        <option value="32">Channel 1 Solo</option>
-                        <option value="33">Channel 2 Solo</option>
-                        <option value="34">Channel 3 Solo</option>
-                        <option value="35">Channel 4 Solo</option>
-                        <option value="36">Channel 5 Solo</option>
-                        <option value="37">Channel 6 Solo</option>
-                        <option value="38">Channel 7 Solo</option>
-                        <option value="39">Channel 8 Solo</option>
+                        <option value="48" data-action="130" data-param="0">Channel 1 Mute</option>
+                        <option value="49" data-action="130" data-param="1">Channel 2 Mute</option>
+                        <option value="50" data-action="130" data-param="2">Channel 3 Mute</option>
+                        <option value="51" data-action="130" data-param="3">Channel 4 Mute</option>
+                        <option value="52" data-action="130" data-param="4">Channel 5 Mute</option>
+                        <option value="53" data-action="130" data-param="5">Channel 6 Mute</option>
+                        <option value="54" data-action="130" data-param="6">Channel 7 Mute</option>
+                        <option value="55" data-action="130" data-param="7">Channel 8 Mute</option>
+                        <option value="32" data-action="131" data-param="0">Channel 1 Solo</option>
+                        <option value="33" data-action="131" data-param="1">Channel 2 Solo</option>
+                        <option value="34" data-action="131" data-param="2">Channel 3 Solo</option>
+                        <option value="35" data-action="131" data-param="3">Channel 4 Solo</option>
+                        <option value="36" data-action="131" data-param="4">Channel 5 Solo</option>
+                        <option value="37" data-action="131" data-param="5">Channel 6 Solo</option>
+                        <option value="38" data-action="131" data-param="6">Channel 7 Solo</option>
+                        <option value="39" data-action="131" data-param="7">Channel 8 Solo</option>
                     </optgroup>
                     <optgroup label="Performance">
-                        <option value="80">Record Performance</option>
-                        <option value="81">Tap Tempo</option>
+                        <option value="80" data-action="150">Record Performance</option>
+                        <option value="81" data-action="151">Tap Tempo</option>
                     </optgroup>
                 </select>
+                <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
+                    Legacy CC values are still supported for backward compatibility
+                </div>
             </div>
 
             <div class="setting-group" id="pad-cc-field" style="display: none;">
@@ -510,6 +520,26 @@
 
     <script type="module">
         import './meister-controller.js';
+        import { integrateActionSystem } from './meister-actions-integration.js';
+
+        // Wait for controller to be initialized
+        function waitForController() {
+            if (window.meisterController) {
+                // Integrate action system
+                integrateActionSystem(window.meisterController);
+                console.log('[Meister] Action system integrated successfully');
+            } else {
+                // Retry after a short delay
+                setTimeout(waitForController, 50);
+            }
+        }
+
+        // Start waiting for controller
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', waitForController);
+        } else {
+            waitForController();
+        }
     </script>
 
     <script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v13';
+const CACHE_NAME = 'meister-v14';
 const ASSETS = [
     './',
     './index.html',
@@ -6,7 +6,12 @@ const ASSETS = [
     './regroove-pad.js',
     './WAAClock.js',
     './manifest.json',
-    './icon.svg'
+    './icon.svg',
+    // Action system files (v2.0)
+    './input-actions.js',
+    './action-dispatcher.js',
+    './input-mapper.js',
+    './meister-actions-integration.js'
 ];
 
 // Install event - cache assets
