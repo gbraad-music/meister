@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v14';
+const CACHE_NAME = 'meister-v15';
 const ASSETS = [
     './',
     './index.html',
@@ -11,7 +11,8 @@ const ASSETS = [
     './input-actions.js',
     './action-dispatcher.js',
     './input-mapper.js',
-    './meister-actions-integration.js'
+    './meister-actions-integration.js',
+    './settings-ui.js'
 ];
 
 // Install event - cache assets

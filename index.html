@@ -85,40 +85,54 @@
             margin-right: 4px;
         }
 
-        /* Settings overlay */
+        /* Settings overlay - Full viewport mode */
         .settings-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.95);
+            background: #000000;
             display: none;
             z-index: 1000;
+            flex-direction: column;
         }
 
         .settings-overlay.active {
             display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .settings-panel {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            padding: 30px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
+            background: #000000;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-panel-header {
+            flex-shrink: 0;
+            padding: 20px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-panel-content {
+            flex: 1;
             overflow-y: auto;
+            padding: 20px;
         }
 
         .settings-header {
-            font-size: 1.2em;
+            font-size: 1.5em;
             color: #aaa;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #333;
+            margin: 0;
+            font-weight: normal;
+            letter-spacing: 1px;
         }
 
         .setting-group {
@@ -242,10 +256,148 @@
         }
 
         .close-settings {
-            align-self: flex-end;
             width: auto;
-            padding: 5px 15px;
-            margin-bottom: 10px;
+            padding: 10px 20px;
+            margin: 0;
+            background: #1a1a1a;
+            border: 1px solid #333;
+        }
+
+        .close-settings:hover {
+            background: #2a2a2a;
+        }
+
+        /* Tabbed Settings Interface */
+        .settings-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #1a1a1a;
+            flex-shrink: 0;
+            padding: 0 20px;
+        }
+
+        .settings-tab {
+            padding: 15px 30px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: normal;
+        }
+
+        .settings-tab:hover {
+            color: #888;
+            background: #0a0a0a;
+        }
+
+        .settings-tab.active {
+            color: #ddd;
+            border-bottom-color: #4a9eff;
+            background: #0a0a0a;
+        }
+
+        .tab-content {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Compact table styles */
+        .settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+
+        .settings-table th {
+            text-align: left;
+            color: #666;
+            font-weight: normal;
+            padding: 8px 5px;
+            border-bottom: 1px solid #333;
+        }
+
+        .settings-table td {
+            padding: 8px 5px;
+            border-bottom: 1px solid #222;
+        }
+
+        .settings-table tr:hover {
+            background: #0f0f0f;
+        }
+
+        .settings-table select,
+        .settings-table input {
+            width: 100%;
+            padding: 5px;
+            font-size: 0.9em;
+        }
+
+        .settings-table button {
+            padding: 5px 10px;
+            width: auto;
+            font-size: 0.85em;
+        }
+
+        .device-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 0.85em;
+            color: #888;
+        }
+
+        .device-badge.input {
+            border-color: #4a9eff;
+            color: #4a9eff;
+        }
+
+        .device-badge.routed {
+            border-color: #ff9e4a;
+            color: #ff9e4a;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #555;
+            padding: 30px;
+            font-size: 0.9em;
+        }
+
+        .learn-button {
+            background: #1a3a1a !important;
+            color: #4a9e4a;
+            border-color: #2a4a2a;
+        }
+
+        .learn-button:hover {
+            background: #2a4a2a !important;
+        }
+
+        .learn-button.active {
+            background: #2a5a2a !important;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .action-select {
+            font-size: 0.85em;
+            padding: 5px;
         }
     </style>
     <script src="./WAAClock.js"></script>
@@ -275,42 +427,56 @@
 
     <div class="settings-overlay" id="settings-overlay">
         <div class="settings-panel">
-            <button class="close-settings" id="close-settings">✕ CLOSE</button>
-
-            <div class="settings-header">SETTINGS</div>
-
-            <div class="setting-group">
-                <label class="setting-label">MIDI OUTPUT DEVICE</label>
-                <select id="midi-output">
-                    <option value="">No MIDI Access</option>
-                </select>
+            <!-- Header -->
+            <div class="settings-panel-header">
+                <div class="settings-header">SETTINGS</div>
+                <button class="close-settings" id="close-settings">✕ CLOSE</button>
             </div>
 
-            <div class="setting-group">
-                <label class="setting-label">GRID LAYOUT</label>
-                <select id="grid-layout">
-                    <option value="8x8">8 × 8 (64 pads)</option>
-                    <option value="8x4">8 × 4 (32 pads)</option>
-                    <option value="4x8">4 × 8 (32 pads)</option>
-                    <option value="4x4">4 × 4 (16 pads)</option>
-                    <option value="4x3">4 × 3 (12 pads)</option>
-                    <option value="3x3">3 × 3 (9 pads)</option>
-                    <option value="2x4">2 × 4 (8 pads)</option>
-                </select>
+            <!-- Tab Navigation -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="general">General</button>
+                <button class="settings-tab" data-tab="midi-devices">MIDI Devices</button>
+                <button class="settings-tab" data-tab="midi-mappings">MIDI Mappings</button>
+                <button class="settings-tab" data-tab="keyboard">Keyboard</button>
             </div>
 
-            <div class="setting-group">
-                <label class="setting-label">CONFIGURATION FILE (.RCX)</label>
-                <div class="button-group">
-                    <button id="load-config">📁 LOAD</button>
-                    <button id="save-config">💾 SAVE</button>
+            <!-- Tab Content Container -->
+            <div class="settings-panel-content">
+                <!-- General Tab -->
+                <div class="tab-content active" id="tab-general">
+                <div class="setting-group">
+                    <label class="setting-label">MIDI OUTPUT DEVICE</label>
+                    <select id="midi-output">
+                        <option value="">No MIDI Access</option>
+                    </select>
                 </div>
-                <input type="file" id="file-input" accept=".rcx,.json" style="display:none;">
-            </div>
 
-            <div class="setting-group">
-                <label class="setting-label">MIDI CHANNEL</label>
-                <select id="midi-channel">
+                <div class="setting-group">
+                    <label class="setting-label">GRID LAYOUT</label>
+                    <select id="grid-layout">
+                        <option value="8x8">8 × 8 (64 pads)</option>
+                        <option value="8x4">8 × 4 (32 pads)</option>
+                        <option value="4x8">4 × 8 (32 pads)</option>
+                        <option value="4x4">4 × 4 (16 pads)</option>
+                        <option value="4x3">4 × 3 (12 pads)</option>
+                        <option value="3x3">3 × 3 (9 pads)</option>
+                        <option value="2x4">2 × 4 (8 pads)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">CONFIGURATION FILE (.RCX)</label>
+                    <div class="button-group">
+                        <button id="load-config">📁 LOAD</button>
+                        <button id="save-config">💾 SAVE</button>
+                    </div>
+                    <input type="file" id="file-input" accept=".rcx,.json" style="display:none;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI CHANNEL</label>
+                    <select id="midi-channel">
                     <option value="0">Channel 1</option>
                     <option value="1">Channel 2</option>
                     <option value="2">Channel 3</option>
@@ -377,22 +543,110 @@
             <div class="setting-group">
                 <label class="setting-label">ABOUT</label>
                 <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
-                    Regroove Meister v1.0<br>
+                    Regroove Meister v2.0 (Action System)<br>
                     WebMIDI Controller Interface<br>
                     <br>
                     Right-click pads to edit.<br>
-                    Supports CC, Note, and MMC messages.
+                    Press keys for shortcuts (Space=Play/Pause, Esc=Stop, etc.)
                 </div>
             </div>
+            </div>
+
+            <!-- MIDI Devices Tab -->
+            <div class="tab-content" id="tab-midi-devices">
+                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
+                    Configure how MIDI input devices are handled:
+                    <span class="device-badge input">INPUT</span> = Parse into actions |
+                    <span class="device-badge routed">ROUTED</span> = Direct pass-through
+                </div>
+
+                <table class="settings-table" id="midi-devices-table">
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Mode</th>
+                            <th style="width: 150px;">Route To</th>
+                        </tr>
+                    </thead>
+                    <tbody id="midi-devices-list">
+                        <tr>
+                            <td colspan="3" class="empty-state">No MIDI input devices detected</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- MIDI Mappings Tab -->
+            <div class="tab-content" id="tab-midi-mappings">
+                <div style="margin-bottom: 15px;">
+                    <button id="midi-learn-btn" class="learn-button">🎹 MIDI LEARN</button>
+                    <select id="learn-action-select" class="action-select" style="margin-left: 10px; width: calc(100% - 140px);">
+                        <option value="">-- Select action for next learned control --</option>
+                    </select>
+                </div>
+
+                <table class="settings-table" id="midi-mappings-table">
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th style="width: 50px;">Type</th>
+                            <th style="width: 50px;">#</th>
+                            <th>Action</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="midi-mappings-list">
+                        <tr>
+                            <td colspan="5" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Keyboard Shortcuts Tab -->
+            <div class="tab-content" id="tab-keyboard">
+                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
+                    Default keyboard shortcuts are active. Add custom shortcuts below.
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <button id="add-keyboard-shortcut-btn">⌨️ ADD SHORTCUT</button>
+                </div>
+
+                <table class="settings-table" id="keyboard-shortcuts-table">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Modifiers</th>
+                            <th>Action</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="keyboard-shortcuts-list">
+                        <tr>
+                            <td colspan="4" class="empty-state">Loading keyboard shortcuts...</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #333; font-size: 0.8em; color: #666;">
+                    <strong>Default Shortcuts:</strong><br>
+                    Space=Play/Pause | Esc=Stop | [/]=Prev/Next Order | PgUp/PgDn=Prev/Next File | C=Clock Toggle | +/-=BPM
+                </div>
+            </div>
+            </div><!-- End settings-panel-content -->
         </div>
     </div>
 
     <!-- Pad Editor Overlay -->
     <div class="settings-overlay" id="pad-editor-overlay">
         <div class="settings-panel">
-            <button class="close-settings" id="close-pad-editor">✕ CLOSE</button>
+            <div class="settings-panel-header">
+                <div class="settings-header" id="pad-editor-title">EDIT PAD</div>
+                <button class="close-settings" id="close-pad-editor">✕ CLOSE</button>
+            </div>
 
-            <div class="settings-header" id="pad-editor-title">EDIT PAD</div>
+            <div class="settings-panel-content">
 
             <div class="setting-group">
                 <label class="setting-label">LABEL (use \n for line breaks, {order} {pattern} {row} for position)</label>
@@ -515,12 +769,14 @@
                 <button id="save-pad">💾 SAVE</button>
                 <button id="clear-pad">🗑️ CLEAR</button>
             </div>
+            </div><!-- End settings-panel-content -->
         </div>
     </div>
 
     <script type="module">
         import './meister-controller.js';
         import { integrateActionSystem } from './meister-actions-integration.js';
+        import { SettingsUI } from './settings-ui.js';
 
         // Wait for controller to be initialized
         function waitForController() {
@@ -528,6 +784,10 @@
                 // Integrate action system
                 integrateActionSystem(window.meisterController);
                 console.log('[Meister] Action system integrated successfully');
+
+                // Initialize settings UI
+                window.meisterController.settingsUI = new SettingsUI(window.meisterController);
+                console.log('[Meister] Settings UI initialized');
             } else {
                 // Retry after a short delay
                 setTimeout(waitForController, 50);
