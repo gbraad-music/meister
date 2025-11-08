@@ -134,13 +134,6 @@ class RegrooveStateManager {
             return;
         }
 
-        // Debug: Show mute bytes
-        const muteByteValues = [];
-        for (let i = 0; i < muteBytes; i++) {
-            muteByteValues.push('0x' + data[15 + i].toString(16).padStart(2, '0'));
-        }
-        console.log(`[Dev${deviceId}] Mute bytes (${numChannels} ch): [${muteByteValues.join(', ')}]`);
-
         const mutedChannels = [];
         for (let ch = 0; ch < numChannels; ch++) {
             const byteIdx = 15 + Math.floor(ch / 8);
@@ -149,8 +142,6 @@ class RegrooveStateManager {
                 mutedChannels.push(ch);
             }
         }
-
-        console.log(`[Dev${deviceId}] Parsed muted channels: [${mutedChannels.join(', ')}]`);
 
         // Commented out to reduce console clutter
         // console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);

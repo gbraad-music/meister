@@ -1710,9 +1710,6 @@ class MeisterController {
             try {
                 const fullConfig = JSON.parse(e.target.result);
 
-                console.log('[Config] Loading config from file...');
-                console.log('[Config] sceneEditor before import:', !!this.sceneEditor, typeof this.sceneEditor);
-
                 // Extract main config (everything except devices and customScenes)
                 const { devices, customScenes, ...config } = fullConfig;
 
@@ -1754,8 +1751,6 @@ class MeisterController {
                 if (customScenes && this.sceneEditor) {
                     try {
                         console.log('[Config] Restoring custom scenes...');
-                        console.log('[Config] sceneEditor type:', typeof this.sceneEditor);
-                        console.log('[Config] loadCustomScenes type:', typeof this.sceneEditor.loadCustomScenes);
                         this.sceneEditor.loadCustomScenes(customScenes);
                     } catch (sceneError) {
                         console.error('[Config] Error restoring custom scenes:', sceneError);
@@ -1779,8 +1774,6 @@ class MeisterController {
                 this.applyGridLayout();
                 this.saveConfig();
 
-                console.log('[Config] sceneEditor after import:', !!this.sceneEditor, typeof this.sceneEditor);
-                console.log('[Config] sceneEditor.getCustomScenes:', this.sceneEditor && typeof this.sceneEditor.getCustomScenes);
                 console.log('[Config] Configuration loaded from file');
                 alert('Configuration loaded successfully!');
             } catch (err) {
@@ -1792,10 +1785,6 @@ class MeisterController {
     }
 
     downloadConfig() {
-        console.log('[Config] Downloading config...');
-        console.log('[Config] sceneEditor exists:', !!this.sceneEditor);
-        console.log('[Config] getCustomScenes is function:', this.sceneEditor && typeof this.sceneEditor.getCustomScenes === 'function');
-
         // Create a complete config bundle with all settings
         const fullConfig = {
             ...this.config,

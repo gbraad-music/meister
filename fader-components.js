@@ -166,13 +166,6 @@ class BaseFader extends HTMLElement {
                 cursor: grabbing;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.5);
             }
-
-            .pan-indicator {
-                width: 12px;
-                height: 12px;
-                background: #cc4444;
-                border-radius: 50%;
-            }
         `;
     }
 }
@@ -217,7 +210,6 @@ class MixFader extends BaseFader {
             <div class="fader-label">${label}</div>
             <button class="fader-button ${fxClass}" id="fx-btn">FX</button>
             <div class="pan-container">
-                <div class="pan-indicator"></div>
                 <input type="range" class="pan-slider" id="pan-slider"
                        min="-100" max="100" value="${pan}" step="1">
             </div>
@@ -307,7 +299,6 @@ class ChannelFader extends BaseFader {
             <div class="fader-label">${labelText}</div>
             <button class="fader-button ${solo ? 'active' : ''}" id="solo-btn">S</button>
             <div class="pan-container">
-                <div class="pan-indicator"></div>
                 <input type="range" class="pan-slider" id="pan-slider"
                        min="-100" max="100" value="${pan}" step="1">
             </div>
@@ -396,7 +387,6 @@ class TempoFader extends BaseFader {
             <div class="fader-label">TEMPO</div>
             <button class="fader-button" style="visibility: hidden;">S</button>
             <div class="pan-container">
-                <div class="pan-indicator" style="visibility: hidden;"></div>
                 <input type="range" class="pan-slider" style="visibility: hidden;"
                        min="-100" max="100" value="0" step="1">
             </div>
@@ -463,7 +453,6 @@ class StereoFader extends BaseFader {
             <div class="fader-label">STEREO</div>
             <button class="fader-button" style="visibility: hidden;">S</button>
             <div class="pan-container">
-                <div class="pan-indicator" style="visibility: hidden;"></div>
                 <input type="range" class="pan-slider" style="visibility: hidden;"
                        min="-100" max="100" value="0" step="1">
             </div>

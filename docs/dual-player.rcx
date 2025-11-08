@@ -6,57 +6,57 @@
     {
       "sysex": "play",
       "label": "PLAY",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "stop",
       "label": "STOP",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "set_loop_current",
       "label": "LOOP",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     null,
     null,
     {
       "sysex": "set_loop_current",
       "label": "LOOP",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "stop",
       "label": "STOP",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "play",
       "label": "PLAY",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     null,
     {
       "sysex": "prev_order",
       "label": "PREV",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "next_order",
       "label": "NEXT",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     null,
     null,
     {
       "sysex": "prev_order",
       "label": "PREV",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "next_order",
       "label": "NEXT",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     null,
     {
@@ -65,7 +65,7 @@
         "channel": 0
       },
       "label": "MUTE CH1",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_mute",
@@ -73,7 +73,7 @@
         "channel": 1
       },
       "label": "MUTE CH2",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_mute",
@@ -81,7 +81,7 @@
         "channel": 2
       },
       "label": "MUTE CH3",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_mute",
@@ -89,7 +89,7 @@
         "channel": 3
       },
       "label": "MUTE CH4",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_mute",
@@ -97,7 +97,7 @@
         "channel": 0
       },
       "label": "MUTE CH1",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_mute",
@@ -105,7 +105,7 @@
         "channel": 1
       },
       "label": "MUTE CH2",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_mute",
@@ -113,7 +113,7 @@
         "channel": 2
       },
       "label": "MUTE CH3",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_mute",
@@ -121,7 +121,7 @@
         "channel": 3
       },
       "label": "MUTE CH4",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_solo",
@@ -129,7 +129,7 @@
         "channel": 0
       },
       "label": "SOLO CH1",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_solo",
@@ -137,7 +137,7 @@
         "channel": 1
       },
       "label": "SOLO CH2",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_solo",
@@ -145,7 +145,7 @@
         "channel": 2
       },
       "label": "SOLO CH3",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_solo",
@@ -153,7 +153,7 @@
         "channel": 3
       },
       "label": "SOLO CH4",
-      "deviceBinding": "device-1762590811100"
+      "deviceBinding": "device-1762582921166"
     },
     {
       "sysex": "channel_solo",
@@ -161,7 +161,7 @@
         "channel": 0
       },
       "label": "SOLO CH1",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_solo",
@@ -169,7 +169,7 @@
         "channel": 1
       },
       "label": "SOLO CH2",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_solo",
@@ -177,7 +177,7 @@
         "channel": 2
       },
       "label": "SOLO CH3",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     },
     {
       "sysex": "channel_solo",
@@ -185,112 +185,134 @@
         "channel": 3
       },
       "label": "SOLO CH4",
-      "deviceBinding": "device-1762590819754"
+      "deviceBinding": "device-1762582928232"
     }
   ],
   "clockMaster": false,
-  "clockBPM": 120,
+  "clockBPM": 98,
   "receiveSPP": true,
   "useWAAClock": false,
   "sysexDeviceId": 0,
   "actions": {
     "inputMapper": {
       "midiMappings": [],
-      "keyboardMappings": [
-        {
-          "key": " ",
-          "code": "",
-          "action": 102,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "Escape",
-          "code": "Escape",
-          "action": 101,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "[",
-          "code": "",
-          "action": 111,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "]",
-          "code": "",
-          "action": 110,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "PageDown",
-          "code": "PageDown",
-          "action": 121,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "PageUp",
-          "code": "PageUp",
-          "action": 122,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "c",
-          "code": "",
-          "action": 200,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "+",
-          "code": "",
-          "action": 204,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "-",
-          "code": "",
-          "action": 205,
-          "parameter": 0,
-          "ctrl": false,
-          "shift": false,
-          "alt": false
-        },
-        {
-          "key": "s",
-          "code": "",
-          "action": 301,
-          "parameter": 0,
-          "ctrl": true,
-          "shift": false,
-          "alt": false
-        }
-      ],
+      "keyboardMappings": [],
       "deviceConfigs": []
     },
     "macros": []
   },
-  "midiOutputId": "output-3"
+  "midiOutputId": "output-3",
+  "bpm": 245,
+  "pollingIntervalMs": 200,
+  "devices": {
+    "devices": [
+      {
+        "id": "device-1762582921166",
+        "name": "LEFT",
+        "midiChannel": 0,
+        "deviceId": 1,
+        "color": "#cc4444"
+      },
+      {
+        "id": "device-1762582928232",
+        "name": "RIGHT",
+        "midiChannel": 0,
+        "deviceId": 2,
+        "color": "#cc4444"
+      }
+    ],
+    "defaultDeviceId": null
+  },
+  "customScenes": {
+    "mixer": {
+      "name": "Mixer",
+      "type": "slider",
+      "rows": 2,
+      "columns": [],
+      "slots": [
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582921166",
+          "channel": 0
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582921166",
+          "channel": 1
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582921166",
+          "channel": 2
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582921166",
+          "channel": 3
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582928232",
+          "channel": 0
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582928232",
+          "channel": 1
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582928232",
+          "channel": 2
+        },
+        {
+          "type": "CHANNEL",
+          "deviceBinding": "device-1762582928232",
+          "channel": 3
+        },
+        {
+          "type": "TEMPO",
+          "deviceBinding": "device-1762582921166"
+        },
+        {
+          "type": "STEREO",
+          "deviceBinding": "device-1762582921166"
+        },
+        {
+          "type": "MIX",
+          "deviceBinding": "device-1762582921166",
+          "label": "Master"
+        },
+        {
+          "type": "INPUT",
+          "deviceBinding": "device-1762582921166",
+          "label": "Input"
+        },
+        {
+          "type": "INPUT",
+          "deviceBinding": "device-1762582928232",
+          "label": "Input"
+        },
+        {
+          "type": "MIX",
+          "deviceBinding": "device-1762582928232",
+          "label": "Master"
+        },
+        {
+          "type": "STEREO",
+          "deviceBinding": "device-1762582928232"
+        },
+        {
+          "type": "TEMPO",
+          "deviceBinding": "device-1762582928232"
+        }
+      ],
+      "columnsPerRow": 8,
+      "pollDevices": [
+        1,
+        2
+      ],
+      "pollInterval": 100
+    }
+  }
 }
