@@ -1262,7 +1262,11 @@ class MeisterController {
         ];
 
         this.midiOutput.send(message);
-        console.log(`Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
+
+        // Log all SysEx except GET_PLAYER_STATE (0x60) to reduce console spam
+        if (command !== 0x60) {
+            console.log(`Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
+        }
     }
 
     // SysEx: NEXT_ORDER (0x24) - Queue next order (beat-synced)

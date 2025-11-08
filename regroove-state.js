@@ -74,6 +74,8 @@ class RegrooveStateManager {
         if (this.sendSysExCallback) {
             // Send GET_PLAYER_STATE (0x60)
             this.sendSysExCallback(deviceId, 0x60, []);
+        } else {
+            console.warn(`[RegrooveState] Cannot request state - sendSysExCallback not initialized`);
         }
     }
 
