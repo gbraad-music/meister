@@ -33,10 +33,14 @@ class MeisterController {
             pattern: 0,
             totalRows: 0,
             numChannels: 0,
-            mutedChannels: []
+            mutedChannels: [],
+            soloedChannels: [] // Track solo state locally (not in SysEx response)
         };
         this.statePollingInterval = null;
         this.regrooveDeviceId = 0; // Target Regroove device ID
+
+        // Multi-device state tracking (Map: deviceId -> deviceState)
+        this.deviceStates = new Map();
 
         // Connection watchdog
         this.lastStateUpdate = null;
@@ -285,6 +289,65 @@ class MeisterController {
         this.updatePadColors();
     }
 
+    // Device State Management Helper Methods
+    getDeviceState(deviceId) {
+        // Get state for specific device, or fall back to default
+        if (this.deviceStates.has(deviceId)) {
+            return this.deviceStates.get(deviceId);
+        }
+        // Fallback to device 0 or playerState
+        return this.deviceStates.get(0) || this.playerState;
+    }
+
+    isLoopEnabled(deviceId) {
+        const state = this.getDeviceState(deviceId);
+        return state.mode === 0x01; // Mode 01 = pattern/loop
+    }
+
+    isChannelMuted(deviceId, channel) {
+        const state = this.getDeviceState(deviceId);
+        return state.mutedChannels && state.mutedChannels.includes(channel);
+    }
+
+    isChannelSoloed(deviceId, channel) {
+        const state = this.getDeviceState(deviceId);
+        return state.soloedChannels && state.soloedChannels.includes(channel);
+    }
+
+    toggleChannelMuteState(deviceId, channel) {
+        // Update local state tracking
+        const state = this.getDeviceState(deviceId);
+        if (!state.mutedChannels) {
+            state.mutedChannels = [];
+        }
+
+        const index = state.mutedChannels.indexOf(channel);
+        if (index > -1) {
+            state.mutedChannels.splice(index, 1);
+            return false; // Now unmuted
+        } else {
+            state.mutedChannels.push(channel);
+            return true; // Now muted
+        }
+    }
+
+    toggleChannelSoloState(deviceId, channel) {
+        // Update local state tracking
+        const state = this.getDeviceState(deviceId);
+        if (!state.soloedChannels) {
+            state.soloedChannels = [];
+        }
+
+        const index = state.soloedChannels.indexOf(channel);
+        if (index > -1) {
+            state.soloedChannels.splice(index, 1);
+            return false; // Now unsoloed
+        } else {
+            state.soloedChannels.push(channel);
+            return true; // Now soloed
+        }
+    }
+
     populateMIDIOutputs() {
         const select = document.getElementById('midi-output');
         const currentValue = select.value;
@@ -426,9 +489,11 @@ class MeisterController {
         document.getElementById('pad-sysex-action').addEventListener('change', (e) => {
             const jumpParams = document.getElementById('pad-sysex-jump-params');
             const fileParams = document.getElementById('pad-sysex-file-params');
+            const channelParams = document.getElementById('pad-sysex-channel-params');
 
             jumpParams.style.display = e.target.value === 'jump_to_order_row' ? 'block' : 'none';
             fileParams.style.display = e.target.value === 'file_load' ? 'block' : 'none';
+            channelParams.style.display = (e.target.value === 'channel_mute' || e.target.value === 'channel_solo') ? 'block' : 'none';
         });
 
         // MIDI Clock Master
@@ -539,6 +604,9 @@ class MeisterController {
                     } else if (pad.sysex === 'file_load' && pad.sysexParams.filename) {
                         document.getElementById('pad-sysex-filename').value = pad.sysexParams.filename;
                         document.getElementById('pad-sysex-file-params').style.display = 'block';
+                    } else if ((pad.sysex === 'channel_mute' || pad.sysex === 'channel_solo') && pad.sysexParams.channel !== undefined) {
+                        document.getElementById('pad-sysex-channel').value = pad.sysexParams.channel;
+                        document.getElementById('pad-sysex-channel-params').style.display = 'block';
                     }
                 }
             } else {
@@ -725,6 +793,11 @@ class MeisterController {
                 const filename = document.getElementById('pad-sysex-filename').value.trim();
                 if (filename) {
                     padConfig.sysexParams = { filename };
+                }
+            } else if (sysexAction === 'channel_mute' || sysexAction === 'channel_solo') {
+                const channel = parseInt(document.getElementById('pad-sysex-channel').value);
+                if (!isNaN(channel) && channel >= 0 && channel <= 63) {
+                    padConfig.sysexParams = { channel };
                 }
             }
         }
@@ -1054,7 +1127,23 @@ class MeisterController {
                     }
                     break;
                 case 'set_loop_current':
-                    this.sendSysExSetLoopCurrent(deviceId, 1); // Toggle on
+                    // Toggle based on current state
+                    const currentLoopState = this.isLoopEnabled(deviceId);
+                    this.sendSysExSetLoopCurrent(deviceId, currentLoopState ? 0 : 1);
+                    break;
+                case 'channel_mute':
+                    if (params && params.channel !== undefined) {
+                        const channel = parseInt(params.channel);
+                        const newMuteState = this.toggleChannelMuteState(deviceId, channel);
+                        this.sendSysExChannelMute(deviceId, channel, newMuteState ? 1 : 0);
+                    }
+                    break;
+                case 'channel_solo':
+                    if (params && params.channel !== undefined) {
+                        const channel = parseInt(params.channel);
+                        const newSoloState = this.toggleChannelSoloState(deviceId, channel);
+                        this.sendSysExChannelSolo(deviceId, channel, newSoloState ? 1 : 0);
+                    }
                     break;
             }
         } else if (detail.mmc) {

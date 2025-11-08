@@ -960,6 +960,10 @@
                     <optgroup label="Loop">
                         <option value="set_loop_current">Toggle Loop Current (0x43)</option>
                     </optgroup>
+                    <optgroup label="Channel Control">
+                        <option value="channel_mute">Toggle Channel Mute (0x30)</option>
+                        <option value="channel_solo">Toggle Channel Solo (0x31)</option>
+                    </optgroup>
                 </select>
                 <div id="pad-sysex-jump-params" style="display: none; margin-top: 10px;">
                     <label class="setting-label">JUMP PARAMETERS</label>
@@ -979,6 +983,13 @@
                     <input type="text" id="pad-sysex-filename" placeholder="song.xm" style="width: 100%;">
                     <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
                         Relative to Regroove's current directory
+                    </div>
+                </div>
+                <div id="pad-sysex-channel-params" style="display: none; margin-top: 10px;">
+                    <label class="setting-label">CHANNEL</label>
+                    <input type="number" id="pad-sysex-channel" min="0" max="63" value="0" style="width: 100%;">
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Channel index (0-63)
                     </div>
                 </div>
             </div>
