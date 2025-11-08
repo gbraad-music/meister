@@ -356,26 +356,11 @@ class MeisterController {
             }
         });
 
-        // Grid layout
+        // Grid layout (moved to Scenes tab, handled there)
         document.getElementById('grid-layout-pads')?.addEventListener('change', (e) => {
             this.config.gridLayout = e.target.value;
             this.applyGridLayout();
             this.saveConfig();
-        });
-
-        // MIDI channel
-        document.getElementById('midi-channel').addEventListener('change', (e) => {
-            this.midiChannel = parseInt(e.target.value);
-            this.config.midiChannel = this.midiChannel;
-            this.saveConfig();
-        });
-
-        // SysEx Device ID
-        document.getElementById('sysex-device-id').addEventListener('change', (e) => {
-            this.regrooveDeviceId = parseInt(e.target.value);
-            this.config.sysexDeviceId = this.regrooveDeviceId;
-            this.saveConfig();
-            console.log(`[Config] SysEx Device ID set to ${this.regrooveDeviceId}`);
         });
 
         // Load config
@@ -1101,11 +1086,10 @@ class MeisterController {
                 // Apply saved settings to UI
                 const gridLayoutSelect = document.getElementById('grid-layout-pads');
                 if (gridLayoutSelect) gridLayoutSelect.value = this.config.gridLayout || '4x4';
-                document.getElementById('midi-channel').value = this.config.midiChannel || 0;
-                this.midiChannel = this.config.midiChannel || 0;
 
-                // Load SysEx device ID
-                document.getElementById('sysex-device-id').value = this.config.sysexDeviceId || 0;
+                // Note: MIDI channel and Device ID are now managed in the Devices tab
+                // Keep legacy values in config for backward compatibility
+                this.midiChannel = this.config.midiChannel || 0;
                 this.regrooveDeviceId = this.config.sysexDeviceId || 0;
 
                 // Load clock and SPP settings
@@ -1151,12 +1135,11 @@ class MeisterController {
                     const gridLayoutSelect = document.getElementById('grid-layout-pads');
                     if (gridLayoutSelect) gridLayoutSelect.value = config.gridLayout;
                 }
+                // Note: MIDI channel and Device ID are now managed in Devices tab
                 if (config.midiChannel !== undefined) {
-                    document.getElementById('midi-channel').value = config.midiChannel;
                     this.midiChannel = config.midiChannel;
                 }
                 if (config.sysexDeviceId !== undefined) {
-                    document.getElementById('sysex-device-id').value = config.sysexDeviceId;
                     this.regrooveDeviceId = config.sysexDeviceId;
                 }
 

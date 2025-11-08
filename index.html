@@ -567,8 +567,8 @@
             <div class="settings-tabs">
                 <button class="settings-tab active" data-tab="general">General</button>
                 <button class="settings-tab" data-tab="scenes">Scenes</button>
-                <button class="settings-tab" data-tab="midi-devices">MIDI Devices</button>
-                <button class="settings-tab" data-tab="midi-mappings">MIDI Mappings</button>
+                <button class="settings-tab" data-tab="devices">Devices</button>
+                <button class="settings-tab" data-tab="midi">MIDI</button>
                 <button class="settings-tab" data-tab="keyboard">Keyboard</button>
             </div>
 
@@ -576,26 +576,6 @@
             <div class="settings-panel-content">
                 <!-- General Tab -->
                 <div class="tab-content active" id="tab-general">
-                <div class="setting-group">
-                    <label class="setting-label">MIDI OUTPUT DEVICE</label>
-                    <select id="midi-output">
-                        <option value="">No MIDI Access</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">GRID LAYOUT</label>
-                    <select id="grid-layout">
-                        <option value="8x8">8 × 8 (64 pads)</option>
-                        <option value="8x4">8 × 4 (32 pads)</option>
-                        <option value="4x8">4 × 8 (32 pads)</option>
-                        <option value="4x4">4 × 4 (16 pads)</option>
-                        <option value="4x3">4 × 3 (12 pads)</option>
-                        <option value="3x3">3 × 3 (9 pads)</option>
-                        <option value="2x4">2 × 4 (8 pads)</option>
-                    </select>
-                </div>
-
                 <div class="setting-group">
                     <label class="setting-label">CONFIGURATION FILE (.RCX)</label>
                     <div class="button-group">
@@ -606,76 +586,27 @@
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">MIDI CHANNEL</label>
-                    <select id="midi-channel">
-                    <option value="0">Channel 1</option>
-                    <option value="1">Channel 2</option>
-                    <option value="2">Channel 3</option>
-                    <option value="3">Channel 4</option>
-                    <option value="4">Channel 5</option>
-                    <option value="5">Channel 6</option>
-                    <option value="6">Channel 7</option>
-                    <option value="7">Channel 8</option>
-                    <option value="8">Channel 9</option>
-                    <option value="9">Channel 10</option>
-                    <option value="10">Channel 11</option>
-                    <option value="11">Channel 12</option>
-                    <option value="12">Channel 13</option>
-                    <option value="13">Channel 14</option>
-                    <option value="14">Channel 15</option>
-                    <option value="15">Channel 16</option>
-                </select>
-            </div>
+                    <label class="setting-label">RECEIVE SPP POSITION</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="receive-spp" style="width: auto;">
+                        <label for="receive-spp" style="margin: 0; color: #888;">Show position bar</label>
+                    </div>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Displays a visual position indicator when receiving MIDI Song Position Pointer messages
+                    </div>
+                </div>
 
-            <div class="setting-group">
-                <label class="setting-label">SYSEX DEVICE ID (for Regroove state sync)</label>
-                <select id="sysex-device-id">
-                    <option value="0">Device 0</option>
-                    <option value="1">Device 1</option>
-                    <option value="2">Device 2</option>
-                    <option value="3">Device 3</option>
-                    <option value="4">Device 4</option>
-                    <option value="5">Device 5</option>
-                    <option value="6">Device 6</option>
-                    <option value="7">Device 7</option>
-                    <option value="127">Broadcast (all devices)</option>
-                </select>
-            </div>
-
-            <div class="setting-group">
-                <label class="setting-label">MIDI CLOCK MASTER</label>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" id="clock-master" style="width: auto;">
-                    <label for="clock-master" style="margin: 0; color: #888;">Send MIDI Clock</label>
+                <div class="setting-group">
+                    <label class="setting-label">ABOUT</label>
+                    <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
+                        Regroove Meister v2.0 (Device System)<br>
+                        WebMIDI Controller Interface<br>
+                        <br>
+                        Right-click pads to edit.<br>
+                        Swipe to change scenes.<br>
+                        Configure devices in the Devices tab.
+                    </div>
                 </div>
-                <div style="color: #555; font-size: 0.8em; margin-top: 5px;">
-                    Tempo (BPM): <input type="number" id="clock-bpm" min="20" max="300" value="120"
-                        style="width: 60px; padding: 5px; background: #0a0a0a; color: #888; border: 1px solid #333;">
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                    <input type="checkbox" id="use-waaclock" style="width: auto;">
-                    <label for="use-waaclock" style="margin: 0; color: #888;">Use WAAClock (Web Audio, more precise)</label>
-                </div>
-            </div>
-
-            <div class="setting-group">
-                <label class="setting-label">RECEIVE SPP POSITION</label>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" id="receive-spp" style="width: auto;">
-                    <label for="receive-spp" style="margin: 0; color: #888;">Show position bar</label>
-                </div>
-            </div>
-
-            <div class="setting-group">
-                <label class="setting-label">ABOUT</label>
-                <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
-                    Regroove Meister v2.0 (Action System)<br>
-                    WebMIDI Controller Interface<br>
-                    <br>
-                    Right-click pads to edit.<br>
-                    Press keys for shortcuts (Space=Play/Pause, Esc=Stop, etc.)
-                </div>
-            </div>
             </div>
 
             <!-- Scenes Tab -->
@@ -714,55 +645,122 @@
                 </div>
             </div>
 
-            <!-- MIDI Devices Tab -->
-            <div class="tab-content" id="tab-midi-devices">
+            <!-- Devices Tab (Regroove Instances) -->
+            <div class="tab-content" id="tab-devices">
                 <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
-                    Configure how MIDI input devices are handled:
-                    <span class="device-badge input">INPUT</span> = Parse into actions |
-                    <span class="device-badge routed">ROUTED</span> = Direct pass-through
+                    Manage Regroove device instances. Each instance can target a different MIDI channel and SysEx device ID.
+                    Assign pads and faders to device instances instead of hardcoding IDs.
                 </div>
 
-                <table class="settings-table" id="midi-devices-table">
+                <div style="margin-bottom: 15px;">
+                    <button id="add-device-btn">➕ ADD DEVICE INSTANCE</button>
+                </div>
+
+                <table class="settings-table" id="devices-table">
                     <thead>
                         <tr>
-                            <th>Device</th>
-                            <th>Mode</th>
-                            <th style="width: 150px;">Route To</th>
+                            <th>Name</th>
+                            <th style="width: 80px;">MIDI Ch</th>
+                            <th style="width: 80px;">Device ID</th>
+                            <th style="width: 80px;">Default</th>
+                            <th style="width: 100px;"></th>
                         </tr>
                     </thead>
-                    <tbody id="midi-devices-list">
+                    <tbody id="devices-list">
                         <tr>
-                            <td colspan="3" class="empty-state">No MIDI input devices detected</td>
+                            <td colspan="5" class="empty-state">No device instances configured<br>Add a device instance to get started</td>
                         </tr>
                     </tbody>
                 </table>
+
+                <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #333; font-size: 0.8em; color: #666;">
+                    <strong>Default Device:</strong> Pads and faders without explicit device binding will use the default device instance.
+                </div>
             </div>
 
-            <!-- MIDI Mappings Tab -->
-            <div class="tab-content" id="tab-midi-mappings">
-                <div style="margin-bottom: 15px;">
-                    <button id="midi-learn-btn" class="learn-button">🎹 MIDI LEARN</button>
-                    <select id="learn-action-select" class="action-select" style="margin-left: 10px; width: calc(100% - 140px);">
-                        <option value="">-- Select action for next learned control --</option>
-                    </select>
+            <!-- MIDI Tab (Combined Devices + Mappings + Output + Clock) -->
+            <div class="tab-content" id="tab-midi">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI OUTPUT</h3>
+                    <div class="setting-group" style="margin-bottom: 0;">
+                        <label class="setting-label">MIDI OUTPUT PORT</label>
+                        <select id="midi-output">
+                            <option value="">No MIDI Access</option>
+                        </select>
+                        <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                            Physical MIDI port for sending messages to Regroove and other devices
+                        </div>
+                    </div>
                 </div>
 
-                <table class="settings-table" id="midi-mappings-table">
-                    <thead>
-                        <tr>
-                            <th>Device</th>
-                            <th style="width: 50px;">Type</th>
-                            <th style="width: 50px;">#</th>
-                            <th>Action</th>
-                            <th style="width: 60px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="midi-mappings-list">
-                        <tr>
-                            <td colspan="5" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div style="border-top: 2px solid #1a1a1a; padding-top: 20px; margin-bottom: 20px;">
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI CLOCK MASTER</h3>
+                    <div class="setting-group" style="margin-bottom: 0;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="clock-master" style="width: auto;">
+                            <label for="clock-master" style="margin: 0; color: #888;">Send MIDI Clock</label>
+                        </div>
+                        <div style="color: #555; font-size: 0.8em; margin-top: 8px;">
+                            Tempo (BPM): <input type="number" id="clock-bpm" min="20" max="300" value="120"
+                                style="width: 60px; padding: 5px; background: #0a0a0a; color: #888; border: 1px solid #333;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                            <input type="checkbox" id="use-waaclock" style="width: auto;">
+                            <label for="use-waaclock" style="margin: 0; color: #888;">Use WAAClock (Web Audio, more precise)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top: 2px solid #1a1a1a; padding-top: 20px; margin-bottom: 20px;">
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI INPUT DEVICES</h3>
+                    <div style="margin-bottom: 10px; color: #666; font-size: 0.85em;">
+                        Configure how MIDI input devices are handled:
+                        <span class="device-badge input">INPUT</span> = Parse into actions |
+                        <span class="device-badge routed">ROUTED</span> = Direct pass-through
+                    </div>
+
+                    <table class="settings-table" id="midi-devices-table">
+                        <thead>
+                            <tr>
+                                <th>Device</th>
+                                <th>Mode</th>
+                                <th style="width: 150px;">Route To</th>
+                            </tr>
+                        </thead>
+                        <tbody id="midi-devices-list">
+                            <tr>
+                                <td colspan="3" class="empty-state">No MIDI input devices detected</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="border-top: 2px solid #1a1a1a; padding-top: 20px;">
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI MAPPINGS</h3>
+                    <div style="margin-bottom: 15px;">
+                        <button id="midi-learn-btn" class="learn-button">🎹 MIDI LEARN</button>
+                        <select id="learn-action-select" class="action-select" style="margin-left: 10px; width: calc(100% - 140px);">
+                            <option value="">-- Select action for next learned control --</option>
+                        </select>
+                    </div>
+
+                    <table class="settings-table" id="midi-mappings-table">
+                        <thead>
+                            <tr>
+                                <th>Device</th>
+                                <th style="width: 50px;">Type</th>
+                                <th style="width: 50px;">#</th>
+                                <th>Action</th>
+                                <th style="width: 60px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="midi-mappings-list">
+                            <tr>
+                                <td colspan="5" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Keyboard Shortcuts Tab -->
@@ -1004,10 +1002,12 @@
                 </div>
 
                 <div class="setting-group" id="fader-device-field" style="display: none;">
-                    <label class="setting-label">DEVICE ID</label>
-                    <input type="number" id="fader-device" min="0" max="15" value="0" style="width: 100%;">
+                    <label class="setting-label">DEVICE BINDING</label>
+                    <select id="fader-device-binding" style="width: 100%;">
+                        <option value="">Default Device</option>
+                    </select>
                     <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
-                        Target Regroove device (0-15)
+                        Select which device instance this fader controls
                     </div>
                 </div>
 
@@ -1025,6 +1025,7 @@
         import { SettingsUI } from './settings-ui.js';
         import { SceneManager } from './scene-manager.js';
         import { SceneEditor } from './scene-editor.js';
+        import { DeviceManager } from './device-manager.js';
 
         // Wait for controller to be initialized
         function waitForController() {
@@ -1032,6 +1033,10 @@
                 // Integrate action system
                 integrateActionSystem(window.meisterController);
                 console.log('[Meister] Action system integrated successfully');
+
+                // Initialize device manager
+                window.meisterController.deviceManager = new DeviceManager(window.meisterController);
+                console.log('[Meister] Device manager initialized');
 
                 // Initialize settings UI
                 window.meisterController.settingsUI = new SettingsUI(window.meisterController);

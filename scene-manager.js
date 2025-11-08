@@ -31,19 +31,19 @@ export class SceneManager {
             render: () => this.renderPadsScene()
         });
 
-        // Mixer scene - simple single device example
+        // Mixer scene - uses default device binding
         this.scenes.set('mixer', {
             name: 'Mixer',
             type: 'slider',
             rows: 1,
-            pollDevices: [0], // Poll these device IDs
+            pollDevices: [0], // Poll these device IDs (will be updated dynamically)
             pollInterval: 100,
             columns: [
-                { type: 'MIX', label: 'Master', deviceId: 0 },
-                { type: 'CHANNEL', channel: 0, deviceId: 0 },
-                { type: 'CHANNEL', channel: 1, deviceId: 0 },
-                { type: 'CHANNEL', channel: 2, deviceId: 0 },
-                { type: 'TEMPO', deviceId: 0 }
+                { type: 'MIX', label: 'Master', deviceBinding: null }, // null = use default device
+                { type: 'CHANNEL', channel: 0, deviceBinding: null },
+                { type: 'CHANNEL', channel: 1, deviceBinding: null },
+                { type: 'CHANNEL', channel: 2, deviceBinding: null },
+                { type: 'TEMPO', deviceBinding: null }
             ],
             render: () => this.renderSliderScene('mixer')
         });
@@ -209,6 +209,31 @@ export class SceneManager {
     }
 
     /**
+     * Resolve device binding to device config
+     */
+    resolveDeviceBinding(deviceBinding) {
+        const deviceManager = this.controller.deviceManager;
+        if (!deviceManager) {
+            return { deviceId: 0, midiChannel: 0 };
+        }
+
+        // If no binding specified, use default device
+        const device = deviceBinding
+            ? deviceManager.getDevice(deviceBinding)
+            : deviceManager.getDefaultDevice();
+
+        if (device) {
+            return {
+                deviceId: device.deviceId,
+                midiChannel: device.midiChannel
+            };
+        }
+
+        // Fallback
+        return { deviceId: 0, midiChannel: 0 };
+    }
+
+    /**
      * Create a fader element based on column configuration
      */
     createFader(column) {
@@ -222,6 +247,9 @@ export class SceneManager {
             return fader;
         }
 
+        // Resolve device binding to actual device config
+        const deviceConfig = this.resolveDeviceBinding(column.deviceBinding);
+
         if (column.type === 'MIX') {
                 fader = document.createElement('mix-fader');
                 fader.setAttribute('label', column.label);
@@ -229,7 +257,8 @@ export class SceneManager {
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('fx', 'false');
                 fader.setAttribute('muted', 'false');
-                fader.dataset.deviceId = column.deviceId ?? 0;
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
 
                 // Event listeners for mix fader
                 fader.addEventListener('fx-toggle', (e) => {
@@ -259,7 +288,8 @@ export class SceneManager {
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('solo', 'false');
                 fader.setAttribute('muted', 'false');
-                fader.dataset.deviceId = column.deviceId ?? 0;
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
 
                 // Sync with Regroove player state
                 if (this.controller.playerState) {
@@ -295,7 +325,8 @@ export class SceneManager {
             } else if (column.type === 'TEMPO') {
                 fader = document.createElement('tempo-fader');
                 fader.setAttribute('bpm', this.controller.config.bpm || '120');
-                fader.dataset.deviceId = column.deviceId ?? 0;
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
 
                 // Event listeners for tempo fader
                 fader.addEventListener('tempo-change', (e) => {
@@ -316,16 +347,11 @@ export class SceneManager {
      * Handle channel mute
      */
     handleChannelMute(deviceId, channel, muted) {
-        if (this.controller.actionDispatcher) {
-            const event = new InputEvent(
-                InputAction.ACTION_REGROOVE_CHANNEL_MUTE,
-                channel,
-                muted ? 127 : 0
-            );
-            // TODO: Pass deviceId to action dispatcher for multi-device support
-            this.controller.actionDispatcher.handleEvent(event);
+        // Use device-aware CC sender
+        if (this.controller.sendRegrooveCC) {
+            this.controller.sendRegrooveCC(48 + channel, 127, deviceId);
         } else {
-            // Fallback to direct CC - currently only supports device 0
+            // Fallback to direct CC
             this.controller.sendCC(48 + channel, 127);
         }
     }
@@ -334,16 +360,11 @@ export class SceneManager {
      * Handle channel solo
      */
     handleChannelSolo(deviceId, channel, solo) {
-        if (this.controller.actionDispatcher) {
-            const event = new InputEvent(
-                InputAction.ACTION_REGROOVE_CHANNEL_SOLO,
-                channel,
-                solo ? 127 : 0
-            );
-            // TODO: Pass deviceId to action dispatcher for multi-device support
-            this.controller.actionDispatcher.handleEvent(event);
+        // Use device-aware CC sender
+        if (this.controller.sendRegrooveCC) {
+            this.controller.sendRegrooveCC(32 + channel, 127, deviceId);
         } else {
-            // Fallback to direct CC - currently only supports device 0
+            // Fallback to direct CC
             this.controller.sendCC(32 + channel, 127);
         }
     }

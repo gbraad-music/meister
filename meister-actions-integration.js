@@ -93,19 +93,63 @@ export function integrateActionSystem(controller) {
     // === ADD HELPER METHODS FOR ACTION DISPATCHER ===
 
     /**
+     * Send CC to a specific device instance
+     * @param {number} deviceId - SysEx device ID (0-15)
+     * @param {number} cc - CC number
+     * @param {number} value - CC value
+     */
+    controller.sendCCToDevice = function(deviceId, cc, value) {
+        if (!this.midiOutput) {
+            console.warn('No MIDI output selected');
+            return;
+        }
+
+        // Get device manager
+        const deviceManager = this.deviceManager;
+        if (!deviceManager) {
+            // Fallback to default channel
+            this.sendCC(cc, value);
+            return;
+        }
+
+        // Find device by deviceId
+        const devices = deviceManager.getAllDevices();
+        const device = devices.find(d => d.deviceId === deviceId);
+
+        if (device) {
+            // Send CC on the device's MIDI channel
+            const status = 0xB0 | device.midiChannel;
+            this.midiOutput.send([status, cc, value]);
+            console.log(`Sent CC ${cc}=${value} to Device ${deviceId} (Ch ${device.midiChannel + 1})`);
+        } else {
+            // Device not found, use default
+            console.warn(`Device ${deviceId} not found, using default channel`);
+            this.sendCC(cc, value);
+        }
+    };
+
+    /**
      * Send Regroove CC message
      * Helper method for action dispatcher
      */
-    controller.sendRegrooveCC = function(cc, value) {
-        this.sendCC(cc, value);
+    controller.sendRegrooveCC = function(cc, value, deviceId = null) {
+        if (deviceId !== null) {
+            this.sendCCToDevice(deviceId, cc, value);
+        } else {
+            this.sendCC(cc, value);
+        }
     };
 
     /**
      * Send MIDI CC message
      * Helper method for action dispatcher
      */
-    controller.sendMidiCC = function(cc, value) {
-        this.sendCC(cc, value);
+    controller.sendMidiCC = function(cc, value, deviceId = null) {
+        if (deviceId !== null) {
+            this.sendCCToDevice(deviceId, cc, value);
+        } else {
+            this.sendCC(cc, value);
+        }
     };
 
     /**

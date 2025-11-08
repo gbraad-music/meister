@@ -154,13 +154,24 @@ export class SceneEditor {
     getFaderLabel(fader) {
         if (!fader) return 'EMPTY';
 
+        const deviceManager = window.meisterController?.deviceManager;
+        let deviceName = 'Default';
+
+        // Get device name from binding
+        if (fader.deviceBinding && deviceManager) {
+            const device = deviceManager.getDevice(fader.deviceBinding);
+            if (device) {
+                deviceName = device.name;
+            }
+        }
+
         switch(fader.type) {
             case 'MIX':
-                return `MIX<br>${fader.label || 'Master'}<br>Dev ${fader.deviceId ?? 0}`;
+                return `MIX<br>${fader.label || 'Master'}<br>${deviceName}`;
             case 'CHANNEL':
-                return `CH ${fader.channel + 1}<br>Dev ${fader.deviceId ?? 0}`;
+                return `CH ${fader.channel + 1}<br>${deviceName}`;
             case 'TEMPO':
-                return `TEMPO<br>Dev ${fader.deviceId ?? 0}`;
+                return `TEMPO<br>${deviceName}`;
             case 'EMPTY':
                 return 'EMPTY';
             default:
@@ -175,21 +186,42 @@ export class SceneEditor {
         // Set title
         document.getElementById('fader-editor-title').textContent = `EDIT SLOT ${slotIndex + 1}`;
 
+        // Populate device binding dropdown
+        this.populateDeviceBindings();
+
         // Load fader config
         if (fader) {
             document.getElementById('fader-type').value = fader.type;
             document.getElementById('fader-label').value = fader.label || '';
             document.getElementById('fader-channel').value = fader.channel ?? 0;
-            document.getElementById('fader-device').value = fader.deviceId ?? 0;
+            document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
         } else {
             document.getElementById('fader-type').value = 'EMPTY';
             document.getElementById('fader-label').value = '';
             document.getElementById('fader-channel').value = 0;
-            document.getElementById('fader-device').value = 0;
+            document.getElementById('fader-device-binding').value = '';
         }
 
         this.updateFaderEditorFields(document.getElementById('fader-type').value);
         document.getElementById('fader-editor-overlay').classList.add('active');
+    }
+
+    populateDeviceBindings() {
+        const select = document.getElementById('fader-device-binding');
+        if (!select) return;
+
+        // Get device manager from controller
+        const deviceManager = window.meisterController?.deviceManager;
+        if (!deviceManager) {
+            select.innerHTML = '<option value="">Default Device</option>';
+            return;
+        }
+
+        const devices = deviceManager.getAllDevices();
+        select.innerHTML = '<option value="">Default Device</option>' +
+            devices.map(device =>
+                `<option value="${device.id}">${device.name} (Ch ${device.midiChannel + 1}, ID ${device.deviceId})</option>`
+            ).join('');
     }
 
     closeFaderEditor() {
@@ -215,9 +247,10 @@ export class SceneEditor {
         if (type === 'EMPTY') {
             this.sceneConfig.faders[this.editingSlotIndex] = null;
         } else {
+            const deviceBinding = document.getElementById('fader-device-binding').value;
             const fader = {
                 type: type,
-                deviceId: parseInt(document.getElementById('fader-device').value) || 0
+                deviceBinding: deviceBinding || null
             };
 
             if (type === 'MIX') {
