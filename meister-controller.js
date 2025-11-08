@@ -1337,6 +1337,26 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x32, [channel & 0x7F, volume & 0x7F]);
     }
 
+    // SysEx: MASTER_VOLUME (0x33) - Set master volume
+    sendSysExMasterVolume(deviceId, volume) {
+        this.sendSysEx(deviceId, 0x33, [volume & 0x7F]);
+    }
+
+    // SysEx: MASTER_MUTE (0x34) - Set master mute
+    sendSysExMasterMute(deviceId, mute) {
+        this.sendSysEx(deviceId, 0x34, [mute ? 1 : 0]);
+    }
+
+    // SysEx: INPUT_VOLUME (0x35) - Set input volume
+    sendSysExInputVolume(deviceId, volume) {
+        this.sendSysEx(deviceId, 0x35, [volume & 0x7F]);
+    }
+
+    // SysEx: INPUT_MUTE (0x36) - Set input mute
+    sendSysExInputMute(deviceId, mute) {
+        this.sendSysEx(deviceId, 0x36, [mute ? 1 : 0]);
+    }
+
     // SysEx: JUMP_TO_PATTERN_ROW (0x46) - Immediate jump to pattern+row
     sendSysExJumpToPatternRow(deviceId, pattern, row) {
         this.sendSysEx(deviceId, 0x46, [pattern & 0x7F, row & 0x7F]);

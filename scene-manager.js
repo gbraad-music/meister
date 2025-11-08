@@ -272,13 +272,15 @@ export class SceneManager {
                 });
 
                 fader.addEventListener('volume-change', (e) => {
-                    console.log('[Mix] Volume:', e.detail.value);
-                    // TODO: Send master volume action
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Mix] Volume:`, e.detail.value);
+                    this.handleMasterVolume(deviceId, e.detail.value);
                 });
 
                 fader.addEventListener('mute-toggle', (e) => {
-                    console.log('[Mix] Mute:', e.detail.muted);
-                    // TODO: Trigger mute all action
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Mix] Mute:`, e.detail.muted);
+                    this.handleMasterMute(deviceId, e.detail.muted);
                 });
 
             } else if (column.type === 'CHANNEL') {
@@ -347,12 +349,17 @@ export class SceneManager {
      * Handle channel mute
      */
     handleChannelMute(deviceId, channel, muted) {
-        // Use device-aware CC sender
-        if (this.controller.sendRegrooveCC) {
-            this.controller.sendRegrooveCC(48 + channel, 127, deviceId);
+        // Send SysEx CHANNEL_MUTE (0x30) command
+        // Note: We send the SET command directly (not toggle) since the fader tells us the state
+        if (this.controller.sendSysExChannelMute) {
+            this.controller.sendSysExChannelMute(deviceId, channel, muted ? 1 : 0);
         } else {
-            // Fallback to direct CC
-            this.controller.sendCC(48 + channel, 127);
+            // Fallback to CC for compatibility
+            if (this.controller.sendRegrooveCC) {
+                this.controller.sendRegrooveCC(48 + channel, 127, deviceId);
+            } else {
+                this.controller.sendCC(48 + channel, 127);
+            }
         }
     }
 
@@ -360,12 +367,17 @@ export class SceneManager {
      * Handle channel solo
      */
     handleChannelSolo(deviceId, channel, solo) {
-        // Use device-aware CC sender
-        if (this.controller.sendRegrooveCC) {
-            this.controller.sendRegrooveCC(32 + channel, 127, deviceId);
+        // Send SysEx CHANNEL_SOLO (0x31) command
+        // Note: We send the SET command directly (not toggle) since the fader tells us the state
+        if (this.controller.sendSysExChannelSolo) {
+            this.controller.sendSysExChannelSolo(deviceId, channel, solo ? 1 : 0);
         } else {
-            // Fallback to direct CC
-            this.controller.sendCC(32 + channel, 127);
+            // Fallback to CC for compatibility
+            if (this.controller.sendRegrooveCC) {
+                this.controller.sendRegrooveCC(32 + channel, 127, deviceId);
+            } else {
+                this.controller.sendCC(32 + channel, 127);
+            }
         }
     }
 
@@ -373,9 +385,61 @@ export class SceneManager {
      * Handle channel volume
      */
     handleChannelVolume(deviceId, channel, volume) {
-        // TODO: Implement channel volume control with device ID support
-        // Currently Regroove doesn't have per-channel volume CC
-        console.warn(`[Dev${deviceId}] Channel volume not yet implemented in Regroove`);
+        // Send SysEx CHANNEL_VOLUME (0x32) command
+        // volume: 0-127 value from the fader
+        if (this.controller.sendSysExChannelVolume) {
+            this.controller.sendSysExChannelVolume(deviceId, channel, volume);
+        } else {
+            console.warn(`[Dev${deviceId}] Channel volume SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle master volume
+     */
+    handleMasterVolume(deviceId, volume) {
+        // Send SysEx MASTER_VOLUME (0x33) command
+        if (this.controller.sendSysExMasterVolume) {
+            this.controller.sendSysExMasterVolume(deviceId, volume);
+        } else {
+            console.warn(`[Dev${deviceId}] Master volume SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle master mute
+     */
+    handleMasterMute(deviceId, muted) {
+        // Send SysEx MASTER_MUTE (0x34) command
+        if (this.controller.sendSysExMasterMute) {
+            this.controller.sendSysExMasterMute(deviceId, muted ? 1 : 0);
+        } else {
+            console.warn(`[Dev${deviceId}] Master mute SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle input volume
+     */
+    handleInputVolume(deviceId, volume) {
+        // Send SysEx INPUT_VOLUME (0x35) command
+        if (this.controller.sendSysExInputVolume) {
+            this.controller.sendSysExInputVolume(deviceId, volume);
+        } else {
+            console.warn(`[Dev${deviceId}] Input volume SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle input mute
+     */
+    handleInputMute(deviceId, muted) {
+        // Send SysEx INPUT_MUTE (0x36) command
+        if (this.controller.sendSysExInputMute) {
+            this.controller.sendSysExInputMute(deviceId, muted ? 1 : 0);
+        } else {
+            console.warn(`[Dev${deviceId}] Input mute SysEx command not available`);
+        }
     }
 
     /**
