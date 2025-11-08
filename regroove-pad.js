@@ -73,57 +73,60 @@ class RegroovePad extends HTMLElement {
                     width: 100%;
                     height: 100%;
                     background: #6b7b8c;
-                    border: 2px solid #000000;
+                    border: 3px solid #1a2a3a;
                     border-radius: 6px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    transition: background 0.05s ease;
+                    transition: background 0.05s ease, border-color 0.05s ease;
                     position: relative;
                 }
 
                 .pad.active {
                     background: #4a9eff !important;
-                    border-color: #6ab0ff !important;
+                    border-color: #000000 !important;
                 }
 
                 .pad.state-on {
                     background: #7b8b9c;
-                    border-color: #000;
+                    border-color: #2a3a4a;
                 }
 
                 /* Color states */
                 .pad.color-green {
                     background: #26A626;
-                    border-color: #2ec02e;
+                    border-color: #0a2a0a;
                 }
 
                 .pad.color-red {
                     background: #B31F24;
-                    border-color: #d92730;
+                    border-color: #4a0a0a;
                 }
 
                 .pad.color-yellow {
                     background: #B3801A;
-                    border-color: #d99820;
+                    border-color: #4a3a0a;
                 }
 
                 .pad.active.color-green {
                     background: #2ec02e !important;
+                    border-color: #000000 !important;
                 }
 
                 .pad.active.color-red {
                     background: #d92730 !important;
+                    border-color: #000000 !important;
                 }
 
                 .pad.active.color-yellow {
                     background: #d99820 !important;
+                    border-color: #000000 !important;
                 }
 
                 .label {
                     font-size: 0.85em;
-                    font-weight: normal;
+                    font-weight: bold;
                     text-align: center;
                     line-height: 1.3;
                     color: #d0d0d0;
@@ -133,7 +136,7 @@ class RegroovePad extends HTMLElement {
 
                 .pad.active .label {
                     color: #ffffff !important;
-                    font-weight: bold;
+                    font-weight: normal;
                 }
 
                 .pad.state-on .label {
