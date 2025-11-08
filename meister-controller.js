@@ -164,6 +164,11 @@ class MeisterController {
         const command = data[3];
         const payload = data.slice(4, -1); // Extract data between command and F7
 
+        // Log PLAYER_STATE_RESPONSE to debug state issues
+        if (command === 0x61) {
+            console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
+        }
+
         // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE)
         if (command !== 0x60 && command !== 0x61) {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
@@ -1056,22 +1061,30 @@ class MeisterController {
             this.sendSysEx(deviceId, command, data);
         });
 
-        // Start polling all devices
+        // Collect all device IDs to poll
         const deviceIds = new Set();
-        deviceIds.add(this.regrooveDeviceId || 0);
 
         // Add all device manager devices
         if (this.deviceManager) {
             const devices = this.deviceManager.getAllDevices();
+            console.log(`[Meister] Device manager has ${devices.length} devices:`, devices.map(d => `${d.name} (ID ${d.deviceId})`));
             devices.forEach(device => {
                 deviceIds.add(device.deviceId);
             });
+        } else {
+            console.warn('[Meister] Device manager not initialized yet');
         }
 
-        // For now, start polling with the primary device
-        // TODO: Support polling multiple devices
-        console.log(`[Meister] Starting polling for device ${this.regrooveDeviceId || 0}`);
-        this.regrooveState.startPolling(this.regrooveDeviceId || 0);
+        // If no devices in device manager, fall back to regrooveDeviceId or 0
+        if (deviceIds.size === 0) {
+            console.log('[Meister] No devices found, using default device 0');
+            deviceIds.add(this.regrooveDeviceId || 0);
+        }
+
+        // Start polling all devices
+        const deviceIdArray = Array.from(deviceIds);
+        console.log(`[Meister] Starting polling for devices: [${deviceIdArray.join(', ')}]`);
+        this.regrooveState.startPolling(deviceIdArray);
     }
 
     stopStatePolling() {
@@ -1264,6 +1277,7 @@ class MeisterController {
             0xF7   // SysEx end
         ];
 
+        console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         this.midiOutput.send(message);
 
         // Log all SysEx except GET_PLAYER_STATE (0x60) to reduce console spam

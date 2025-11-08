@@ -120,13 +120,14 @@ export class DeviceManager {
                             deviceId: device.deviceId,
                             color: device.color || '#cc4444'
                         });
+                        console.log(`[Devices] Loaded: ${device.name} - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}`);
                     });
                 }
 
                 // Restore default device
                 this.defaultDeviceId = data.defaultDeviceId || null;
 
-                console.log(`[Devices] Loaded ${this.devices.size} device(s)`);
+                console.log(`[Devices] Loaded ${this.devices.size} device(s) total`);
             } else {
                 // Create default device if none exist
                 this.createDefaultDevice();

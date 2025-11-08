@@ -23,7 +23,7 @@ class RegrooveStateManager {
         // State polling
         this.statePollingInterval = null;
         this.pollingIntervalMs = 500; // Poll every 500ms
-        this.targetDeviceId = 0; // Target Regroove device ID for polling
+        this.targetDeviceIds = [0]; // Array of device IDs to poll
 
         // Connection watchdog
         this.lastStateUpdate = null;
@@ -43,21 +43,30 @@ class RegrooveStateManager {
     }
 
     // Start polling for player state
-    startPolling(deviceId = 0) {
-        this.targetDeviceId = deviceId;
+    // deviceIds can be a single number or an array of device IDs
+    startPolling(deviceIds = 0) {
+        // Normalize to array
+        this.targetDeviceIds = Array.isArray(deviceIds) ? deviceIds : [deviceIds];
 
         if (this.statePollingInterval) {
             clearInterval(this.statePollingInterval);
         }
 
+        console.log(`[RegrooveState] Starting polling for devices [${this.targetDeviceIds.join(', ')}] every ${this.pollingIntervalMs}ms`);
+
+        // Request immediately for all devices
+        this.targetDeviceIds.forEach(deviceId => {
+            this.requestPlayerState(deviceId);
+        });
+
         this.statePollingInterval = setInterval(() => {
-            this.requestPlayerState(this.targetDeviceId);
+            // Poll all devices
+            this.targetDeviceIds.forEach(deviceId => {
+                this.requestPlayerState(deviceId);
+            });
         }, this.pollingIntervalMs);
 
-        // Request immediately
-        this.requestPlayerState(this.targetDeviceId);
-
-        console.log(`[RegrooveState] Started polling device ${deviceId} every ${this.pollingIntervalMs}ms`);
+        console.log(`[RegrooveState] Polling started - interval ID: ${this.statePollingInterval}`);
     }
 
     // Stop polling
@@ -71,7 +80,9 @@ class RegrooveStateManager {
 
     // Request player state from device
     requestPlayerState(deviceId) {
+        console.log(`[RegrooveState] requestPlayerState called for device ${deviceId}`);
         if (this.sendSysExCallback) {
+            console.log(`[RegrooveState] Calling sendSysExCallback(${deviceId}, 0x60, [])`);
             // Send GET_PLAYER_STATE (0x60)
             this.sendSysExCallback(deviceId, 0x60, []);
         } else {
@@ -106,6 +117,8 @@ class RegrooveStateManager {
         const masterMute = (mixerFlags & 0x01) !== 0;
         const inputMute = (mixerFlags & 0x02) !== 0;
 
+        console.log(`[RegrooveState] Device ${deviceId} state: playing=${playing}, mode=${mode}, order=${order}, row=${row}, pattern=${pattern}, channels=${numChannels}`);
+
         // Parse bit-packed mute data
         const muteBytes = Math.ceil(numChannels / 8);
         if (data.length < 10 + muteBytes) {
@@ -121,6 +134,8 @@ class RegrooveStateManager {
                 mutedChannels.push(ch);
             }
         }
+
+        console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);
 
         // Parse channel volumes array
         const volumeStartIdx = 10 + muteBytes;

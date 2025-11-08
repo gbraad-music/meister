@@ -1181,6 +1181,14 @@
                 window.meisterController.deviceManager = new DeviceManager(window.meisterController);
                 console.log('[Meister] Device manager initialized');
 
+                // Restart state polling now that device manager is available
+                // This will pick up all device IDs from the device manager
+                if (window.meisterController.midiOutput) {
+                    window.meisterController.stopStatePolling();
+                    window.meisterController.startStatePolling();
+                    console.log('[Meister] State polling restarted with device manager');
+                }
+
                 // Re-render pads now that device manager is available (to show device labels)
                 window.meisterController.createPads();
                 console.log('[Meister] Pads re-rendered with device labels');
