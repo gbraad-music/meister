@@ -24,29 +24,20 @@ class MeisterController {
         this.currentPosition = 0; // In MIDI beats (1/16th notes)
         this.patternLength = 64; // Default pattern length
 
-        // Player state tracking
-        this.playerState = {
-            playing: false,
-            mode: 0, // 00=song, 01=pattern/loop, 10=performance, 11=record
-            order: 0,
-            row: 0,
-            pattern: 0,
-            totalRows: 0,
-            numChannels: 0,
-            mutedChannels: [],
-            soloedChannels: [] // Track solo state locally (not in SysEx response)
+        // Regroove State Manager
+        this.regrooveState = new RegrooveStateManager();
+        this.regrooveState.onStateUpdate = (deviceId, state) => {
+            // Update pad colors when state changes
+            this.updatePadColors();
+            // Notify scene manager to update faders
+            if (this.sceneManager) {
+                this.sceneManager.updateMixerFromDeviceState(deviceId, state);
+            }
         };
-        this.statePollingInterval = null;
+        this.regrooveState.onConnectionChange = (connected) => {
+            this.isConnectedToRegroove = connected;
+        };
         this.regrooveDeviceId = 0; // Target Regroove device ID
-
-        // Multi-device state tracking (Map: deviceId -> deviceState)
-        this.deviceStates = new Map();
-
-        // Connection watchdog
-        this.lastStateUpdate = null;
-        this.stateTimeoutMs = 3000; // 3 seconds without update = disconnected
-        this.connectionWatchdog = null;
-        this.isConnectedToRegroove = false;
 
         this.init();
     }
@@ -180,172 +171,33 @@ class MeisterController {
 
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
-            this.parsePlayerStateResponse(deviceId, payload);
+            this.regrooveState.handlePlayerStateResponse(deviceId, payload);
         }
     }
 
-    parsePlayerStateResponse(deviceId, data) {
-        if (data.length < 10) {
-            console.warn('[SysEx] PLAYER_STATE_RESPONSE too short');
-            return;
-        }
-
-        // Parse header (10 bytes)
-        const flags = data[0];
-        const order = data[1];
-        const row = data[2];
-        const pattern = data[3];
-        const totalRows = data[4];
-        const numChannels = data[5];
-        const masterVolume = data[6];
-        const mixerFlags = data[7];
-        const inputVolume = data[8];
-        const fxRouting = data[9];
-
-        // Extract playback state
-        const playing = (flags & 0x01) !== 0;
-        const mode = (flags >> 1) & 0x03; // bits 1-2
-
-        // Extract mixer flags
-        const masterMute = (mixerFlags & 0x01) !== 0;
-        const inputMute = (mixerFlags & 0x02) !== 0;
-
-        // Parse bit-packed mute data
-        const muteBytes = Math.ceil(numChannels / 8);
-        if (data.length < 10 + muteBytes) {
-            console.warn('[SysEx] PLAYER_STATE_RESPONSE incomplete mute data');
-            return;
-        }
-
-        const mutedChannels = [];
-        for (let ch = 0; ch < numChannels; ch++) {
-            const byteIdx = 10 + Math.floor(ch / 8);
-            const bitIdx = ch % 8;
-            if (data[byteIdx] & (1 << bitIdx)) {
-                mutedChannels.push(ch);
-            }
-        }
-
-        // Parse channel volumes array
-        const volumeStartIdx = 10 + muteBytes;
-        const channelVolumes = [];
-        if (data.length >= volumeStartIdx + numChannels) {
-            for (let ch = 0; ch < numChannels; ch++) {
-                channelVolumes.push(data[volumeStartIdx + ch]);
-            }
-        }
-
-        // Initialize device states map if needed
-        if (!this.deviceStates) {
-            this.deviceStates = new Map();
-        }
-
-        // Update state for this specific device
-        const deviceState = {
-            deviceId,
-            playing,
-            mode,
-            order,
-            row,
-            pattern,
-            totalRows,
-            numChannels,
-            masterVolume,
-            masterMute,
-            inputVolume,
-            inputMute,
-            fxRouting,
-            mutedChannels,
-            channelVolumes,
-            lastUpdate: Date.now()
-        };
-
-        this.deviceStates.set(deviceId, deviceState);
-
-        // Maintain backward compatibility: use device 0 as default player state
-        if (deviceId === 0) {
-            this.playerState = deviceState;
-        }
-
-        // Update connection timestamp
-        this.lastStateUpdate = Date.now();
-        if (!this.isConnectedToRegroove) {
-            this.isConnectedToRegroove = true;
-            console.log('[Regroove] Connected - receiving state updates');
-        }
-
-        // Start watchdog if not already running
-        this.startConnectionWatchdog();
-
-        // Notify scene manager to update faders
-        if (this.sceneManager) {
-            this.sceneManager.updateMixerFromDeviceState(deviceId, deviceState);
-        }
-
-        // State updates happen frequently - only log on significant changes or enable for debugging
-        // console.log(`[State] Device ${deviceId}: Playing:${playing} MasterVol:${masterVolume} Channels:${numChannels}`);
-
-        // Update pad colors
-        this.updatePadColors();
-    }
-
-    // Device State Management Helper Methods
+    // Device State Management Helper Methods (delegate to regrooveState)
     getDeviceState(deviceId) {
-        // Get state for specific device, or fall back to default
-        if (this.deviceStates.has(deviceId)) {
-            return this.deviceStates.get(deviceId);
-        }
-        // Fallback to device 0 or playerState
-        return this.deviceStates.get(0) || this.playerState;
+        return this.regrooveState.getDeviceState(deviceId);
     }
 
     isLoopEnabled(deviceId) {
-        const state = this.getDeviceState(deviceId);
-        return state.mode === 0x01; // Mode 01 = pattern/loop
+        return this.regrooveState.isLoopEnabled(deviceId);
     }
 
     isChannelMuted(deviceId, channel) {
-        const state = this.getDeviceState(deviceId);
-        return state.mutedChannels && state.mutedChannels.includes(channel);
+        return this.regrooveState.isChannelMuted(deviceId, channel);
     }
 
     isChannelSoloed(deviceId, channel) {
-        const state = this.getDeviceState(deviceId);
-        return state.soloedChannels && state.soloedChannels.includes(channel);
+        return this.regrooveState.isChannelSoloed(deviceId, channel);
     }
 
     toggleChannelMuteState(deviceId, channel) {
-        // Update local state tracking
-        const state = this.getDeviceState(deviceId);
-        if (!state.mutedChannels) {
-            state.mutedChannels = [];
-        }
-
-        const index = state.mutedChannels.indexOf(channel);
-        if (index > -1) {
-            state.mutedChannels.splice(index, 1);
-            return false; // Now unmuted
-        } else {
-            state.mutedChannels.push(channel);
-            return true; // Now muted
-        }
+        return this.regrooveState.toggleChannelMuteState(deviceId, channel);
     }
 
     toggleChannelSoloState(deviceId, channel) {
-        // Update local state tracking
-        const state = this.getDeviceState(deviceId);
-        if (!state.soloedChannels) {
-            state.soloedChannels = [];
-        }
-
-        const index = state.soloedChannels.indexOf(channel);
-        if (index > -1) {
-            state.soloedChannels.splice(index, 1);
-            return false; // Now unsoloed
-        } else {
-            state.soloedChannels.push(channel);
-            return true; // Now soloed
-        }
+        return this.regrooveState.toggleChannelSoloState(deviceId, channel);
     }
 
     populateMIDIOutputs() {
@@ -1196,16 +1048,17 @@ class MeisterController {
         }
     }
 
-    requestPlayerState() {
-        if (!this.midiOutput) return;
+    startStatePolling() {
+        // Initialize regrooveState with MIDI send callback
+        this.regrooveState.init((deviceId, command, data) => {
+            this.sendSysEx(deviceId, command, data);
+        });
 
-        // Get all configured devices
+        // Start polling all devices
         const deviceIds = new Set();
-
-        // Always poll default device (device ID 0)
         deviceIds.add(this.regrooveDeviceId || 0);
 
-        // Poll all devices that have bindings
+        // Add all device manager devices
         if (this.deviceManager) {
             const devices = this.deviceManager.getAllDevices();
             devices.forEach(device => {
@@ -1213,48 +1066,23 @@ class MeisterController {
             });
         }
 
-        console.log(`[State] Polling ${deviceIds.size} device(s):`, Array.from(deviceIds));
-
-        // Send GET_PLAYER_STATE to each unique device ID
-        deviceIds.forEach(deviceId => {
-            const message = [
-                0xF0,                      // SysEx start
-                0x7D,                      // Regroove manufacturer ID
-                deviceId & 0x7F,           // Target device
-                0x60,                      // GET_PLAYER_STATE command
-                0xF7                       // SysEx end
-            ];
-            this.midiOutput.send(message);
-            console.log(`[State] Sent GET_PLAYER_STATE to device ${deviceId}:`, message);
-        });
-    }
-
-    startStatePolling() {
-        if (this.statePollingInterval) return; // Already polling
-
-        // Poll every 500ms (2 times per second) - good balance between responsiveness and bandwidth
-        this.statePollingInterval = setInterval(() => {
-            this.requestPlayerState();
-        }, 500);
-
-        console.log('[State] Started polling player state every 500ms');
+        // For now, start polling with the primary device
+        // TODO: Support polling multiple devices
+        this.regrooveState.startPolling(this.regrooveDeviceId || 0);
     }
 
     stopStatePolling() {
-        if (this.statePollingInterval) {
-            clearInterval(this.statePollingInterval);
-            this.statePollingInterval = null;
-            console.log('[State] Stopped polling player state');
-        }
+        this.regrooveState.stopPolling();
     }
 
     replacePlaceholders(text) {
         if (!text) return text;
 
+        const state = this.regrooveState.playerState;
         return text
-            .replace(/\{order\}/gi, this.playerState.order)
-            .replace(/\{pattern\}/gi, this.playerState.pattern)
-            .replace(/\{row\}/gi, this.playerState.row);
+            .replace(/\{order\}/gi, state.order)
+            .replace(/\{pattern\}/gi, state.pattern)
+            .replace(/\{row\}/gi, state.row);
     }
 
     updatePadColors() {
@@ -1264,14 +1092,11 @@ class MeisterController {
             if (!padConfig) return;
 
             // Resolve device state for this pad
-            let deviceState = this.playerState; // Default to device 0
+            let deviceState = this.regrooveState.playerState; // Default to device 0
             if (padConfig.deviceBinding && this.deviceManager) {
                 const device = this.deviceManager.getDevice(padConfig.deviceBinding);
-                if (device && this.deviceStates) {
-                    const state = this.deviceStates.get(device.deviceId);
-                    if (state) {
-                        deviceState = state;
-                    }
+                if (device) {
+                    deviceState = this.regrooveState.getDeviceState(device.deviceId);
                 }
             }
 
@@ -1338,7 +1163,7 @@ class MeisterController {
 
     isChannelSolo(channel, deviceState = null) {
         // Use provided deviceState or fall back to default playerState
-        const state = deviceState || this.playerState;
+        const state = deviceState || this.regrooveState.playerState;
         const { numChannels, mutedChannels } = state;
 
         // Check if this channel is unmuted
@@ -1849,17 +1674,8 @@ class MeisterController {
     handleRegrooveDisconnect() {
         this.isConnectedToRegroove = false;
 
-        // Reset player state to defaults
-        this.playerState = {
-            playing: false,
-            mode: 0,
-            order: 0,
-            row: 0,
-            pattern: 0,
-            totalRows: 0,
-            numChannels: 0,
-            mutedChannels: []
-        };
+        // Clear all state in regrooveState
+        this.regrooveState.clearAllState();
 
         // Clear all pad colors (reset to default state)
         this.pads.forEach((pad) => {

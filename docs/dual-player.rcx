@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "gridLayout": "8x4",
+  "midiChannel": 0,
+  "pads": [
+    {
+      "sysex": "play",
+      "label": "PLAY",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "stop",
+      "label": "STOP",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "set_loop_current",
+      "label": "LOOP",
+      "deviceBinding": "device-1762590811100"
+    },
+    null,
+    null,
+    {
+      "sysex": "set_loop_current",
+      "label": "LOOP",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "stop",
+      "label": "STOP",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "play",
+      "label": "PLAY",
+      "deviceBinding": "device-1762590819754"
+    },
+    null,
+    {
+      "sysex": "prev_order",
+      "label": "PREV",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "next_order",
+      "label": "NEXT",
+      "deviceBinding": "device-1762590811100"
+    },
+    null,
+    null,
+    {
+      "sysex": "prev_order",
+      "label": "PREV",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "next_order",
+      "label": "NEXT",
+      "deviceBinding": "device-1762590819754"
+    },
+    null,
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 0
+      },
+      "label": "MUTE CH1",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 1
+      },
+      "label": "MUTE CH2",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 2
+      },
+      "label": "MUTE CH3",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 3
+      },
+      "label": "MUTE CH4",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 0
+      },
+      "label": "MUTE CH1",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 1
+      },
+      "label": "MUTE CH2",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 2
+      },
+      "label": "MUTE CH3",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_mute",
+      "sysexParams": {
+        "channel": 3
+      },
+      "label": "MUTE CH4",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 0
+      },
+      "label": "SOLO CH1",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 1
+      },
+      "label": "SOLO CH2",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 2
+      },
+      "label": "SOLO CH3",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 3
+      },
+      "label": "SOLO CH4",
+      "deviceBinding": "device-1762590811100"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 0
+      },
+      "label": "SOLO CH1",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 1
+      },
+      "label": "SOLO CH2",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 2
+      },
+      "label": "SOLO CH3",
+      "deviceBinding": "device-1762590819754"
+    },
+    {
+      "sysex": "channel_solo",
+      "sysexParams": {
+        "channel": 3
+      },
+      "label": "SOLO CH4",
+      "deviceBinding": "device-1762590819754"
+    }
+  ],
+  "clockMaster": false,
+  "clockBPM": 120,
+  "receiveSPP": true,
+  "useWAAClock": false,
+  "sysexDeviceId": 0,
+  "actions": {
+    "inputMapper": {
+      "midiMappings": [],
+      "keyboardMappings": [
+        {
+          "key": " ",
+          "code": "",
+          "action": 102,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "Escape",
+          "code": "Escape",
+          "action": 101,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "[",
+          "code": "",
+          "action": 111,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "]",
+          "code": "",
+          "action": 110,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "PageDown",
+          "code": "PageDown",
+          "action": 121,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "PageUp",
+          "code": "PageUp",
+          "action": 122,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "c",
+          "code": "",
+          "action": 200,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "+",
+          "code": "",
+          "action": 204,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "-",
+          "code": "",
+          "action": 205,
+          "parameter": 0,
+          "ctrl": false,
+          "shift": false,
+          "alt": false
+        },
+        {
+          "key": "s",
+          "code": "",
+          "action": 301,
+          "parameter": 0,
+          "ctrl": true,
+          "shift": false,
+          "alt": false
+        }
+      ],
+      "deviceConfigs": []
+    },
+    "macros": []
+  },
+  "midiOutputId": "output-3"
+}
