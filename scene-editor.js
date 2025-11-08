@@ -78,8 +78,15 @@ export class SceneEditor {
             const scene = this.sceneManager.scenes.get(sceneId);
             if (scene) {
                 this.sceneConfig.name = scene.name;
-                this.sceneConfig.layout = `${scene.rows || 1}x${scene.columns?.length / (scene.rows || 1)}`;
-                this.sceneConfig.faders = scene.columns || [];
+
+                // Use slots if available, fallback to columns for backward compatibility
+                const items = scene.slots || scene.columns || [];
+                const rows = scene.rows || 1;
+                const cols = scene.columnsPerRow || Math.ceil(items.length / rows);
+
+                this.sceneConfig.layout = `${rows}x${cols}`;
+                this.sceneConfig.faders = items;
+
                 document.getElementById('scene-name').value = scene.name;
                 document.getElementById('scene-layout').value = this.sceneConfig.layout;
             }
@@ -283,13 +290,28 @@ export class SceneEditor {
         this.sceneConfig.name = name;
         const [rows, cols] = this.sceneConfig.layout.split('x').map(Number);
 
-        // Create scene config
+        // Collect all device IDs from faders for polling
+        const deviceIds = new Set();
+        this.sceneConfig.faders.forEach(fader => {
+            if (fader && fader.deviceBinding) {
+                const deviceManager = this.sceneManager.controller.deviceManager;
+                if (deviceManager) {
+                    const device = deviceManager.getDevice(fader.deviceBinding);
+                    if (device) {
+                        deviceIds.add(device.deviceId);
+                    }
+                }
+            }
+        });
+
+        // Create scene config with slots (new format)
         const sceneConfig = {
             name: this.sceneConfig.name,
             type: 'slider',
             rows: rows,
-            columns: this.sceneConfig.faders.slice(0, rows * cols).filter(f => f !== null),
-            pollDevices: [...new Set(this.sceneConfig.faders.filter(f => f && f.deviceId !== undefined).map(f => f.deviceId))],
+            columnsPerRow: cols,
+            slots: this.sceneConfig.faders.slice(0, rows * cols), // Include all slots (even nulls/empty)
+            pollDevices: Array.from(deviceIds),
             pollInterval: 100
         };
 
@@ -328,7 +350,9 @@ export class SceneEditor {
                     name: scene.name,
                     type: scene.type,
                     rows: scene.rows,
-                    columns: scene.columns,
+                    columnsPerRow: scene.columnsPerRow,
+                    slots: scene.slots,
+                    columns: scene.columns, // Keep for backward compatibility
                     pollDevices: scene.pollDevices,
                     pollInterval: scene.pollInterval
                 };
@@ -336,6 +360,7 @@ export class SceneEditor {
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
+        console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} custom scene(s) to localStorage`);
     }
 
     loadScenesFromStorage() {

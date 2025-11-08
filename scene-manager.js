@@ -206,6 +206,7 @@ export class SceneManager {
                 rowContainer.style.justifyContent = 'center';
                 rowContainer.style.alignItems = 'stretch';
                 rowContainer.style.flex = '1';
+                rowContainer.style.minHeight = '0'; // Important for flex children
 
                 const startIdx = r * columnsPerRow;
                 const endIdx = Math.min(startIdx + columnsPerRow, items.length);
