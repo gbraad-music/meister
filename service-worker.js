@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v82';
+const CACHE_NAME = 'meister-v83';
 const ASSETS = [
     './',
     './index.html',
@@ -19,6 +19,7 @@ const ASSETS = [
     './svg-slider.js',
     './scene-editor.js',
     // Device management
+    './regroove-state.js',
     './device-manager.js'
 ];
 
