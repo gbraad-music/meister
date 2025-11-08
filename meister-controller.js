@@ -475,10 +475,14 @@ class MeisterController {
         // Hide error message when opening editor
         document.getElementById('pad-label-error').style.display = 'none';
 
+        // Populate device binding dropdown
+        this.populatePadDeviceBindings();
+
         if (padIndex !== null && this.config.pads[padIndex]) {
             const pad = this.config.pads[padIndex];
             document.getElementById('pad-label').value = pad.label || '';
             document.getElementById('pad-sublabel').value = pad.sublabel || '';
+            document.getElementById('pad-device-binding').value = pad.deviceBinding || '';
 
             // Determine message type
             if (pad.mmc !== undefined) {
@@ -506,6 +510,7 @@ class MeisterController {
             // New pad
             document.getElementById('pad-label').value = '';
             document.getElementById('pad-sublabel').value = '';
+            document.getElementById('pad-device-binding').value = '';
             document.getElementById('pad-message-type').value = 'regroove';
             document.getElementById('pad-regroove-action').value = '41';
             this.updatePadEditorFields('regroove');
@@ -513,6 +518,24 @@ class MeisterController {
         }
 
         editor.classList.add('active');
+    }
+
+    populatePadDeviceBindings() {
+        const select = document.getElementById('pad-device-binding');
+        if (!select) return;
+
+        // Get device manager
+        const deviceManager = this.deviceManager;
+        if (!deviceManager) {
+            select.innerHTML = '<option value="">Default Device</option>';
+            return;
+        }
+
+        const devices = deviceManager.getAllDevices();
+        select.innerHTML = '<option value="">Default Device</option>' +
+            devices.map(device =>
+                `<option value="${device.id}">${device.name} (Ch ${device.midiChannel + 1}, ID ${device.deviceId})</option>`
+            ).join('');
     }
 
     isRegrooveActionCC(cc) {
@@ -551,6 +574,7 @@ class MeisterController {
         const label = document.getElementById('pad-label').value.trim();
         const sublabel = document.getElementById('pad-sublabel').value.trim();
         const messageType = document.getElementById('pad-message-type').value;
+        const deviceBinding = document.getElementById('pad-device-binding').value;
         const errorElement = document.getElementById('pad-label-error');
 
         const padConfig = {};
@@ -599,6 +623,10 @@ class MeisterController {
         }
         if (sublabel) {
             padConfig.sublabel = sublabel;
+        }
+        // Add device binding
+        if (deviceBinding) {
+            padConfig.deviceBinding = deviceBinding;
         }
 
         // Check if we have at least a message type (cc, note, or mmc)
@@ -665,13 +693,30 @@ class MeisterController {
                 padElement._originalSublabel = padConfig.sublabel;
 
                 if (padConfig.label) padElement.setAttribute('label', this.replacePlaceholders(padConfig.label));
-                if (padConfig.sublabel) padElement.setAttribute('sublabel', this.replacePlaceholders(padConfig.sublabel));
+
+                // Build sublabel with device indicator if non-default device is bound
+                let sublabel = padConfig.sublabel ? this.replacePlaceholders(padConfig.sublabel) : '';
+                if (padConfig.deviceBinding && this.deviceManager) {
+                    const device = this.deviceManager.getDevice(padConfig.deviceBinding);
+                    if (device) {
+                        // Add device name as a note
+                        const deviceNote = `[${device.name}]`;
+                        sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
+                    }
+                }
+                if (sublabel) padElement.setAttribute('sublabel', sublabel);
+
                 if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
                 if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
                 if (padConfig.mmc !== undefined) padElement.setAttribute('mmc', padConfig.mmc);
 
+                // Store device binding on the element
+                if (padConfig.deviceBinding) {
+                    padElement.dataset.deviceBinding = padConfig.deviceBinding;
+                }
+
                 padElement.addEventListener('pad-press', (e) => {
-                    this.handlePadPress(e.detail);
+                    this.handlePadPress(e.detail, padElement);
                 });
             }
 
@@ -700,11 +745,29 @@ class MeisterController {
         }
     }
 
-    handlePadPress(detail) {
+    handlePadPress(detail, padElement) {
+        // Resolve device binding to device ID
+        let deviceId = null;
+        if (padElement && padElement.dataset.deviceBinding) {
+            const deviceManager = this.deviceManager;
+            if (deviceManager) {
+                const device = deviceManager.getDevice(padElement.dataset.deviceBinding);
+                if (device) {
+                    deviceId = device.deviceId;
+                }
+            }
+        }
+
+        // Send the message
         if (detail.mmc) {
             this.sendMMC(detail.mmc);
         } else if (detail.cc !== undefined && detail.cc !== null) {
-            this.sendCC(parseInt(detail.cc), 127);
+            // Use device-aware sending for CC (Regroove actions)
+            if (this.sendRegrooveCC && deviceId !== null) {
+                this.sendRegrooveCC(parseInt(detail.cc), 127, deviceId);
+            } else {
+                this.sendCC(parseInt(detail.cc), 127);
+            }
         } else if (detail.note !== undefined && detail.note !== null) {
             this.sendNote(parseInt(detail.note), 127);
         }
