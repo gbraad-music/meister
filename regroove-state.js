@@ -80,9 +80,10 @@ class RegrooveStateManager {
 
     // Request player state from device
     requestPlayerState(deviceId) {
-        console.log(`[RegrooveState] requestPlayerState called for device ${deviceId}`);
+        // Commented out to reduce console clutter
+        // console.log(`[RegrooveState] requestPlayerState called for device ${deviceId}`);
         if (this.sendSysExCallback) {
-            console.log(`[RegrooveState] Calling sendSysExCallback(${deviceId}, 0x60, [])`);
+            // console.log(`[RegrooveState] Calling sendSysExCallback(${deviceId}, 0x60, [])`);
             // Send GET_PLAYER_STATE (0x60)
             this.sendSysExCallback(deviceId, 0x60, []);
         } else {
@@ -117,7 +118,8 @@ class RegrooveStateManager {
         const masterMute = (mixerFlags & 0x01) !== 0;
         const inputMute = (mixerFlags & 0x02) !== 0;
 
-        console.log(`[RegrooveState] Device ${deviceId} state: playing=${playing}, mode=${mode}, order=${order}, row=${row}, pattern=${pattern}, channels=${numChannels}`);
+        // Commented out to reduce console clutter
+        // console.log(`[RegrooveState] Device ${deviceId} state: playing=${playing}, mode=${mode}, order=${order}, row=${row}, pattern=${pattern}, channels=${numChannels}`);
 
         // Parse bit-packed mute data
         const muteBytes = Math.ceil(numChannels / 8);
@@ -135,7 +137,8 @@ class RegrooveStateManager {
             }
         }
 
-        console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);
+        // Commented out to reduce console clutter
+        // console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);
 
         // Parse channel volumes array
         const volumeStartIdx = 10 + muteBytes;
@@ -146,32 +149,34 @@ class RegrooveStateManager {
             }
         }
 
-        // Get existing state to preserve local-only fields (like soloedChannels)
-        const existingState = this.deviceStates.get(deviceId);
-        const soloedChannels = existingState?.soloedChannels || [];
+        // Get or create state for this device
+        let deviceState = this.deviceStates.get(deviceId);
 
-        // Update state for this specific device
-        const deviceState = {
-            deviceId,
-            playing,
-            mode,
-            order,
-            row,
-            pattern,
-            totalRows,
-            numChannels,
-            masterVolume,
-            masterMute,
-            inputVolume,
-            inputMute,
-            fxRouting,
-            mutedChannels,
-            channelVolumes,
-            soloedChannels, // Preserve local solo state
-            lastUpdate: Date.now()
-        };
+        if (!deviceState) {
+            deviceState = {
+                deviceId,
+                soloedChannels: [] // Initialize local-only fields
+            };
+            this.deviceStates.set(deviceId, deviceState);
+        }
 
-        this.deviceStates.set(deviceId, deviceState);
+        // Update state fields from SysEx response (preserving local-only fields like soloedChannels)
+        deviceState.playing = playing;
+        deviceState.mode = mode;
+        deviceState.order = order;
+        deviceState.row = row;
+        deviceState.pattern = pattern;
+        deviceState.totalRows = totalRows;
+        deviceState.numChannels = numChannels;
+        deviceState.masterVolume = masterVolume;
+        deviceState.masterMute = masterMute;
+        deviceState.inputVolume = inputVolume;
+        deviceState.inputMute = inputMute;
+        deviceState.fxRouting = fxRouting;
+        deviceState.mutedChannels = mutedChannels;
+        deviceState.channelVolumes = channelVolumes;
+        deviceState.lastUpdate = Date.now();
+        // Note: soloedChannels is NOT updated here - it's tracked locally only
 
         // Maintain backward compatibility: use device 0 as default player state
         if (deviceId === 0) {
@@ -293,20 +298,31 @@ class RegrooveStateManager {
     }
 
     toggleChannelSoloState(deviceId, channel) {
-        // Update local state tracking
-        const state = this.getDeviceState(deviceId);
+        // Get or create state for THIS SPECIFIC device - no fallback!
+        let state = this.deviceStates.get(deviceId);
+        if (!state) {
+            state = {
+                deviceId,
+                soloedChannels: [],
+                mutedChannels: []
+            };
+            this.deviceStates.set(deviceId, state);
+        }
+
         if (!state.soloedChannels) {
             state.soloedChannels = [];
         }
 
         const index = state.soloedChannels.indexOf(channel);
+        const newState = (index === -1);
+
         if (index > -1) {
             state.soloedChannels.splice(index, 1);
-            return false; // Now unsoloed
         } else {
             state.soloedChannels.push(channel);
-            return true; // Now soloed
         }
+
+        return newState;
     }
 
     // Get all devices

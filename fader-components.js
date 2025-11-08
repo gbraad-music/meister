@@ -231,6 +231,12 @@ class MixFader extends BaseFader {
         volumeSlider?.addEventListener('input', (e) => {
             const value = e.detail?.value ?? e.target?.value;
             this.setAttribute('volume', value);
+            // Mark that we're actively changing the volume
+            this.dataset.volumeChanging = 'true';
+            clearTimeout(this._volumeChangeTimeout);
+            this._volumeChangeTimeout = setTimeout(() => {
+                delete this.dataset.volumeChanging;
+            }, 300); // 300ms debounce to prevent state updates during drag
             this.dispatchEvent(new CustomEvent('volume-change', { detail: { value: parseInt(value) } }));
         });
 
@@ -302,7 +308,9 @@ class ChannelFader extends BaseFader {
             const newState = !soloBtn.classList.contains('active');
             this.setAttribute('solo', newState);
             this.dispatchEvent(new CustomEvent('solo-toggle', {
-                detail: { channel, solo: newState }
+                detail: { channel, solo: newState },
+                bubbles: true,
+                composed: true
             }));
         });
 
@@ -316,6 +324,12 @@ class ChannelFader extends BaseFader {
         volumeSlider?.addEventListener('input', (e) => {
             const value = e.detail?.value ?? e.target?.value;
             this.setAttribute('volume', value);
+            // Mark that we're actively changing the volume
+            this.dataset.volumeChanging = 'true';
+            clearTimeout(this._volumeChangeTimeout);
+            this._volumeChangeTimeout = setTimeout(() => {
+                delete this.dataset.volumeChanging;
+            }, 300); // 300ms debounce to prevent state updates during drag
             this.dispatchEvent(new CustomEvent('volume-change', {
                 detail: { channel, value: parseInt(value) }
             }));

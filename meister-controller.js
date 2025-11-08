@@ -164,10 +164,10 @@ class MeisterController {
         const command = data[3];
         const payload = data.slice(4, -1); // Extract data between command and F7
 
-        // Log PLAYER_STATE_RESPONSE to debug state issues
-        if (command === 0x61) {
-            console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
-        }
+        // Commented out to reduce console clutter
+        // if (command === 0x61) {
+        //     console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
+        // }
 
         // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE)
         if (command !== 0x60 && command !== 0x61) {
@@ -1277,13 +1277,11 @@ class MeisterController {
             0xF7   // SysEx end
         ];
 
-        console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
-        this.midiOutput.send(message);
-
-        // Log all SysEx except GET_PLAYER_STATE (0x60) to reduce console spam
+        // Only log non-state polling commands to reduce console spam
         if (command !== 0x60) {
-            console.log(`[Meister] Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
+            console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         }
+        this.midiOutput.send(message);
     }
 
     // SysEx: NEXT_ORDER (0x24) - Queue next order (beat-synced)

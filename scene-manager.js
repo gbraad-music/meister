@@ -480,10 +480,12 @@ export class SceneManager {
      * Handle channel solo
      */
     handleChannelSolo(deviceId, channel, solo) {
-        // Send SysEx CHANNEL_SOLO (0x31) command
-        // Note: We send the SET command directly (not toggle) since the fader tells us the state
+        // Use the SAME method as pads - it works!
+        const newSoloState = this.controller.toggleChannelSoloState(deviceId, channel);
+
+        // Send SysEx CHANNEL_SOLO (0x31) command with the new state
         if (this.controller.sendSysExChannelSolo) {
-            this.controller.sendSysExChannelSolo(deviceId, channel, solo ? 1 : 0);
+            this.controller.sendSysExChannelSolo(deviceId, channel, newSoloState ? 1 : 0);
         } else {
             // Fallback to CC for compatibility
             if (this.controller.sendRegrooveCC) {
@@ -631,10 +633,9 @@ export class SceneManager {
             const faderDeviceId = parseInt(mixFader.dataset.deviceId || 0);
             if (faderDeviceId !== deviceId) return;
 
-            // Check if user is currently dragging this fader's slider
-            const volumeSlider = mixFader.shadowRoot?.getElementById('volume-slider');
-            if (volumeSlider && volumeSlider.isDragging) {
-                return; // Skip update while user is dragging
+            // Check if user is currently changing the volume
+            if (mixFader.dataset.volumeChanging === 'true') {
+                return; // Skip update while user is adjusting volume
             }
 
             const isInputFader = mixFader.dataset.inputFader === 'true';
@@ -670,10 +671,9 @@ export class SceneManager {
             const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
             if (faderDeviceId !== deviceId) return; // Skip faders for other devices
 
-            // Check if user is currently dragging this fader's slider
-            const volumeSlider = fader.shadowRoot?.getElementById('volume-slider');
-            if (volumeSlider && volumeSlider.isDragging) {
-                return; // Skip update while user is dragging
+            // Check if user is currently changing the volume
+            if (fader.dataset.volumeChanging === 'true') {
+                return; // Skip update while user is adjusting volume
             }
 
             const channel = parseInt(fader.getAttribute('channel'));
@@ -681,6 +681,10 @@ export class SceneManager {
             // Update mute state
             const isMuted = deviceState.mutedChannels.includes(channel);
             fader.setAttribute('muted', isMuted.toString());
+
+            // Update solo state - INFER from mute state like pads do
+            const isSoloed = this.controller.isChannelSolo(channel, deviceState);
+            fader.setAttribute('solo', isSoloed.toString());
 
             // Update volume if available
             if (deviceState.channelVolumes && deviceState.channelVolumes[channel] !== undefined) {
