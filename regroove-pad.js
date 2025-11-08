@@ -57,7 +57,8 @@ class RegroovePad extends HTMLElement {
         const hasCC = this.getAttribute('cc') !== null;
         const hasNote = this.getAttribute('note') !== null;
         const hasMMC = this.getAttribute('mmc') !== null;
-        const isEmpty = !hasCC && !hasNote && !hasMMC;
+        const hasSysEx = this.getAttribute('sysex') !== null;
+        const isEmpty = !hasCC && !hasNote && !hasMMC && !hasSysEx;
 
         this.shadowRoot.innerHTML = `
             <style>

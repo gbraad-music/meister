@@ -298,12 +298,18 @@ class MeisterController {
                 select.appendChild(option);
             }
 
-            // Restore previous selection if still available
-            if (currentValue) {
-                select.value = currentValue;
-                if (select.value === currentValue) {
-                    this.midiOutput = this.midiAccess.outputs.get(currentValue);
+            // Try to restore saved MIDI output from config, or fall back to current dropdown value
+            const savedOutputId = this.config.midiOutputId || currentValue;
+
+            if (savedOutputId) {
+                select.value = savedOutputId;
+                if (select.value === savedOutputId) {
+                    this.midiOutput = this.midiAccess.outputs.get(savedOutputId);
                     this.updateConnectionStatus(true);
+
+                    // Start state polling for restored connection
+                    this.startStatePolling();
+                    console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
                 }
             }
         }
@@ -1104,16 +1110,34 @@ class MeisterController {
     requestPlayerState() {
         if (!this.midiOutput) return;
 
-        // Build GET_PLAYER_STATE message: F0 7D <device> 0x60 F7
-        const message = [
-            0xF0,                      // SysEx start
-            0x7D,                      // Regroove manufacturer ID
-            this.regrooveDeviceId,     // Target device
-            0x60,                      // GET_PLAYER_STATE command
-            0xF7                       // SysEx end
-        ];
+        // Get all configured devices
+        const deviceIds = new Set();
 
-        this.midiOutput.send(message);
+        // Always poll default device (device ID 0)
+        deviceIds.add(this.regrooveDeviceId || 0);
+
+        // Poll all devices that have bindings
+        if (this.deviceManager) {
+            const devices = this.deviceManager.getAllDevices();
+            devices.forEach(device => {
+                deviceIds.add(device.deviceId);
+            });
+        }
+
+        console.log(`[State] Polling ${deviceIds.size} device(s):`, Array.from(deviceIds));
+
+        // Send GET_PLAYER_STATE to each unique device ID
+        deviceIds.forEach(deviceId => {
+            const message = [
+                0xF0,                      // SysEx start
+                0x7D,                      // Regroove manufacturer ID
+                deviceId & 0x7F,           // Target device
+                0x60,                      // GET_PLAYER_STATE command
+                0xF7                       // SysEx end
+            ];
+            this.midiOutput.send(message);
+            console.log(`[State] Sent GET_PLAYER_STATE to device ${deviceId}:`, message);
+        });
     }
 
     startStatePolling() {
@@ -1150,12 +1174,32 @@ class MeisterController {
             const padConfig = this.config.pads[index];
             if (!padConfig) return;
 
-            // Update placeholders in labels
+            // Resolve device state for this pad
+            let deviceState = this.playerState; // Default to device 0
+            if (padConfig.deviceBinding && this.deviceManager) {
+                const device = this.deviceManager.getDevice(padConfig.deviceBinding);
+                if (device && this.deviceStates) {
+                    const state = this.deviceStates.get(device.deviceId);
+                    if (state) {
+                        deviceState = state;
+                    }
+                }
+            }
+
+            // Update placeholders in labels using device state
             if (pad._originalLabel) {
-                pad.setAttribute('label', this.replacePlaceholders(pad._originalLabel));
+                const labelText = pad._originalLabel
+                    .replace(/\{order\}/gi, deviceState.order)
+                    .replace(/\{pattern\}/gi, deviceState.pattern)
+                    .replace(/\{row\}/gi, deviceState.row);
+                pad.setAttribute('label', labelText);
             }
             if (pad._originalSublabel) {
-                pad.setAttribute('sublabel', this.replacePlaceholders(pad._originalSublabel));
+                const sublabelText = pad._originalSublabel
+                    .replace(/\{order\}/gi, deviceState.order)
+                    .replace(/\{pattern\}/gi, deviceState.pattern)
+                    .replace(/\{row\}/gi, deviceState.row);
+                pad.setAttribute('sublabel', sublabelText);
             }
 
             const label = padConfig.label || '';
@@ -1163,16 +1207,16 @@ class MeisterController {
 
             // Check for PLAY pad
             if (label.includes('PLAY')) {
-                color = this.playerState.playing ? 'green' : null;
+                color = deviceState.playing ? 'green' : null;
             }
             // Check for STOP pad
             else if (label.includes('STOP')) {
-                color = !this.playerState.playing ? 'red' : null;
+                color = !deviceState.playing ? 'red' : null;
             }
             // Check for LOOP pad
             else if (label.includes('LOOP')) {
                 // Mode 01 = pattern/loop
-                const loopEnabled = (this.playerState.mode === 0x01);
+                const loopEnabled = (deviceState.mode === 0x01);
                 color = loopEnabled ? 'yellow' : null;
             }
             // Check for SOLO CH pads (e.g., "SOLO\nCH1", "SOLO\nCH 2", etc.)
@@ -1180,7 +1224,7 @@ class MeisterController {
                 const match = label.match(/CH\s*(\d+)/i);
                 if (match) {
                     const channel = parseInt(match[1]) - 1; // Convert to 0-indexed
-                    const isSolo = this.isChannelSolo(channel);
+                    const isSolo = this.isChannelSolo(channel, deviceState);
                     color = isSolo ? 'red' : null;
                 }
             }
@@ -1189,7 +1233,7 @@ class MeisterController {
                 const match = label.match(/CH\s*(\d+)/i);
                 if (match) {
                     const channel = parseInt(match[1]) - 1; // Convert to 0-indexed
-                    const isMuted = this.playerState.mutedChannels.includes(channel);
+                    const isMuted = deviceState.mutedChannels.includes(channel);
                     color = isMuted ? 'red' : null;
                 }
             }
@@ -1203,9 +1247,10 @@ class MeisterController {
         });
     }
 
-    isChannelSolo(channel) {
-        // A channel is solo'd if it's NOT muted and all other channels ARE muted
-        const { numChannels, mutedChannels } = this.playerState;
+    isChannelSolo(channel, deviceState = null) {
+        // Use provided deviceState or fall back to default playerState
+        const state = deviceState || this.playerState;
+        const { numChannels, mutedChannels } = state;
 
         // Check if this channel is unmuted
         if (mutedChannels.includes(channel)) {
@@ -1533,6 +1578,11 @@ class MeisterController {
             this.config.clockBPM = this.clockBPM;
             this.config.receiveSPP = this.receiveSPP;
             this.config.useWAAClock = this.useWAAClock;
+
+            // Save MIDI output selection
+            if (this.midiOutput) {
+                this.config.midiOutputId = this.midiOutput.id;
+            }
 
             localStorage.setItem('meisterConfig', JSON.stringify(this.config));
         } catch (e) {

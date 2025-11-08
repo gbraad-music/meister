@@ -44,12 +44,13 @@ export function integrateActionSystem(controller) {
     };
 
     // === EXTEND PAD PRESS HANDLING ===
-    controller.handlePadPress = function(detail) {
-        const padIndex = detail.index;
+    controller.handlePadPress = function(detail, padElement, padIndex) {
+        console.log(`[handlePadPress] Called with padIndex=${padIndex}, detail=`, detail);
+
         const padConfig = this.config.pads[padIndex];
 
         if (!padConfig) {
-            console.warn(`No config for pad ${padIndex}`);
+            console.warn(`No config for pad ${padIndex}`, 'Total pads:', this.config.pads?.length);
             return;
         }
 
@@ -75,8 +76,8 @@ export function integrateActionSystem(controller) {
             }
         }
 
-        // Fall back to original handler for backward compatibility
-        this._originalHandlePadPress.call(this, detail);
+        // Fall back to original handler for backward compatibility (CC/Note/MMC/SysEx)
+        this._originalHandlePadPress.call(this, detail, padElement, padIndex);
     };
 
     // === ADD KEYBOARD HANDLING ===
