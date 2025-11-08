@@ -14,37 +14,88 @@ export class SceneManager {
 
         // Register default scenes
         this.registerDefaultScenes();
+
+        // Setup gesture controls and quick selector
+        this.setupGestureControls();
+        this.setupQuickSelector();
     }
 
     /**
      * Register default scene configurations
      */
     registerDefaultScenes() {
-        // Pads scene (existing grid layout)
+        // Pads scene (always available - grid layout)
         this.scenes.set('pads', {
             name: 'Pads',
-            type: 'pads',
+            type: 'grid',
             render: () => this.renderPadsScene()
         });
 
-        // Mixer scene (8 channels + mix + tempo)
+        // Mixer scene - simple single device example
         this.scenes.set('mixer', {
             name: 'Mixer',
-            type: 'mixer',
+            type: 'slider',
+            rows: 1,
+            pollDevices: [0], // Poll these device IDs
+            pollInterval: 100,
             columns: [
-                { type: 'MIX', label: 'Master' },
-                { type: 'CHANNEL', channel: 0 },
-                { type: 'CHANNEL', channel: 1 },
-                { type: 'CHANNEL', channel: 2 },
-                { type: 'CHANNEL', channel: 3 },
-                { type: 'CHANNEL', channel: 4 },
-                { type: 'CHANNEL', channel: 5 },
-                { type: 'CHANNEL', channel: 6 },
-                { type: 'CHANNEL', channel: 7 },
-                { type: 'TEMPO' }
+                { type: 'MIX', label: 'Master', deviceId: 0 },
+                { type: 'CHANNEL', channel: 0, deviceId: 0 },
+                { type: 'CHANNEL', channel: 1, deviceId: 0 },
+                { type: 'CHANNEL', channel: 2, deviceId: 0 },
+                { type: 'TEMPO', deviceId: 0 }
             ],
-            render: () => this.renderMixerScene()
+            render: () => this.renderSliderScene('mixer')
         });
+
+    }
+
+    /**
+     * Add a custom scene configuration
+     *
+     * Example - Two devices in one scene:
+     * sceneManager.addScene('dual-mixer', {
+     *   name: 'Dual Mixer',
+     *   type: 'slider',
+     *   rows: 2,
+     *   columns: [
+     *     // Row 1: Device A (e.g., Regroove)
+     *     { type: 'MIX', label: 'Device A', deviceBinding: 'device-a' },
+     *     { type: 'CHANNEL', channel: 0, deviceBinding: 'device-a' },
+     *     { type: 'CHANNEL', channel: 1, deviceBinding: 'device-a' },
+     *     // ... more channels
+     *     // Row 2: Device B (e.g., another synth)
+     *     { type: 'MIX', label: 'Device B', deviceBinding: 'device-b' },
+     *     { type: 'CHANNEL', channel: 0, deviceBinding: 'device-b' },
+     *     { type: 'CHANNEL', channel: 1, deviceBinding: 'device-b' },
+     *     // ... more channels
+     *     { type: 'TEMPO' }
+     *   ]
+     * });
+     */
+    addScene(id, config) {
+        if (id === 'pads') {
+            console.error('Cannot override the default pads scene');
+            return;
+        }
+
+        const scene = {
+            name: config.name,
+            type: config.type || 'grid', // 'grid' or 'slider'
+            render: null
+        };
+
+        if (config.type === 'grid') {
+            scene.layout = config.layout || '4x4';
+            scene.render = () => this.renderPadsScene();
+        } else if (config.type === 'slider') {
+            scene.rows = config.rows || 1;
+            scene.columns = config.columns || [];
+            scene.render = () => this.renderSliderScene(id);
+        }
+
+        this.scenes.set(id, scene);
+        console.log(`[Scene] Added scene: ${config.name} (${config.type})`);
     }
 
     /**
@@ -60,8 +111,19 @@ export class SceneManager {
         console.log(`[Scene] Switching to: ${scene.name}`);
         this.currentScene = sceneName;
 
+        // Stop polling for previous scene
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+
         // Render the scene
         scene.render();
+
+        // Start polling if this scene has devices to poll
+        if (scene.pollDevices && scene.pollDevices.length > 0 && scene.pollInterval) {
+            this.startDevicePolling(scene.pollDevices, scene.pollInterval);
+        }
 
         // Update scene selector if it exists
         this.updateSceneSelector();
@@ -93,35 +155,81 @@ export class SceneManager {
     }
 
     /**
-     * Render mixer scene
+     * Render slider scene (mixer, custom fader layouts)
      */
-    renderMixerScene() {
+    renderSliderScene(sceneId) {
         const container = document.getElementById('pads-grid');
         if (!container) return;
 
+        const scene = this.scenes.get(sceneId);
+        if (!scene) return;
+
+        const { columns, rows = 1 } = scene;
+
         // Clear grid and switch to fader layout
         container.style.display = 'flex';
-        container.style.flexDirection = 'row';
-        container.style.gap = '0';
+        container.style.flexDirection = rows > 1 ? 'column' : 'row';
+        container.style.gap = rows > 1 ? '20px' : '0';
         container.style.padding = '10px';
         container.style.justifyContent = 'center';
         container.style.alignItems = 'stretch';
+        container.style.height = 'calc(100vh - 60px)';
         container.innerHTML = '';
 
-        const scene = this.scenes.get('mixer');
-        const { columns } = scene;
+        // For multi-row layouts, create rows
+        if (rows > 1) {
+            const columnsPerRow = Math.ceil(columns.length / rows);
+            for (let r = 0; r < rows; r++) {
+                const rowContainer = document.createElement('div');
+                rowContainer.style.display = 'flex';
+                rowContainer.style.flexDirection = 'row';
+                rowContainer.style.gap = '0';
+                rowContainer.style.justifyContent = 'center';
+                rowContainer.style.alignItems = 'stretch';
 
-        // Create faders
+                const startIdx = r * columnsPerRow;
+                const endIdx = Math.min(startIdx + columnsPerRow, columns.length);
+                const rowColumns = columns.slice(startIdx, endIdx);
+
+                rowColumns.forEach(column => {
+                    const fader = this.createFader(column);
+                    if (fader) rowContainer.appendChild(fader);
+                });
+
+                container.appendChild(rowContainer);
+            }
+            return;
+        }
+
+        // Single row layout - create faders directly
         columns.forEach(column => {
-            let fader;
+            const fader = this.createFader(column);
+            if (fader) container.appendChild(fader);
+        });
+    }
 
-            if (column.type === 'MIX') {
+    /**
+     * Create a fader element based on column configuration
+     */
+    createFader(column) {
+        let fader;
+
+        if (column.type === 'EMPTY') {
+            // Empty placeholder
+            fader = document.createElement('div');
+            fader.style.width = '80px';
+            fader.style.margin = '0 8px';
+            return fader;
+        }
+
+        if (column.type === 'MIX') {
                 fader = document.createElement('mix-fader');
                 fader.setAttribute('label', column.label);
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('fx', 'false');
                 fader.setAttribute('muted', 'false');
+                fader.dataset.deviceId = column.deviceId ?? 0;
 
                 // Event listeners for mix fader
                 fader.addEventListener('fx-toggle', (e) => {
@@ -151,6 +259,7 @@ export class SceneManager {
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('solo', 'false');
                 fader.setAttribute('muted', 'false');
+                fader.dataset.deviceId = column.deviceId ?? 0;
 
                 // Sync with Regroove player state
                 if (this.controller.playerState) {
@@ -160,28 +269,33 @@ export class SceneManager {
 
                 // Event listeners for channel fader
                 fader.addEventListener('solo-toggle', (e) => {
-                    console.log(`[CH${e.detail.channel}] Solo:`, e.detail.solo);
-                    this.handleChannelSolo(e.detail.channel, e.detail.solo);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Solo:`, e.detail.solo);
+                    this.handleChannelSolo(deviceId, e.detail.channel, e.detail.solo);
                 });
 
                 fader.addEventListener('pan-change', (e) => {
-                    console.log(`[CH${e.detail.channel}] Pan:`, e.detail.value);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan:`, e.detail.value);
                     // TODO: Send channel pan CC
                 });
 
                 fader.addEventListener('volume-change', (e) => {
-                    console.log(`[CH${e.detail.channel}] Volume:`, e.detail.value);
-                    this.handleChannelVolume(e.detail.channel, e.detail.value);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Volume:`, e.detail.value);
+                    this.handleChannelVolume(deviceId, e.detail.channel, e.detail.value);
                 });
 
                 fader.addEventListener('mute-toggle', (e) => {
-                    console.log(`[CH${e.detail.channel}] Mute:`, e.detail.muted);
-                    this.handleChannelMute(e.detail.channel, e.detail.muted);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Mute:`, e.detail.muted);
+                    this.handleChannelMute(deviceId, e.detail.channel, e.detail.muted);
                 });
 
             } else if (column.type === 'TEMPO') {
                 fader = document.createElement('tempo-fader');
                 fader.setAttribute('bpm', this.controller.config.bpm || '120');
+                fader.dataset.deviceId = column.deviceId ?? 0;
 
                 // Event listeners for tempo fader
                 fader.addEventListener('tempo-change', (e) => {
@@ -193,27 +307,25 @@ export class SceneManager {
                     console.log('[Tempo] Reset to 120');
                     this.handleTempoChange(120);
                 });
-            }
+        }
 
-            if (fader) {
-                container.appendChild(fader);
-            }
-        });
+        return fader;
     }
 
     /**
      * Handle channel mute
      */
-    handleChannelMute(channel, muted) {
+    handleChannelMute(deviceId, channel, muted) {
         if (this.controller.actionDispatcher) {
             const event = new InputEvent(
                 InputAction.ACTION_REGROOVE_CHANNEL_MUTE,
                 channel,
                 muted ? 127 : 0
             );
+            // TODO: Pass deviceId to action dispatcher for multi-device support
             this.controller.actionDispatcher.handleEvent(event);
         } else {
-            // Fallback to direct CC
+            // Fallback to direct CC - currently only supports device 0
             this.controller.sendCC(48 + channel, 127);
         }
     }
@@ -221,16 +333,17 @@ export class SceneManager {
     /**
      * Handle channel solo
      */
-    handleChannelSolo(channel, solo) {
+    handleChannelSolo(deviceId, channel, solo) {
         if (this.controller.actionDispatcher) {
             const event = new InputEvent(
                 InputAction.ACTION_REGROOVE_CHANNEL_SOLO,
                 channel,
                 solo ? 127 : 0
             );
+            // TODO: Pass deviceId to action dispatcher for multi-device support
             this.controller.actionDispatcher.handleEvent(event);
         } else {
-            // Fallback to direct CC
+            // Fallback to direct CC - currently only supports device 0
             this.controller.sendCC(32 + channel, 127);
         }
     }
@@ -238,10 +351,10 @@ export class SceneManager {
     /**
      * Handle channel volume
      */
-    handleChannelVolume(channel, volume) {
-        // TODO: Implement channel volume control
+    handleChannelVolume(deviceId, channel, volume) {
+        // TODO: Implement channel volume control with device ID support
         // Currently Regroove doesn't have per-channel volume CC
-        console.warn('Channel volume not yet implemented in Regroove');
+        console.warn(`[Dev${deviceId}] Channel volume not yet implemented in Regroove`);
     }
 
     /**
@@ -284,20 +397,228 @@ export class SceneManager {
     }
 
     /**
-     * Update mixer faders from player state
+     * Update mixer faders from device state
      */
-    updateMixerFromState() {
-        if (this.currentScene !== 'mixer') return;
+    updateMixerFromDeviceState(deviceId, deviceState) {
+        const scene = this.scenes.get(this.currentScene);
+        if (!scene || scene.type !== 'slider') return;
 
         const container = document.getElementById('pads-grid');
         if (!container) return;
 
-        // Update channel faders with mute state
+        // Update MIX faders for this device
+        const mixFaders = container.querySelectorAll('mix-fader');
+        mixFaders.forEach(mixFader => {
+            const faderDeviceId = parseInt(mixFader.dataset.deviceId || 0);
+            if (faderDeviceId === deviceId && deviceState.masterVolume !== undefined) {
+                mixFader.setAttribute('volume', deviceState.masterVolume.toString());
+                mixFader.setAttribute('muted', deviceState.masterMute ? 'true' : 'false');
+            }
+        });
+
+        // Update CHANNEL faders for this device
         const channelFaders = container.querySelectorAll('channel-fader');
         channelFaders.forEach(fader => {
+            const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
+            if (faderDeviceId !== deviceId) return; // Skip faders for other devices
+
             const channel = parseInt(fader.getAttribute('channel'));
-            const isMuted = this.controller.playerState.mutedChannels.includes(channel);
+
+            // Update mute state
+            const isMuted = deviceState.mutedChannels.includes(channel);
             fader.setAttribute('muted', isMuted.toString());
+
+            // Update volume if available
+            if (deviceState.channelVolumes && deviceState.channelVolumes[channel] !== undefined) {
+                fader.setAttribute('volume', deviceState.channelVolumes[channel].toString());
+            }
         });
+    }
+
+    /**
+     * Update mixer faders from player state (backward compat)
+     */
+    updateMixerFromState() {
+        if (this.currentScene !== 'mixer') return;
+        if (!this.controller.playerState) return;
+
+        const deviceId = this.controller.playerState.deviceId || 0;
+        this.updateMixerFromDeviceState(deviceId, this.controller.playerState);
+    }
+
+    /**
+     * Setup swipe gesture controls for scene switching
+     */
+    setupGestureControls() {
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+        let hasMoved = false;
+
+        container.addEventListener('touchstart', (e) => {
+            // Only track gestures on the container itself, not on interactive elements
+            if (e.target.tagName === 'REGROOVE-PAD' ||
+                e.target.tagName === 'MIX-FADER' ||
+                e.target.tagName === 'CHANNEL-FADER' ||
+                e.target.tagName === 'TEMPO-FADER' ||
+                e.target.tagName === 'SVG-SLIDER') {
+                return; // Don't interfere with pad/fader interactions
+            }
+
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            hasMoved = false;
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            const moveX = Math.abs(e.changedTouches[0].screenX - touchStartX);
+            const moveY = Math.abs(e.changedTouches[0].screenY - touchStartY);
+
+            // If moved more than 10px, mark as moved
+            if (moveX > 10 || moveY > 10) {
+                hasMoved = true;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchend', (e) => {
+            // Only process gestures if we actually moved
+            if (!hasMoved) return;
+
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            this.handleGesture(touchStartX, touchStartY, touchEndX, touchEndY);
+        }, { passive: true });
+    }
+
+    /**
+     * Handle swipe gestures
+     */
+    handleGesture(startX, startY, endX, endY) {
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        const minSwipeDistance = 50;
+
+        // Determine if it's a horizontal or vertical swipe
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            // Horizontal swipe
+            if (Math.abs(diffX) > minSwipeDistance) {
+                if (diffX > 0) {
+                    // Swipe right - previous scene
+                    this.switchToPreviousScene();
+                } else {
+                    // Swipe left - next scene
+                    this.switchToNextScene();
+                }
+            }
+        } else {
+            // Vertical swipe
+            if (Math.abs(diffY) > minSwipeDistance) {
+                // Swipe up or down - toggle quick selector
+                this.toggleQuickSelector();
+            }
+        }
+    }
+
+    /**
+     * Switch to next scene
+     */
+    switchToNextScene() {
+        const sceneIds = Array.from(this.scenes.keys());
+        const currentIndex = sceneIds.indexOf(this.currentScene);
+        const nextIndex = (currentIndex + 1) % sceneIds.length;
+        this.switchScene(sceneIds[nextIndex]);
+    }
+
+    /**
+     * Switch to previous scene
+     */
+    switchToPreviousScene() {
+        const sceneIds = Array.from(this.scenes.keys());
+        const currentIndex = sceneIds.indexOf(this.currentScene);
+        const prevIndex = (currentIndex - 1 + sceneIds.length) % sceneIds.length;
+        this.switchScene(sceneIds[prevIndex]);
+    }
+
+    /**
+     * Setup quick scene selector
+     */
+    setupQuickSelector() {
+        this.refreshQuickSelector();
+    }
+
+    /**
+     * Toggle quick selector visibility
+     */
+    toggleQuickSelector() {
+        const selector = document.getElementById('scene-quick-selector');
+        if (selector) {
+            selector.classList.toggle('active');
+            if (selector.classList.contains('active')) {
+                this.refreshQuickSelector();
+            }
+        }
+    }
+
+    /**
+     * Refresh quick selector content
+     */
+    refreshQuickSelector() {
+        const container = document.getElementById('scene-quick-list');
+        if (!container) return;
+
+        const scenes = this.getScenes();
+        const currentScene = this.currentScene;
+
+        container.innerHTML = scenes.map(scene => `
+            <div class="scene-quick-item ${scene.id === currentScene ? 'active' : ''}"
+                 data-scene-id="${scene.id}">
+                <div class="scene-quick-item-name">${scene.name}</div>
+                <div class="scene-quick-item-type">
+                    ${scene.type === 'grid' ? 'Grid' : 'Slider'}
+                </div>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        container.querySelectorAll('.scene-quick-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const sceneId = item.getAttribute('data-scene-id');
+                this.switchScene(sceneId);
+                this.toggleQuickSelector();
+            });
+        });
+    }
+
+    /**
+     * Start polling devices for player state
+     */
+    startDevicePolling(deviceIds, intervalMs) {
+        if (!Array.isArray(deviceIds) || deviceIds.length === 0) return;
+
+        console.log(`[Scene] Starting polling for devices [${deviceIds.join(', ')}] every ${intervalMs}ms`);
+
+        // Request state immediately for all devices
+        deviceIds.forEach(deviceId => this.requestPlayerState(deviceId));
+
+        // Then poll at interval
+        this.pollInterval = setInterval(() => {
+            deviceIds.forEach(deviceId => this.requestPlayerState(deviceId));
+        }, intervalMs);
+    }
+
+    /**
+     * Request player state from device via SysEx
+     */
+    requestPlayerState(deviceId) {
+        if (!this.controller.midiOutput) return;
+
+        // SysEx: F0 7D <device_id> 60 F7
+        // 0x60 = SYSEX_CMD_GET_PLAYER_STATE
+        const sysex = [0xF0, 0x7D, deviceId, 0x60, 0xF7];
+        this.controller.midiOutput.send(sysex);
     }
 }

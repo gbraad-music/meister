@@ -375,6 +375,126 @@
             font-size: 0.9em;
         }
 
+        .scene-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .scene-item.active {
+            border-color: #cc4444;
+            background: #1a0a0a;
+        }
+
+        .scene-name {
+            font-size: 1em;
+            color: #ddd;
+            font-weight: bold;
+        }
+
+        .scene-switch-btn {
+            padding: 8px 20px;
+            background: #2a2a2a;
+            color: #ddd;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            min-width: 80px;
+        }
+
+        .scene-item.active .scene-switch-btn {
+            background: #cc4444;
+            color: #fff;
+        }
+
+        .scene-switch-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .scene-item.active .scene-switch-btn:hover {
+            background: #dd5555;
+        }
+
+        .scene-quick-selector {
+            position: fixed;
+            bottom: -400px;
+            left: 0;
+            right: 0;
+            height: 400px;
+            background: #0a0a0a;
+            border-top: 2px solid #cc4444;
+            z-index: 999;
+            transition: bottom 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scene-quick-selector.active {
+            bottom: 0;
+        }
+
+        .scene-quick-header {
+            padding: 15px 20px;
+            background: #1a1a1a;
+            color: #cc4444;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .scene-quick-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            align-content: start;
+        }
+
+        .scene-quick-item {
+            padding: 20px;
+            background: #1a1a1a;
+            border: 2px solid #2a2a2a;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .scene-quick-item:hover {
+            background: #2a2a2a;
+            border-color: #3a3a3a;
+        }
+
+        .scene-quick-item.active {
+            background: #1a0a0a;
+            border-color: #cc4444;
+        }
+
+        .scene-quick-item-name {
+            color: #ddd;
+            font-weight: bold;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .scene-quick-item.active .scene-quick-item-name {
+            color: #cc4444;
+        }
+
+        .scene-quick-item-type {
+            color: #666;
+            font-size: 0.85em;
+        }
+
         .learn-button {
             background: #1a3a1a !important;
             color: #4a9e4a;
@@ -417,6 +537,12 @@
     <div class="container">
         <div class="pads-grid" id="pads-grid"></div>
 
+        <!-- Quick Scene Selector (swipe up/down to show) -->
+        <div class="scene-quick-selector" id="scene-quick-selector">
+            <div class="scene-quick-header">SCENES</div>
+            <div class="scene-quick-list" id="scene-quick-list"></div>
+        </div>
+
         <!-- Position Sequencer -->
         <div class="position-sequencer" id="position-sequencer">
             <div class="sequencer-buttons" id="sequencer-buttons"></div>
@@ -440,6 +566,7 @@
             <!-- Tab Navigation -->
             <div class="settings-tabs">
                 <button class="settings-tab active" data-tab="general">General</button>
+                <button class="settings-tab" data-tab="scenes">Scenes</button>
                 <button class="settings-tab" data-tab="midi-devices">MIDI Devices</button>
                 <button class="settings-tab" data-tab="midi-mappings">MIDI Mappings</button>
                 <button class="settings-tab" data-tab="keyboard">Keyboard</button>
@@ -540,11 +667,6 @@
             </div>
 
             <div class="setting-group">
-                <label class="setting-label">PAD CONFIGURATION</label>
-                <button id="edit-pad-btn">✏️ EDIT PADS (Right-click any pad)</button>
-            </div>
-
-            <div class="setting-group">
                 <label class="setting-label">ABOUT</label>
                 <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
                     Regroove Meister v2.0 (Action System)<br>
@@ -554,6 +676,42 @@
                     Press keys for shortcuts (Space=Play/Pause, Esc=Stop, etc.)
                 </div>
             </div>
+            </div>
+
+            <!-- Scenes Tab -->
+            <div class="tab-content" id="tab-scenes">
+                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
+                    Manage all scene layouts - pads, mixers, and custom views. Click a scene to edit or create new ones.
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PAD GRID SCENE</label>
+                    <select id="grid-layout-pads">
+                        <option value="4x4">4×4 Grid (16 pads)</option>
+                        <option value="4x2">4×2 Grid (8 pads)</option>
+                        <option value="2x2">2×2 Grid (4 pads)</option>
+                        <option value="8x2">8×2 Grid (16 pads)</option>
+                    </select>
+                    <button id="edit-pad-btn" style="width: 100%; padding: 12px; font-size: 0.95em; margin-top: 8px;">✏️ EDIT PADS</button>
+                    <div style="color: #666; font-size: 0.75em; margin-top: 6px;">
+                        Right-click or long-press any pad to edit it directly. Use {order}, {pattern}, {row} for dynamic labels.
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIXER SCENES</label>
+                    <button id="edit-mixer-btn" style="width: 100%; padding: 12px; font-size: 0.95em; margin-bottom: 8px;">✏️ EDIT MIXER SCENE</button>
+                    <button id="new-scene-btn" style="width: 100%; padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">ALL SCENES</label>
+                    <div id="scenes-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+
+                <div style="margin-top: 20px; color: #666; font-size: 0.8em;">
+                    💡 Swipe left/right to switch scenes, or swipe up/down for quick selector.
+                </div>
             </div>
 
             <!-- MIDI Devices Tab -->
@@ -777,11 +935,96 @@
         </div>
     </div>
 
+    <!-- Scene Editor Overlay -->
+    <div class="settings-overlay" id="scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header">EDIT MIXER SCENE</div>
+                <button class="close-settings" id="close-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="scene-name" placeholder="My Mixer" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">LAYOUT</label>
+                    <select id="scene-layout">
+                        <option value="1x5">1 Row × 5 Faders</option>
+                        <option value="1x8">1 Row × 8 Faders</option>
+                        <option value="2x8">2 Rows × 8 Faders</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">FADER SLOTS</label>
+                    <div style="color: #666; font-size: 0.8em; margin-bottom: 10px;">
+                        Click a slot to configure it
+                    </div>
+                    <div id="scene-fader-grid" style="display: grid; gap: 8px; margin-bottom: 15px;"></div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-scene">💾 SAVE SCENE</button>
+                    <button id="delete-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fader Slot Editor Overlay -->
+    <div class="settings-overlay" id="fader-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="fader-editor-title">EDIT FADER SLOT</div>
+                <button class="close-settings" id="close-fader-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">FADER TYPE</label>
+                    <select id="fader-type">
+                        <option value="EMPTY">Empty (Placeholder)</option>
+                        <option value="MIX">Mix / Master</option>
+                        <option value="CHANNEL">Channel</option>
+                        <option value="TEMPO">Tempo</option>
+                    </select>
+                </div>
+
+                <div class="setting-group" id="fader-label-field" style="display: none;">
+                    <label class="setting-label">LABEL</label>
+                    <input type="text" id="fader-label" placeholder="Master" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-channel-field" style="display: none;">
+                    <label class="setting-label">CHANNEL NUMBER (0-7)</label>
+                    <input type="number" id="fader-channel" min="0" max="7" value="0" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-device-field" style="display: none;">
+                    <label class="setting-label">DEVICE ID</label>
+                    <input type="number" id="fader-device" min="0" max="15" value="0" style="width: 100%;">
+                    <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
+                        Target Regroove device (0-15)
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-fader">💾 SAVE</button>
+                    <button id="clear-fader">🗑️ CLEAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import './meister-controller.js';
         import { integrateActionSystem } from './meister-actions-integration.js';
         import { SettingsUI } from './settings-ui.js';
         import { SceneManager } from './scene-manager.js';
+        import { SceneEditor } from './scene-editor.js';
 
         // Wait for controller to be initialized
         function waitForController() {
@@ -797,6 +1040,11 @@
                 // Initialize scene manager
                 window.meisterController.sceneManager = new SceneManager(window.meisterController);
                 console.log('[Meister] Scene manager initialized');
+
+                // Initialize scene editor
+                window.meisterController.sceneEditor = new SceneEditor(window.meisterController.sceneManager);
+                window.meisterController.sceneEditor.loadScenesFromStorage();
+                console.log('[Meister] Scene editor initialized');
 
                 // Setup scene selector
                 const sceneSelector = document.getElementById('scene-selector');

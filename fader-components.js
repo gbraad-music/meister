@@ -3,6 +3,8 @@
  * Web components for MIX, CHANNEL, and TEMPO faders
  */
 
+import './svg-slider.js';
+
 /**
  * Base Fader Component
  * Shared functionality for all fader types
@@ -21,7 +23,6 @@ class BaseFader extends HTMLElement {
         slider.max = max;
         slider.step = step;
         slider.value = value;
-        slider.orient = 'vertical';
         return slider;
     }
 
@@ -37,39 +38,44 @@ class BaseFader extends HTMLElement {
             :host {
                 display: inline-flex;
                 flex-direction: column;
-                width: 70px;
+                width: 80px;
+                height: 100%;
                 background: transparent;
                 padding: 0;
                 gap: 8px;
                 font-family: Arial, sans-serif;
                 box-sizing: border-box;
-                margin: 0 5px;
+                margin: 0 8px;
+                align-items: center;
+                justify-content: flex-start;
             }
 
             .fader-label {
                 text-align: center;
                 color: #aaa;
-                font-size: 0.7em;
+                font-size: 0.75em;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                padding: 4px;
+                padding: 6px;
                 background: #1a1a1a;
-                border-radius: 3px;
+                border-radius: 4px;
+                font-weight: bold;
             }
 
             .fader-button {
-                width: 100%;
-                min-height: 40px;
-                padding: 10px;
+                width: 60px;
+                min-height: 44px;
+                padding: 12px;
+                margin: 0 auto;
                 background: #2a2a2a;
                 color: #aaa;
                 border: none;
                 cursor: pointer;
-                font-size: 0.9em;
+                font-size: 1em;
                 font-weight: bold;
                 text-transform: uppercase;
                 transition: all 0.15s;
-                border-radius: 3px;
+                border-radius: 4px;
                 touch-action: manipulation;
             }
 
@@ -78,7 +84,7 @@ class BaseFader extends HTMLElement {
             }
 
             .fader-button:active {
-                transform: scale(0.95);
+                transform: scale(0.98);
             }
 
             .fader-button.active {
@@ -86,61 +92,35 @@ class BaseFader extends HTMLElement {
                 color: #fff;
             }
 
-            .fader-slider {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 50px;
-                height: 300px;
-                background: #2a2a2a;
-                outline: none;
-                margin: 0 auto;
-                border-radius: 3px;
-                cursor: pointer;
-                touch-action: none;
+            .slider-container {
+                width: 60px;
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                align-items: stretch;
             }
 
-            .fader-slider::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 50px;
-                height: 20px;
-                background: #cc4444;
-                cursor: grab;
-                border-radius: 2px;
-            }
-
-            .fader-slider::-webkit-slider-thumb:active {
-                cursor: grabbing;
-            }
-
-            .fader-slider::-moz-range-thumb {
-                width: 50px;
-                height: 20px;
-                background: #cc4444;
-                cursor: grab;
-                border: none;
-                border-radius: 2px;
-            }
-
-            .fader-slider::-moz-range-thumb:active {
-                cursor: grabbing;
+            svg-slider {
+                width: 100%;
+                height: 100%;
             }
 
             .pan-container {
                 display: flex;
                 flex-direction: column;
-                gap: 4px;
+                gap: 6px;
                 align-items: center;
+                width: 100%;
             }
 
             .pan-slider {
                 -webkit-appearance: none;
                 appearance: none;
                 width: 100%;
-                height: 12px;
+                height: 16px;
                 background: #2a2a2a;
                 outline: none;
-                border-radius: 3px;
+                border-radius: 4px;
                 cursor: pointer;
                 touch-action: none;
             }
@@ -148,33 +128,37 @@ class BaseFader extends HTMLElement {
             .pan-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 appearance: none;
-                width: 20px;
-                height: 20px;
+                width: 24px;
+                height: 24px;
                 background: #cc4444;
                 cursor: grab;
-                border-radius: 3px;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             }
 
             .pan-slider::-webkit-slider-thumb:active {
                 cursor: grabbing;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.5);
             }
 
             .pan-slider::-moz-range-thumb {
-                width: 20px;
-                height: 20px;
+                width: 24px;
+                height: 24px;
                 background: #cc4444;
                 cursor: grab;
                 border: none;
-                border-radius: 3px;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             }
 
             .pan-slider::-moz-range-thumb:active {
                 cursor: grabbing;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.5);
             }
 
             .pan-indicator {
-                width: 10px;
-                height: 10px;
+                width: 12px;
+                height: 12px;
                 background: #cc4444;
                 border-radius: 50%;
             }
@@ -218,8 +202,9 @@ class MixFader extends BaseFader {
                 <input type="range" class="pan-slider" id="pan-slider"
                        min="-100" max="100" value="${pan}" step="1">
             </div>
-            <input type="range" class="fader-slider" id="volume-slider"
-                   min="0" max="127" value="${volume}" step="1">
+            <div class="slider-container">
+                <svg-slider id="volume-slider" min="0" max="127" value="${volume}" width="60"></svg-slider>
+            </div>
             <button class="fader-button ${muted ? 'active' : ''}" id="mute-btn">M</button>
         `;
 
@@ -244,8 +229,9 @@ class MixFader extends BaseFader {
         });
 
         volumeSlider?.addEventListener('input', (e) => {
-            this.setAttribute('volume', e.target.value);
-            this.dispatchEvent(new CustomEvent('volume-change', { detail: { value: parseInt(e.target.value) } }));
+            const value = e.detail?.value ?? e.target?.value;
+            this.setAttribute('volume', value);
+            this.dispatchEvent(new CustomEvent('volume-change', { detail: { value: parseInt(value) } }));
         });
 
         muteBtn?.addEventListener('click', () => {
@@ -292,8 +278,9 @@ class ChannelFader extends BaseFader {
                 <input type="range" class="pan-slider" id="pan-slider"
                        min="-100" max="100" value="${pan}" step="1">
             </div>
-            <input type="range" class="fader-slider" id="volume-slider"
-                   min="0" max="127" value="${volume}" step="1">
+            <div class="slider-container">
+                <svg-slider id="volume-slider" min="0" max="127" value="${volume}" width="60"></svg-slider>
+            </div>
             <button class="fader-button ${muted ? 'active' : ''}" id="mute-btn">M</button>
         `;
 
@@ -323,9 +310,10 @@ class ChannelFader extends BaseFader {
         });
 
         volumeSlider?.addEventListener('input', (e) => {
-            this.setAttribute('volume', e.target.value);
+            const value = e.detail?.value ?? e.target?.value;
+            this.setAttribute('volume', value);
             this.dispatchEvent(new CustomEvent('volume-change', {
-                detail: { channel, value: parseInt(e.target.value) }
+                detail: { channel, value: parseInt(value) }
             }));
         });
 
@@ -363,19 +351,17 @@ class TempoFader extends BaseFader {
         const bpm = parseInt(this.getAttribute('bpm') || '120');
 
         this.shadowRoot.innerHTML = `
-            <style>
-                ${this.getBaseStyles()}
-                .tempo-slider {
-                    height: 350px !important;
-                }
-                .spacer {
-                    flex: 1;
-                }
-            </style>
+            <style>${this.getBaseStyles()}</style>
             <div class="fader-label">TEMPO</div>
-            <div class="spacer"></div>
-            <input type="range" class="fader-slider tempo-slider" id="tempo-slider"
-                   min="20" max="300" value="${bpm}" step="1">
+            <button class="fader-button" style="visibility: hidden;">S</button>
+            <div class="pan-container">
+                <div class="pan-indicator" style="visibility: hidden;"></div>
+                <input type="range" class="pan-slider" style="visibility: hidden;"
+                       min="-100" max="100" value="0" step="1">
+            </div>
+            <div class="slider-container">
+                <svg-slider id="tempo-slider" min="20" max="300" value="${bpm}" width="60"></svg-slider>
+            </div>
             <button class="fader-button" id="reset-btn">R</button>
         `;
 
@@ -387,9 +373,10 @@ class TempoFader extends BaseFader {
         const resetBtn = this.shadowRoot.getElementById('reset-btn');
 
         tempoSlider?.addEventListener('input', (e) => {
-            this.setAttribute('bpm', e.target.value);
+            const value = e.detail?.value ?? e.target?.value;
+            this.setAttribute('bpm', value);
             this.dispatchEvent(new CustomEvent('tempo-change', {
-                detail: { bpm: parseInt(e.target.value) }
+                detail: { bpm: parseInt(value) }
             }));
         });
 

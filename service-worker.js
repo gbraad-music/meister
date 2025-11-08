@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v20';
+const CACHE_NAME = 'meister-v60';
 const ASSETS = [
     './',
     './index.html',
@@ -15,7 +15,9 @@ const ASSETS = [
     './settings-ui.js',
     // Scene system files
     './fader-components.js',
-    './scene-manager.js'
+    './scene-manager.js',
+    './svg-slider.js',
+    './scene-editor.js'
 ];
 
 // Install event - cache assets

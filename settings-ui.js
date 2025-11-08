@@ -10,6 +10,7 @@ export class SettingsUI {
     constructor(controller) {
         this.controller = controller;
         this.setupTabSwitching();
+        this.setupScenesUI();
         this.setupMIDIDevicesUI();
         this.setupMIDIMappingsUI();
         this.setupKeyboardUI();
@@ -36,7 +37,9 @@ export class SettingsUI {
                     content.classList.add('active');
 
                     // Refresh content when tab is activated
-                    if (tabId === 'midi-devices') {
+                    if (tabId === 'scenes') {
+                        this.refreshScenesList();
+                    } else if (tabId === 'midi-devices') {
                         this.refreshMIDIDevicesList();
                     } else if (tabId === 'midi-mappings') {
                         this.refreshMIDIMappingsList();
@@ -44,6 +47,53 @@ export class SettingsUI {
                         this.refreshKeyboardShortcutsList();
                     }
                 }
+            });
+        });
+    }
+
+    /**
+     * Setup Scenes UI
+     */
+    setupScenesUI() {
+        this.refreshScenesList();
+    }
+
+    /**
+     * Refresh scenes list display
+     */
+    refreshScenesList() {
+        const container = document.getElementById('scenes-list');
+        if (!container) return;
+
+        if (!this.controller.sceneManager) {
+            container.innerHTML = '<div class="empty-state">Scene manager not initialized</div>';
+            return;
+        }
+
+        const scenes = this.controller.sceneManager.getScenes();
+        const currentScene = this.controller.sceneManager.currentScene;
+
+        container.innerHTML = scenes.map(scene => `
+            <div class="scene-item ${scene.id === currentScene ? 'active' : ''}"
+                 data-scene-id="${scene.id}">
+                <div class="scene-info">
+                    <div class="scene-name">${scene.name}</div>
+                    <div class="scene-type" style="color: #666; font-size: 0.85em;">
+                        ${scene.type === 'grid' ? 'Grid Layout' : 'Slider Layout'}
+                    </div>
+                </div>
+                <button class="scene-switch-btn" data-scene-id="${scene.id}">
+                    ${scene.id === currentScene ? 'Active' : 'Switch'}
+                </button>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        container.querySelectorAll('.scene-switch-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                this.controller.sceneManager.switchScene(sceneId);
+                this.refreshScenesList();
             });
         });
     }
