@@ -355,6 +355,42 @@ export class SceneEditor {
         this.refreshScenesList();
     }
 
+    /**
+     * Get custom scenes for export
+     */
+    getCustomScenes() {
+        const scenes = {};
+        this.sceneManager.scenes.forEach((scene, id) => {
+            if (id !== 'pads' && id !== 'mixer') {
+                scenes[id] = {
+                    name: scene.name,
+                    type: scene.type,
+                    rows: scene.rows,
+                    columns: scene.columns,
+                    slots: scene.slots,
+                    columnsPerRow: scene.columnsPerRow,
+                    pollDevices: scene.pollDevices,
+                    pollInterval: scene.pollInterval
+                };
+            }
+        });
+        return scenes;
+    }
+
+    /**
+     * Load custom scenes from imported config
+     */
+    loadCustomScenes(scenes) {
+        if (!scenes || typeof scenes !== 'object') return;
+
+        Object.entries(scenes).forEach(([id, config]) => {
+            this.sceneManager.addScene(id, config);
+        });
+
+        // Refresh the scenes list UI
+        this.refreshScenesList();
+    }
+
     refreshScenesList() {
         const container = document.getElementById('scenes-list');
         if (!container) return;

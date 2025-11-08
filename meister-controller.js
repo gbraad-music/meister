@@ -1049,6 +1049,8 @@ class MeisterController {
     }
 
     startStatePolling() {
+        console.log('[Meister] Starting state polling...');
+
         // Initialize regrooveState with MIDI send callback
         this.regrooveState.init((deviceId, command, data) => {
             this.sendSysEx(deviceId, command, data);
@@ -1068,6 +1070,7 @@ class MeisterController {
 
         // For now, start polling with the primary device
         // TODO: Support polling multiple devices
+        console.log(`[Meister] Starting polling for device ${this.regrooveDeviceId || 0}`);
         this.regrooveState.startPolling(this.regrooveDeviceId || 0);
     }
 
@@ -1248,7 +1251,7 @@ class MeisterController {
     // SysEx Helper Functions for Regroove
     sendSysEx(deviceId, command, data = []) {
         if (!this.midiOutput) {
-            console.warn('No MIDI output selected');
+            console.warn('[Meister] Cannot send SysEx - No MIDI output selected');
             return;
         }
 
@@ -1265,7 +1268,7 @@ class MeisterController {
 
         // Log all SysEx except GET_PLAYER_STATE (0x60) to reduce console spam
         if (command !== 0x60) {
-            console.log(`Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
+            console.log(`[Meister] Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
         }
     }
 
@@ -1634,8 +1637,47 @@ class MeisterController {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const config = JSON.parse(e.target.result);
+                const fullConfig = JSON.parse(e.target.result);
+
+                // Extract main config (everything except devices and customScenes)
+                const { devices, customScenes, ...config } = fullConfig;
                 this.config = config;
+
+                // Restore device manager data
+                if (devices && this.deviceManager) {
+                    console.log('[Config] Restoring device manager data...');
+
+                    // Clear existing devices
+                    this.deviceManager.devices.clear();
+
+                    // Restore devices
+                    if (devices.devices && Array.isArray(devices.devices)) {
+                        devices.devices.forEach(device => {
+                            this.deviceManager.devices.set(device.id, {
+                                id: device.id,
+                                name: device.name,
+                                midiChannel: device.midiChannel,
+                                deviceId: device.deviceId,
+                                color: device.color || '#cc4444'
+                            });
+                        });
+                    }
+
+                    // Restore default device
+                    this.deviceManager.defaultDeviceId = devices.defaultDeviceId || null;
+
+                    // Save to localStorage and refresh UI
+                    this.deviceManager.saveDevices();
+                    this.deviceManager.refreshDeviceList();
+
+                    console.log(`[Config] Restored ${devices.devices?.length || 0} device(s)`);
+                }
+
+                // Restore custom scenes
+                if (customScenes && this.sceneEditor) {
+                    console.log('[Config] Restoring custom scenes...');
+                    this.sceneEditor.loadCustomScenes(customScenes);
+                }
 
                 // Apply to UI
                 if (config.gridLayout) {
@@ -1653,7 +1695,7 @@ class MeisterController {
                 this.applyGridLayout();
                 this.saveConfig();
 
-                console.log('Configuration loaded from file');
+                console.log('[Config] Configuration loaded from file');
                 alert('Configuration loaded successfully!');
             } catch (err) {
                 console.error('Failed to parse config file:', err);
@@ -1664,7 +1706,22 @@ class MeisterController {
     }
 
     downloadConfig() {
-        const configJson = JSON.stringify(this.config, null, 2);
+        // Create a complete config bundle with all settings
+        const fullConfig = {
+            ...this.config,
+            // Include device manager data
+            devices: this.deviceManager ? {
+                devices: Array.from(this.deviceManager.devices.entries()).map(([id, device]) => ({
+                    id,
+                    ...device
+                })),
+                defaultDeviceId: this.deviceManager.defaultDeviceId
+            } : null,
+            // Include custom scenes from scene editor
+            customScenes: this.sceneEditor ? this.sceneEditor.getCustomScenes() : null
+        };
+
+        const configJson = JSON.stringify(fullConfig, null, 2);
         const blob = new Blob([configJson], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
@@ -1676,7 +1733,7 @@ class MeisterController {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        console.log('Configuration downloaded');
+        console.log('Configuration downloaded with devices and scenes');
     }
 
     startConnectionWatchdog() {
