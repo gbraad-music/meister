@@ -41,7 +41,7 @@ export class SceneManager {
                 rows: 2,
                 columnsPerRow: 8,
                 pollDevices: [0], // Poll these device IDs (will be updated dynamically)
-                pollInterval: 100,
+                pollInterval: 250, // Default polling interval
                 slots: [
                     // Row 1 - Channels
                     { type: 'CHANNEL', channel: 0, label: 'CH1', deviceBinding: null },
@@ -147,7 +147,18 @@ export class SceneManager {
 
         // Start polling if this scene has devices to poll
         if (scene.pollDevices && scene.pollDevices.length > 0 && scene.pollInterval) {
+            // Stop global polling to avoid duplicate requests
+            console.log(`[Scene] Using scene-specific polling (${scene.pollInterval}ms), stopping global polling`);
+            if (this.controller.regrooveState) {
+                this.controller.regrooveState.stopPolling();
+            }
             this.startDevicePolling(scene.pollDevices, scene.pollInterval);
+        } else {
+            // No scene-specific polling - restart global polling
+            console.log(`[Scene] No scene-specific polling, using global polling (${this.controller.regrooveState?.pollingIntervalMs || 500}ms)`);
+            if (this.controller.regrooveState && this.controller.midiOutput) {
+                this.controller.startStatePolling();
+            }
         }
 
         // Update scene selector if it exists

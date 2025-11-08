@@ -44,6 +44,12 @@ export class SceneEditor {
             this.renderFaderGrid();
         });
 
+        // Polling interval slider
+        document.getElementById('scene-polling-interval')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('scene-polling-interval-value').textContent = value + 'ms';
+        });
+
         // Fader type change
         document.getElementById('fader-type')?.addEventListener('change', (e) => {
             this.updateFaderEditorFields(e.target.value);
@@ -86,9 +92,17 @@ export class SceneEditor {
 
                 this.sceneConfig.layout = `${rows}x${cols}`;
                 this.sceneConfig.faders = items;
+                this.sceneConfig.pollingInterval = scene.pollInterval || 250;
 
                 document.getElementById('scene-name').value = scene.name;
                 document.getElementById('scene-layout').value = this.sceneConfig.layout;
+
+                // Set polling interval
+                const pollingSlider = document.getElementById('scene-polling-interval');
+                if (pollingSlider) {
+                    pollingSlider.value = this.sceneConfig.pollingInterval;
+                    document.getElementById('scene-polling-interval-value').textContent = this.sceneConfig.pollingInterval + 'ms';
+                }
             }
         } else {
             // New scene
@@ -96,10 +110,18 @@ export class SceneEditor {
             this.sceneConfig = {
                 name: 'Custom Mixer',
                 layout: '1x5',
-                faders: []
+                faders: [],
+                pollingInterval: 250
             };
             document.getElementById('scene-name').value = this.sceneConfig.name;
             document.getElementById('scene-layout').value = this.sceneConfig.layout;
+
+            // Set default polling interval
+            const pollingSlider = document.getElementById('scene-polling-interval');
+            if (pollingSlider) {
+                pollingSlider.value = 250;
+                document.getElementById('scene-polling-interval-value').textContent = '250ms';
+            }
         }
 
         this.renderFaderGrid();
@@ -297,7 +319,10 @@ export class SceneEditor {
         this.sceneConfig.name = name;
         const [rows, cols] = this.sceneConfig.layout.split('x').map(Number);
 
-        console.log(`[SceneEditor] Saving scene "${name}" with ${rows}x${cols} layout`);
+        // Get polling interval from slider
+        const pollingInterval = parseInt(document.getElementById('scene-polling-interval').value);
+
+        console.log(`[SceneEditor] Saving scene "${name}" with ${rows}x${cols} layout, ${pollingInterval}ms polling`);
         console.log(`[SceneEditor] Faders:`, this.sceneConfig.faders);
 
         // Collect all device IDs from faders for polling
@@ -322,7 +347,7 @@ export class SceneEditor {
             columnsPerRow: cols,
             slots: this.sceneConfig.faders.slice(0, rows * cols), // Include all slots (even nulls/empty)
             pollDevices: Array.from(deviceIds),
-            pollInterval: 100,
+            pollInterval: pollingInterval,
             render: () => this.sceneManager.renderSliderScene(this.currentSceneId) // Add render function!
         };
 
