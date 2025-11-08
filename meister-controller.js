@@ -1382,6 +1382,12 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x37, [route & 0x7F]);
     }
 
+    // SysEx: STEREO_SEPARATION (0x57) - Set stereo separation width
+    // separation: 0-127 (maps to 0-200, where 0=mono, 64≈100=normal, 127=200=extra wide)
+    sendSysExStereoSeparation(deviceId, separation) {
+        this.sendSysEx(deviceId, 0x57, [separation & 0x7F]);
+    }
+
     // SysEx: JUMP_TO_PATTERN_ROW (0x46) - Immediate jump to pattern+row
     sendSysExJumpToPatternRow(deviceId, pattern, row) {
         this.sendSysEx(deviceId, 0x46, [pattern & 0x7F, row & 0x7F]);

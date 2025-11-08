@@ -342,10 +342,9 @@ export class SceneManager {
                 fader.addEventListener('fx-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     console.log(`[Dev${deviceId} Mix] FX Toggle:`, e.detail.enabled);
-                    // Get current FX routing from device state
-                    const state = this.controller.getDeviceState(deviceId);
-                    const currentRoute = state?.fxRouting || 0;
-                    this.handleFxRouting(deviceId, e.detail.enabled, currentRoute);
+                    // MASTER fader: toggle between 1 (master) and 0 (off)
+                    const route = e.detail.enabled ? 1 : 0;
+                    this.handleFxRouting(deviceId, route);
                 });
 
                 fader.addEventListener('pan-change', (e) => {
@@ -425,6 +424,14 @@ export class SceneManager {
                 fader.dataset.inputFader = 'true'; // Mark as input fader
 
                 // Event listeners for input fader
+                fader.addEventListener('fx-toggle', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Input] FX Toggle:`, e.detail.enabled);
+                    // INPUT fader: toggle between 3 (input) and 0 (off)
+                    const route = e.detail.enabled ? 3 : 0;
+                    this.handleFxRouting(deviceId, route);
+                });
+
                 fader.addEventListener('volume-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     console.log(`[Dev${deviceId} Input] Volume:`, e.detail.value);
@@ -561,17 +568,13 @@ export class SceneManager {
     }
 
     /**
-     * Handle FX routing toggle
+     * Handle FX routing
      * FX routing is mutex: 0=none, 1=master, 2=playback, 3=input
-     * The button cycles through states or toggles off
+     * Each fader sets its own route or turns off
      */
-    handleFxRouting(deviceId, enabled, currentRoute) {
+    handleFxRouting(deviceId, route) {
         // Send SysEx FX_SET_ROUTE (0x37) command
         if (this.controller.sendSysExFxSetRoute) {
-            // If toggling off, set to none (0)
-            // If toggling on and no current route, default to master (1)
-            // The UI should tell us the target route
-            const route = enabled ? (currentRoute || 1) : 0;
             this.controller.sendSysExFxSetRoute(deviceId, route);
         } else {
             console.warn(`[Dev${deviceId}] FX routing SysEx command not available`);
@@ -648,16 +651,32 @@ export class SceneManager {
                 if (deviceState.inputMute !== undefined) {
                     mixFader.setAttribute('muted', deviceState.inputMute ? 'true' : 'false');
                 }
+                // Update FX routing state - INPUT fader: yellow if route=3, red if route=1/2, off if route=0
+                if (deviceState.fxRouting !== undefined) {
+                    let fxState = 'false';
+                    if (deviceState.fxRouting === 3) {
+                        fxState = 'active'; // Yellow - enabled for input
+                    } else if (deviceState.fxRouting !== 0) {
+                        fxState = 'warning'; // Red - enabled elsewhere
+                    }
+                    mixFader.setAttribute('fx', fxState);
+                    mixFader.dataset.fxRoute = deviceState.fxRouting.toString();
+                }
             } else {
                 // Update MASTER/MIX fader
                 if (deviceState.masterVolume !== undefined) {
                     mixFader.setAttribute('volume', deviceState.masterVolume.toString());
                     mixFader.setAttribute('muted', deviceState.masterMute ? 'true' : 'false');
 
-                    // Update FX routing state (mutex: 0=none, 1=master, 2=playback, 3=input)
+                    // Update FX routing state - MASTER fader: yellow if route=1, red if route=2/3, off if route=0
                     if (deviceState.fxRouting !== undefined) {
-                        const fxEnabled = deviceState.fxRouting !== 0;
-                        mixFader.setAttribute('fx-enabled', fxEnabled ? 'true' : 'false');
+                        let fxState = 'false';
+                        if (deviceState.fxRouting === 1) {
+                            fxState = 'active'; // Yellow - enabled for master
+                        } else if (deviceState.fxRouting !== 0) {
+                            fxState = 'warning'; // Red - enabled elsewhere
+                        }
+                        mixFader.setAttribute('fx', fxState);
                         // Store the current route for toggle logic
                         mixFader.dataset.fxRoute = deviceState.fxRouting.toString();
                     }

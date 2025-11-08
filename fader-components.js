@@ -92,6 +92,17 @@ class BaseFader extends HTMLElement {
                 color: #fff;
             }
 
+            /* FX button specific states (only for mix-fader) */
+            #fx-btn.active {
+                background: #ccaa44;
+                color: #fff;
+            }
+
+            #fx-btn.warning {
+                background: #cc4444;
+                color: #fff;
+            }
+
             .slider-container {
                 width: 60px;
                 flex: 1;
@@ -190,13 +201,21 @@ class MixFader extends BaseFader {
         const label = this.getAttribute('label') || 'MIX';
         const volume = parseInt(this.getAttribute('volume') || '100');
         const pan = parseInt(this.getAttribute('pan') || '0');
-        const fx = this.getAttribute('fx') === 'true';
+        const fxAttr = this.getAttribute('fx') || 'false';
         const muted = this.getAttribute('muted') === 'true';
+
+        // FX states: 'false' (off), 'true'/'active' (yellow - enabled for this fader), 'warning' (red - enabled elsewhere)
+        let fxClass = '';
+        if (fxAttr === 'true' || fxAttr === 'active') {
+            fxClass = 'active'; // Yellow
+        } else if (fxAttr === 'warning') {
+            fxClass = 'warning'; // Red
+        }
 
         this.shadowRoot.innerHTML = `
             <style>${this.getBaseStyles()}</style>
             <div class="fader-label">${label}</div>
-            <button class="fader-button ${fx ? 'active' : ''}" id="fx-btn">FX</button>
+            <button class="fader-button ${fxClass}" id="fx-btn">FX</button>
             <div class="pan-container">
                 <div class="pan-indicator"></div>
                 <input type="range" class="pan-slider" id="pan-slider"
@@ -218,8 +237,12 @@ class MixFader extends BaseFader {
         const muteBtn = this.shadowRoot.getElementById('mute-btn');
 
         fxBtn?.addEventListener('click', () => {
-            const newState = !fxBtn.classList.contains('active');
-            this.setAttribute('fx', newState);
+            // FX button logic:
+            // Yellow (active for us) → Off
+            // Red (active elsewhere) → Yellow (take over)
+            // Off → Yellow (turn on for us)
+            const currentState = this.getAttribute('fx') || 'false';
+            const newState = (currentState === 'active') ? false : true;
             this.dispatchEvent(new CustomEvent('fx-toggle', { detail: { enabled: newState } }));
         });
 

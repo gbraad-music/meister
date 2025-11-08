@@ -93,7 +93,7 @@ class RegrooveStateManager {
 
     // Parse and handle PLAYER_STATE_RESPONSE (0x61)
     handlePlayerStateResponse(deviceId, data) {
-        if (!data || data.length < 12) {
+        if (!data || data.length < 13) {
             console.warn('[RegrooveState] PLAYER_STATE_RESPONSE data too short');
             return;
         }
@@ -109,6 +109,10 @@ class RegrooveStateManager {
         const mixerFlags = data[7];
         const inputVolume = data[8];
         const fxRouting = data[9];
+        const stereoSeparation = data[10]; // 0-127 (maps to 0-200, where 64≈100=normal)
+        const bpmLsb = data[11];
+        const bpmMsb = data[12];
+        const bpm = bpmLsb | (bpmMsb << 7); // Reconstruct BPM from 14-bit value
 
         // Extract playback state
         const playing = (flags & 0x01) !== 0;
@@ -121,16 +125,16 @@ class RegrooveStateManager {
         // Commented out to reduce console clutter
         // console.log(`[RegrooveState] Device ${deviceId} state: playing=${playing}, mode=${mode}, order=${order}, row=${row}, pattern=${pattern}, channels=${numChannels}`);
 
-        // Parse bit-packed mute data
+        // Parse bit-packed mute data (now starts at byte 13)
         const muteBytes = Math.ceil(numChannels / 8);
-        if (data.length < 10 + muteBytes) {
+        if (data.length < 13 + muteBytes) {
             console.warn('[RegrooveState] PLAYER_STATE_RESPONSE incomplete mute data');
             return;
         }
 
         const mutedChannels = [];
         for (let ch = 0; ch < numChannels; ch++) {
-            const byteIdx = 10 + Math.floor(ch / 8);
+            const byteIdx = 13 + Math.floor(ch / 8);
             const bitIdx = ch % 8;
             if (data[byteIdx] & (1 << bitIdx)) {
                 mutedChannels.push(ch);
@@ -141,7 +145,7 @@ class RegrooveStateManager {
         // console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);
 
         // Parse channel volumes array
-        const volumeStartIdx = 10 + muteBytes;
+        const volumeStartIdx = 13 + muteBytes;
         const channelVolumes = [];
         if (data.length >= volumeStartIdx + numChannels) {
             for (let ch = 0; ch < numChannels; ch++) {
@@ -173,6 +177,8 @@ class RegrooveStateManager {
         deviceState.inputVolume = inputVolume;
         deviceState.inputMute = inputMute;
         deviceState.fxRouting = fxRouting;
+        deviceState.stereoSeparation = stereoSeparation; // 0-127 (maps to 0-200)
+        deviceState.bpm = bpm; // 14-bit BPM value (0-16383)
         deviceState.mutedChannels = mutedChannels;
         deviceState.channelVolumes = channelVolumes;
         deviceState.lastUpdate = Date.now();

@@ -401,12 +401,13 @@ export class SceneEditor {
     }
 
     /**
-     * Get custom scenes for export
+     * Get custom scenes for export (includes mixer)
      */
     getCustomScenes() {
         const scenes = {};
         this.sceneManager.scenes.forEach((scene, id) => {
-            if (id !== 'pads' && id !== 'mixer') {
+            // Export all scenes except pads (mixer CAN be exported)
+            if (id !== 'pads') {
                 scenes[id] = {
                     name: scene.name,
                     type: scene.type,
