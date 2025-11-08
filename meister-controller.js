@@ -1357,6 +1357,12 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x36, [mute ? 1 : 0]);
     }
 
+    // SysEx: FX_SET_ROUTE (0x37) - Set FX routing
+    // route: 0=none, 1=master, 2=playback, 3=input
+    sendSysExFxSetRoute(deviceId, route) {
+        this.sendSysEx(deviceId, 0x37, [route & 0x7F]);
+    }
+
     // SysEx: JUMP_TO_PATTERN_ROW (0x46) - Immediate jump to pattern+row
     sendSysExJumpToPatternRow(deviceId, pattern, row) {
         this.sendSysEx(deviceId, 0x46, [pattern & 0x7F, row & 0x7F]);
