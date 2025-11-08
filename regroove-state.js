@@ -22,7 +22,7 @@ class RegrooveStateManager {
 
         // State polling
         this.statePollingInterval = null;
-        this.pollingIntervalMs = 500; // Poll every 500ms
+        this.pollingIntervalMs = 500; // Poll every 500ms (default - can be adjusted)
         this.targetDeviceIds = [0]; // Array of device IDs to poll
 
         // Connection watchdog
@@ -113,6 +113,8 @@ class RegrooveStateManager {
         const bpmLsb = data[11];
         const bpmMsb = data[12];
         const bpm = bpmLsb | (bpmMsb << 7); // Reconstruct BPM from 14-bit value
+        const masterPan = data[13]; // 0-127 (0=left, 64=center, 127=right)
+        const inputPan = data[14]; // 0-127 (0=left, 64=center, 127=right)
 
         // Extract playback state
         const playing = (flags & 0x01) !== 0;
@@ -125,31 +127,49 @@ class RegrooveStateManager {
         // Commented out to reduce console clutter
         // console.log(`[RegrooveState] Device ${deviceId} state: playing=${playing}, mode=${mode}, order=${order}, row=${row}, pattern=${pattern}, channels=${numChannels}`);
 
-        // Parse bit-packed mute data (now starts at byte 13)
+        // Parse bit-packed mute data (now starts at byte 15)
         const muteBytes = Math.ceil(numChannels / 8);
-        if (data.length < 13 + muteBytes) {
+        if (data.length < 15 + muteBytes) {
             console.warn('[RegrooveState] PLAYER_STATE_RESPONSE incomplete mute data');
             return;
         }
 
+        // Debug: Show mute bytes
+        const muteByteValues = [];
+        for (let i = 0; i < muteBytes; i++) {
+            muteByteValues.push('0x' + data[15 + i].toString(16).padStart(2, '0'));
+        }
+        console.log(`[Dev${deviceId}] Mute bytes (${numChannels} ch): [${muteByteValues.join(', ')}]`);
+
         const mutedChannels = [];
         for (let ch = 0; ch < numChannels; ch++) {
-            const byteIdx = 13 + Math.floor(ch / 8);
+            const byteIdx = 15 + Math.floor(ch / 8);
             const bitIdx = ch % 8;
             if (data[byteIdx] & (1 << bitIdx)) {
                 mutedChannels.push(ch);
             }
         }
 
+        console.log(`[Dev${deviceId}] Parsed muted channels: [${mutedChannels.join(', ')}]`);
+
         // Commented out to reduce console clutter
         // console.log(`[RegrooveState] Device ${deviceId} muted channels: [${mutedChannels.join(', ')}]`);
 
         // Parse channel volumes array
-        const volumeStartIdx = 13 + muteBytes;
+        const volumeStartIdx = 15 + muteBytes;
         const channelVolumes = [];
         if (data.length >= volumeStartIdx + numChannels) {
             for (let ch = 0; ch < numChannels; ch++) {
                 channelVolumes.push(data[volumeStartIdx + ch]);
+            }
+        }
+
+        // Parse channel panning array
+        const panStartIdx = volumeStartIdx + numChannels;
+        const channelPans = [];
+        if (data.length >= panStartIdx + numChannels) {
+            for (let ch = 0; ch < numChannels; ch++) {
+                channelPans.push(data[panStartIdx + ch]);
             }
         }
 
@@ -174,13 +194,16 @@ class RegrooveStateManager {
         deviceState.numChannels = numChannels;
         deviceState.masterVolume = masterVolume;
         deviceState.masterMute = masterMute;
+        deviceState.masterPan = masterPan; // 0-127 (0=left, 64=center, 127=right)
         deviceState.inputVolume = inputVolume;
         deviceState.inputMute = inputMute;
+        deviceState.inputPan = inputPan; // 0-127 (0=left, 64=center, 127=right)
         deviceState.fxRouting = fxRouting;
         deviceState.stereoSeparation = stereoSeparation; // 0-127 (maps to 0-200)
         deviceState.bpm = bpm; // 14-bit BPM value (0-16383)
         deviceState.mutedChannels = mutedChannels;
         deviceState.channelVolumes = channelVolumes;
+        deviceState.channelPans = channelPans; // Array of pan values (0-127)
         deviceState.lastUpdate = Date.now();
         // Note: soloedChannels is NOT updated here - it's tracked locally only
 

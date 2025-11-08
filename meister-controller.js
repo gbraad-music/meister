@@ -130,7 +130,7 @@ class MeisterController {
             this.currentPosition = rawPosition % 64;
 
             this.updatePositionBar();
-            console.log(`SPP Received: ${rawPosition} -> Position in pattern: ${this.currentPosition} (row ${this.currentPosition})`);
+            // console.log(`SPP Received: ${rawPosition} -> Position in pattern: ${this.currentPosition} (row ${this.currentPosition})`);
         }
 
         // MIDI Clock (0xF8) - could be used for position tracking
@@ -303,6 +303,11 @@ class MeisterController {
 
         // Save config
         document.getElementById('save-config').addEventListener('click', () => {
+            if (!this.sceneEditor) {
+                console.warn('[Config] SceneEditor not yet initialized');
+                alert('Please wait for the app to fully load before saving configuration.');
+                return;
+            }
             this.downloadConfig();
         });
 
@@ -391,6 +396,23 @@ class MeisterController {
 
             if (this.receiveSPP) {
                 this.createSequencerButtons();
+            }
+
+            this.saveConfig();
+        });
+
+        // Polling interval control
+        document.getElementById('polling-interval')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('polling-interval-value').textContent = value + 'ms';
+
+            // Update polling interval
+            this.regrooveState.pollingIntervalMs = value;
+
+            // Restart polling if currently active
+            if (this.regrooveState.statePollingInterval) {
+                this.regrooveState.stopPolling();
+                this.regrooveState.startPolling(this.regrooveState.targetDeviceIds);
             }
 
             this.saveConfig();
@@ -1388,6 +1410,24 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x57, [separation & 0x7F]);
     }
 
+    // SysEx: CHANNEL_PANNING (0x58) - Set channel panning
+    // channel: 0-63, panning: 0-127 (0=left, 64=center, 127=right)
+    sendSysExChannelPanning(deviceId, channel, panning) {
+        this.sendSysEx(deviceId, 0x58, [channel & 0x7F, panning & 0x7F]);
+    }
+
+    // SysEx: MASTER_PANNING (0x59) - Set master output panning
+    // panning: 0-127 (0=left, 64=center, 127=right)
+    sendSysExMasterPanning(deviceId, panning) {
+        this.sendSysEx(deviceId, 0x59, [panning & 0x7F]);
+    }
+
+    // SysEx: INPUT_PANNING (0x5A) - Set audio input panning
+    // panning: 0-127 (0=left, 64=center, 127=right)
+    sendSysExInputPanning(deviceId, panning) {
+        this.sendSysEx(deviceId, 0x5A, [panning & 0x7F]);
+    }
+
     // SysEx: JUMP_TO_PATTERN_ROW (0x46) - Immediate jump to pattern+row
     sendSysExJumpToPatternRow(deviceId, pattern, row) {
         this.sendSysEx(deviceId, 0x46, [pattern & 0x7F, row & 0x7F]);
@@ -1550,7 +1590,7 @@ class MeisterController {
         const buttons = document.querySelectorAll('.seq-button');
         const currentBeat = Math.floor(this.currentPosition / 4);
 
-        console.log(`Updating position bar: position ${this.currentPosition}, beat ${currentBeat}`);
+        // console.log(`Updating position bar: position ${this.currentPosition}, beat ${currentBeat}`);
 
         buttons.forEach((button, index) => {
             if (index === currentBeat) {
@@ -1593,6 +1633,7 @@ class MeisterController {
             this.config.clockBPM = this.clockBPM;
             this.config.receiveSPP = this.receiveSPP;
             this.config.useWAAClock = this.useWAAClock;
+            this.config.pollingIntervalMs = this.regrooveState.pollingIntervalMs;
 
             // Save MIDI output selection
             if (this.midiOutput) {
@@ -1626,10 +1667,22 @@ class MeisterController {
                 this.receiveSPP = this.config.receiveSPP || false;
                 this.useWAAClock = this.config.useWAAClock || false;
 
+                // Load polling interval
+                if (this.config.pollingIntervalMs !== undefined) {
+                    this.regrooveState.pollingIntervalMs = this.config.pollingIntervalMs;
+                }
+
                 document.getElementById('clock-master').checked = this.clockMaster;
                 document.getElementById('clock-bpm').value = this.clockBPM;
                 document.getElementById('receive-spp').checked = this.receiveSPP;
                 document.getElementById('use-waaclock').checked = this.useWAAClock;
+
+                // Update polling interval UI
+                const pollingSlider = document.getElementById('polling-interval');
+                if (pollingSlider) {
+                    pollingSlider.value = this.regrooveState.pollingIntervalMs;
+                    document.getElementById('polling-interval-value').textContent = this.regrooveState.pollingIntervalMs + 'ms';
+                }
 
                 const sequencer = document.getElementById('position-sequencer');
                 sequencer.style.display = this.receiveSPP ? 'flex' : 'none';
@@ -1657,9 +1710,15 @@ class MeisterController {
             try {
                 const fullConfig = JSON.parse(e.target.result);
 
+                console.log('[Config] Loading config from file...');
+                console.log('[Config] sceneEditor before import:', !!this.sceneEditor, typeof this.sceneEditor);
+
                 // Extract main config (everything except devices and customScenes)
                 const { devices, customScenes, ...config } = fullConfig;
-                this.config = config;
+
+                // Merge with existing config instead of replacing entirely
+                // This preserves any runtime properties
+                Object.assign(this.config, config);
 
                 // Restore device manager data
                 if (devices && this.deviceManager) {
@@ -1693,8 +1752,15 @@ class MeisterController {
 
                 // Restore custom scenes
                 if (customScenes && this.sceneEditor) {
-                    console.log('[Config] Restoring custom scenes...');
-                    this.sceneEditor.loadCustomScenes(customScenes);
+                    try {
+                        console.log('[Config] Restoring custom scenes...');
+                        console.log('[Config] sceneEditor type:', typeof this.sceneEditor);
+                        console.log('[Config] loadCustomScenes type:', typeof this.sceneEditor.loadCustomScenes);
+                        this.sceneEditor.loadCustomScenes(customScenes);
+                    } catch (sceneError) {
+                        console.error('[Config] Error restoring custom scenes:', sceneError);
+                        alert('Warning: Could not restore custom mixer scenes. Pads and devices were loaded successfully.');
+                    }
                 }
 
                 // Apply to UI
@@ -1713,6 +1779,8 @@ class MeisterController {
                 this.applyGridLayout();
                 this.saveConfig();
 
+                console.log('[Config] sceneEditor after import:', !!this.sceneEditor, typeof this.sceneEditor);
+                console.log('[Config] sceneEditor.getCustomScenes:', this.sceneEditor && typeof this.sceneEditor.getCustomScenes);
                 console.log('[Config] Configuration loaded from file');
                 alert('Configuration loaded successfully!');
             } catch (err) {
@@ -1724,6 +1792,10 @@ class MeisterController {
     }
 
     downloadConfig() {
+        console.log('[Config] Downloading config...');
+        console.log('[Config] sceneEditor exists:', !!this.sceneEditor);
+        console.log('[Config] getCustomScenes is function:', this.sceneEditor && typeof this.sceneEditor.getCustomScenes === 'function');
+
         // Create a complete config bundle with all settings
         const fullConfig = {
             ...this.config,
@@ -1736,7 +1808,9 @@ class MeisterController {
                 defaultDeviceId: this.deviceManager.defaultDeviceId
             } : null,
             // Include custom scenes from scene editor
-            customScenes: this.sceneEditor ? this.sceneEditor.getCustomScenes() : null
+            customScenes: (this.sceneEditor && typeof this.sceneEditor.getCustomScenes === 'function')
+                ? this.sceneEditor.getCustomScenes()
+                : null
         };
 
         const configJson = JSON.stringify(fullConfig, null, 2);

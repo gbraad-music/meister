@@ -348,8 +348,11 @@ export class SceneManager {
                 });
 
                 fader.addEventListener('pan-change', (e) => {
-                    console.log('[Mix] Pan:', e.detail.value);
-                    // TODO: Send master pan CC
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // Convert from -100..100 to 0..127 (64 = center)
+                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    console.log(`[Dev${deviceId} Mix] Pan: ${e.detail.value} -> ${panValue}`);
+                    this.handleMasterPan(deviceId, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
@@ -393,8 +396,10 @@ export class SceneManager {
 
                 fader.addEventListener('pan-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan:`, e.detail.value);
-                    // TODO: Send channel pan CC
+                    // Convert from -100..100 to 0..127 (64 = center)
+                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan: ${e.detail.value} -> ${panValue}`);
+                    this.handleChannelPan(deviceId, e.detail.channel, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
@@ -430,6 +435,14 @@ export class SceneManager {
                     // INPUT fader: toggle between 3 (input) and 0 (off)
                     const route = e.detail.enabled ? 3 : 0;
                     this.handleFxRouting(deviceId, route);
+                });
+
+                fader.addEventListener('pan-change', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // Convert from -100..100 to 0..127 (64 = center)
+                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    console.log(`[Dev${deviceId} Input] Pan: ${e.detail.value} -> ${panValue}`);
+                    this.handleInputPan(deviceId, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
@@ -590,6 +603,46 @@ export class SceneManager {
     }
 
     /**
+     * Handle channel panning
+     */
+    handleChannelPan(deviceId, channel, pan) {
+        // Send SysEx CHANNEL_PANNING (0x58) command
+        // pan: 0-127 value (0=left, 64=center, 127=right)
+        console.log(`[Dev${deviceId}] Sending CH${channel} pan=${pan} via SysEx 0x58`);
+        if (this.controller.sendSysExChannelPanning) {
+            this.controller.sendSysExChannelPanning(deviceId, channel, pan);
+        } else {
+            console.warn(`[Dev${deviceId}] Channel panning SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle master panning
+     */
+    handleMasterPan(deviceId, pan) {
+        // Send SysEx MASTER_PANNING (0x59) command
+        console.log(`[Dev${deviceId}] Sending Master pan=${pan} via SysEx 0x59`);
+        if (this.controller.sendSysExMasterPanning) {
+            this.controller.sendSysExMasterPanning(deviceId, pan);
+        } else {
+            console.warn(`[Dev${deviceId}] Master panning SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle input panning
+     */
+    handleInputPan(deviceId, pan) {
+        // Send SysEx INPUT_PANNING (0x5A) command
+        console.log(`[Dev${deviceId}] Sending Input pan=${pan} via SysEx 0x5A`);
+        if (this.controller.sendSysExInputPanning) {
+            this.controller.sendSysExInputPanning(deviceId, pan);
+        } else {
+            console.warn(`[Dev${deviceId}] Input panning SysEx command not available`);
+        }
+    }
+
+    /**
      * Handle FX routing
      * FX routing is mutex: 0=none, 1=master, 2=playback, 3=input
      * Each fader sets its own route or turns off
@@ -695,6 +748,11 @@ export class SceneManager {
                 if (deviceState.inputMute !== undefined) {
                     mixFader.setAttribute('muted', deviceState.inputMute ? 'true' : 'false');
                 }
+                if (deviceState.inputPan !== undefined) {
+                    // Convert from 0..127 to -100..100 (64 = center = 0)
+                    const panValue = Math.round(((deviceState.inputPan / 127) * 200) - 100);
+                    mixFader.setAttribute('pan', panValue.toString());
+                }
                 // Update FX routing state - INPUT fader: yellow if route=3, red if route=1/2, off if route=0
                 if (deviceState.fxRouting !== undefined) {
                     let fxState = 'false';
@@ -711,19 +769,23 @@ export class SceneManager {
                 if (deviceState.masterVolume !== undefined) {
                     mixFader.setAttribute('volume', deviceState.masterVolume.toString());
                     mixFader.setAttribute('muted', deviceState.masterMute ? 'true' : 'false');
-
-                    // Update FX routing state - MASTER fader: yellow if route=1, red if route=2/3, off if route=0
-                    if (deviceState.fxRouting !== undefined) {
-                        let fxState = 'false';
-                        if (deviceState.fxRouting === 1) {
-                            fxState = 'active'; // Yellow - enabled for master
-                        } else if (deviceState.fxRouting !== 0) {
-                            fxState = 'warning'; // Red - enabled elsewhere
-                        }
-                        mixFader.setAttribute('fx', fxState);
-                        // Store the current route for toggle logic
-                        mixFader.dataset.fxRoute = deviceState.fxRouting.toString();
+                }
+                if (deviceState.masterPan !== undefined) {
+                    // Convert from 0..127 to -100..100 (64 = center = 0)
+                    const panValue = Math.round(((deviceState.masterPan / 127) * 200) - 100);
+                    mixFader.setAttribute('pan', panValue.toString());
+                }
+                // Update FX routing state - MASTER fader: yellow if route=1, red if route=2/3, off if route=0
+                if (deviceState.fxRouting !== undefined) {
+                    let fxState = 'false';
+                    if (deviceState.fxRouting === 1) {
+                        fxState = 'active'; // Yellow - enabled for master
+                    } else if (deviceState.fxRouting !== 0) {
+                        fxState = 'warning'; // Red - enabled elsewhere
                     }
+                    mixFader.setAttribute('fx', fxState);
+                    // Store the current route for toggle logic
+                    mixFader.dataset.fxRoute = deviceState.fxRouting.toString();
                 }
             }
         });
@@ -752,6 +814,13 @@ export class SceneManager {
             // Update volume if available
             if (deviceState.channelVolumes && deviceState.channelVolumes[channel] !== undefined) {
                 fader.setAttribute('volume', deviceState.channelVolumes[channel].toString());
+            }
+
+            // Update pan if available
+            if (deviceState.channelPans && deviceState.channelPans[channel] !== undefined) {
+                // Convert from 0..127 to -100..100 (64 = center = 0)
+                const panValue = Math.round(((deviceState.channelPans[channel] / 127) * 200) - 100);
+                fader.setAttribute('pan', panValue.toString());
             }
         });
 
