@@ -186,15 +186,18 @@ export class DeviceManager {
 
         if (!newName) return;
 
-        const newChannel = parseInt(prompt(
-            `MIDI Channel (0-15):`,
-            midiChannel.toString()
+        const newChannelInput = parseInt(prompt(
+            `MIDI Channel (1-16):`,
+            (midiChannel + 1).toString()
         ));
 
-        if (isNaN(newChannel) || newChannel < 0 || newChannel > 15) {
-            alert('Invalid MIDI channel. Must be 0-15.');
+        if (isNaN(newChannelInput) || newChannelInput < 1 || newChannelInput > 16) {
+            alert('Invalid MIDI channel. Must be 1-16.');
             return;
         }
+
+        // Convert from one-based (user input) to zero-based (internal storage)
+        const newChannel = newChannelInput - 1;
 
         const newDeviceId = parseInt(prompt(
             `SysEx Device ID (0-15):`,

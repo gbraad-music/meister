@@ -1413,6 +1413,56 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x43, [enable ? 1 : 0]);
     }
 
+    // SysEx: PING (0x01) - Device discovery/heartbeat
+    sendSysExPing(deviceId) {
+        this.sendSysEx(deviceId, 0x01, []);
+    }
+
+    // SysEx: CHANNEL_VOLUME (0x32)
+    sendSysExChannelVolume(deviceId, channel, volume) {
+        this.sendSysEx(deviceId, 0x32, [channel & 0x7F, volume & 0x7F]);
+    }
+
+    // SysEx: JUMP_TO_PATTERN_ROW (0x46) - Immediate jump to pattern+row
+    sendSysExJumpToPatternRow(deviceId, pattern, row) {
+        this.sendSysEx(deviceId, 0x46, [pattern & 0x7F, row & 0x7F]);
+    }
+
+    // SysEx: SET_LOOP_RANGE (0x41) - Set loop: start_order, start_row, end_order, end_row
+    sendSysExSetLoopRange(deviceId, startOrder, startRow, endOrder, endRow) {
+        this.sendSysEx(deviceId, 0x41, [startOrder & 0x7F, startRow & 0x7F, endOrder & 0x7F, endRow & 0x7F]);
+    }
+
+    // SysEx: SET_LOOP_ORDER (0x44) - Loop specific order number
+    sendSysExSetLoopOrder(deviceId, orderNumber) {
+        this.sendSysEx(deviceId, 0x44, [orderNumber & 0x7F]);
+    }
+
+    // SysEx: SET_LOOP_PATTERN (0x45) - Loop specific pattern number
+    sendSysExSetLoopPattern(deviceId, patternNumber) {
+        this.sendSysEx(deviceId, 0x45, [patternNumber & 0x7F]);
+    }
+
+    // SysEx: SET_TEMPO (0x42) - Set playback tempo (BPM as 16-bit value, sent as two 7-bit bytes)
+    sendSysExSetTempo(deviceId, bpm) {
+        this.sendSysEx(deviceId, 0x42, [bpm & 0x7F, (bpm >> 7) & 0x7F]);
+    }
+
+    // SysEx: TRIGGER_PHRASE (0x50) - Trigger phrase by index
+    sendSysExTriggerPhrase(deviceId, phraseIndex) {
+        this.sendSysEx(deviceId, 0x50, [phraseIndex & 0x7F]);
+    }
+
+    // SysEx: TRIGGER_LOOP (0x51) - Trigger saved loop range by index
+    sendSysExTriggerLoop(deviceId, loopIndex) {
+        this.sendSysEx(deviceId, 0x51, [loopIndex & 0x7F]);
+    }
+
+    // SysEx: TRIGGER_PAD (0x52) - Trigger application/song pad by index
+    sendSysExTriggerPad(deviceId, padIndex) {
+        this.sendSysEx(deviceId, 0x52, [padIndex & 0x7F]);
+    }
+
     // MIDI Clock Master functions
     startClock() {
         if (!this.midiOutput) {
