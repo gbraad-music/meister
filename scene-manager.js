@@ -22,8 +22,9 @@ export class SceneManager {
 
     /**
      * Register default scene configurations
+     * loadSaved: if true, skip registering mixer if it's saved in localStorage
      */
-    registerDefaultScenes() {
+    registerDefaultScenes(loadSaved = false) {
         // Pads scene (always available - grid layout)
         this.scenes.set('pads', {
             name: 'Pads',
@@ -31,39 +32,42 @@ export class SceneManager {
             render: () => this.renderPadsScene()
         });
 
-        // Mixer scene - customizable layout with 2 rows
-        this.scenes.set('mixer', {
-            name: 'Mixer',
-            type: 'slider',
-            rows: 2,
-            columnsPerRow: 8,
-            pollDevices: [0], // Poll these device IDs (will be updated dynamically)
-            pollInterval: 100,
-            slots: [
-                // Row 1 - Channels
-                { type: 'CHANNEL', channel: 0, label: 'CH1', deviceBinding: null },
-                { type: 'CHANNEL', channel: 1, label: 'CH2', deviceBinding: null },
-                { type: 'CHANNEL', channel: 2, label: 'CH3', deviceBinding: null },
-                { type: 'CHANNEL', channel: 3, label: 'CH4', deviceBinding: null },
-                { type: 'EMPTY' },
-                { type: 'DIVIDER', label: '' },
-                { type: 'EMPTY' },
-                { type: 'TEMPO', label: 'BPM', deviceBinding: null },
+        // Only register default mixer if we're not loading a saved one
+        if (!loadSaved || !this.scenes.has('mixer')) {
+            // Mixer scene - customizable layout with 2 rows
+            this.scenes.set('mixer', {
+                name: 'Mixer',
+                type: 'slider',
+                rows: 2,
+                columnsPerRow: 8,
+                pollDevices: [0], // Poll these device IDs (will be updated dynamically)
+                pollInterval: 100,
+                slots: [
+                    // Row 1 - Channels
+                    { type: 'CHANNEL', channel: 0, label: 'CH1', deviceBinding: null },
+                    { type: 'CHANNEL', channel: 1, label: 'CH2', deviceBinding: null },
+                    { type: 'CHANNEL', channel: 2, label: 'CH3', deviceBinding: null },
+                    { type: 'CHANNEL', channel: 3, label: 'CH4', deviceBinding: null },
+                    { type: 'EMPTY' },
+                    { type: 'DIVIDER', label: '' },
+                    { type: 'EMPTY' },
+                    { type: 'TEMPO', label: 'BPM', deviceBinding: null },
 
-                // Row 2 - Master controls
-                { type: 'MIX', label: 'Master', deviceBinding: null },
-                { type: 'INPUT', label: 'Input', deviceBinding: null },
-                { type: 'EMPTY' },
-                { type: 'EMPTY' },
-                { type: 'EMPTY' },
-                { type: 'EMPTY' },
-                { type: 'EMPTY' },
-                { type: 'EMPTY' }
-            ],
-            // Backward compatibility: keep columns property
-            columns: [],
-            render: () => this.renderSliderScene('mixer')
-        });
+                    // Row 2 - Master controls
+                    { type: 'MIX', label: 'Master', deviceBinding: null },
+                    { type: 'INPUT', label: 'Input', deviceBinding: null },
+                    { type: 'EMPTY' },
+                    { type: 'EMPTY' },
+                    { type: 'EMPTY' },
+                    { type: 'EMPTY' },
+                    { type: 'EMPTY' },
+                    { type: 'EMPTY' }
+                ],
+                // Backward compatibility: keep columns property
+                columns: [],
+                render: () => this.renderSliderScene('mixer')
+            });
+        }
 
     }
 
@@ -107,12 +111,16 @@ export class SceneManager {
             scene.render = () => this.renderPadsScene();
         } else if (config.type === 'slider') {
             scene.rows = config.rows || 1;
-            scene.columns = config.columns || [];
+            scene.columnsPerRow = config.columnsPerRow;
+            scene.slots = config.slots || [];
+            scene.columns = config.columns || []; // Backward compatibility
+            scene.pollDevices = config.pollDevices || [];
+            scene.pollInterval = config.pollInterval || 100;
             scene.render = () => this.renderSliderScene(id);
         }
 
         this.scenes.set(id, scene);
-        console.log(`[Scene] Added scene: ${config.name} (${config.type})`);
+        console.log(`[Scene] Added scene: ${config.name} (${config.type}), slots: ${scene.slots?.length || 0}`);
     }
 
     /**
@@ -219,6 +227,9 @@ export class SceneManager {
 
                 container.appendChild(rowContainer);
             }
+
+            // Apply current device state to faders after rendering
+            this.applyCurrentDeviceStates();
             return;
         }
 
@@ -226,6 +237,27 @@ export class SceneManager {
         items.forEach(item => {
             const fader = this.createFader(item);
             if (fader) container.appendChild(fader);
+        });
+
+        // Apply current device state to faders after rendering
+        this.applyCurrentDeviceStates();
+    }
+
+    /**
+     * Apply current device states to all faders
+     */
+    applyCurrentDeviceStates() {
+        if (!this.controller.regrooveState) return;
+
+        // Get all device IDs that have state
+        const deviceIds = this.controller.regrooveState.getAllDeviceIds();
+
+        // Update faders for each device
+        deviceIds.forEach(deviceId => {
+            const state = this.controller.regrooveState.getDeviceState(deviceId);
+            if (state) {
+                this.updateMixerFromDeviceState(deviceId, state);
+            }
         });
     }
 
@@ -260,7 +292,8 @@ export class SceneManager {
     createFader(column) {
         let fader;
 
-        if (column.type === 'EMPTY') {
+        // Handle null/undefined columns (empty slots)
+        if (!column || column.type === 'EMPTY') {
             // Empty placeholder
             fader = document.createElement('div');
             fader.style.width = '80px';
@@ -284,9 +317,20 @@ export class SceneManager {
         // Resolve device binding to actual device config
         const deviceConfig = this.resolveDeviceBinding(column.deviceBinding);
 
+        // Get device name for label
+        let deviceName = '';
+        if (column.deviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(column.deviceBinding);
+            if (device) {
+                deviceName = device.name;
+            }
+        }
+
         if (column.type === 'MIX') {
                 fader = document.createElement('mix-fader');
-                fader.setAttribute('label', column.label);
+                // Include device name in label
+                const label = deviceName ? `${column.label}\n${deviceName}` : column.label;
+                fader.setAttribute('label', label);
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('fx', 'false');
@@ -324,6 +368,10 @@ export class SceneManager {
             } else if (column.type === 'CHANNEL') {
                 fader = document.createElement('channel-fader');
                 fader.setAttribute('channel', column.channel);
+                // Store device name for display
+                if (deviceName) {
+                    fader.dataset.deviceName = deviceName;
+                }
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('solo', 'false');
@@ -365,7 +413,9 @@ export class SceneManager {
             } else if (column.type === 'INPUT') {
                 // Input fader (similar to MIX but for input channel)
                 fader = document.createElement('mix-fader');
-                fader.setAttribute('label', column.label || 'Input');
+                // Include device name in label
+                const inputLabel = deviceName ? `${column.label || 'Input'}\n${deviceName}` : (column.label || 'Input');
+                fader.setAttribute('label', inputLabel);
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('fx', 'false');
@@ -450,6 +500,7 @@ export class SceneManager {
     handleChannelVolume(deviceId, channel, volume) {
         // Send SysEx CHANNEL_VOLUME (0x32) command
         // volume: 0-127 value from the fader
+        console.log(`[Dev${deviceId}] Sending CH${channel} volume=${volume} via SysEx 0x32`);
         if (this.controller.sendSysExChannelVolume) {
             this.controller.sendSysExChannelVolume(deviceId, channel, volume);
         } else {
@@ -462,6 +513,7 @@ export class SceneManager {
      */
     handleMasterVolume(deviceId, volume) {
         // Send SysEx MASTER_VOLUME (0x33) command
+        console.log(`[Dev${deviceId}] Sending Master volume=${volume} via SysEx 0x33`);
         if (this.controller.sendSysExMasterVolume) {
             this.controller.sendSysExMasterVolume(deviceId, volume);
         } else {
@@ -486,6 +538,7 @@ export class SceneManager {
      */
     handleInputVolume(deviceId, volume) {
         // Send SysEx INPUT_VOLUME (0x35) command
+        console.log(`[Dev${deviceId}] Sending Input volume=${volume} via SysEx 0x35`);
         if (this.controller.sendSysExInputVolume) {
             this.controller.sendSysExInputVolume(deviceId, volume);
         } else {
@@ -578,6 +631,12 @@ export class SceneManager {
             const faderDeviceId = parseInt(mixFader.dataset.deviceId || 0);
             if (faderDeviceId !== deviceId) return;
 
+            // Check if user is currently dragging this fader's slider
+            const volumeSlider = mixFader.shadowRoot?.getElementById('volume-slider');
+            if (volumeSlider && volumeSlider.isDragging) {
+                return; // Skip update while user is dragging
+            }
+
             const isInputFader = mixFader.dataset.inputFader === 'true';
 
             if (isInputFader) {
@@ -610,6 +669,12 @@ export class SceneManager {
         channelFaders.forEach(fader => {
             const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
             if (faderDeviceId !== deviceId) return; // Skip faders for other devices
+
+            // Check if user is currently dragging this fader's slider
+            const volumeSlider = fader.shadowRoot?.getElementById('volume-slider');
+            if (volumeSlider && volumeSlider.isDragging) {
+                return; // Skip update while user is dragging
+            }
 
             const channel = parseInt(fader.getAttribute('channel'));
 

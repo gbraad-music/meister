@@ -268,10 +268,14 @@ class ChannelFader extends BaseFader {
         const pan = parseInt(this.getAttribute('pan') || '0');
         const solo = this.getAttribute('solo') === 'true';
         const muted = this.getAttribute('muted') === 'true';
+        const deviceName = this.dataset.deviceName || '';
+
+        // Create label with optional device name
+        const labelText = deviceName ? `CH ${channel + 1}<br><span style="font-size: 0.8em; opacity: 0.7;">${deviceName}</span>` : `CH ${channel + 1}`;
 
         this.shadowRoot.innerHTML = `
             <style>${this.getBaseStyles()}</style>
-            <div class="fader-label">CH ${channel + 1}</div>
+            <div class="fader-label">${labelText}</div>
             <button class="fader-button ${solo ? 'active' : ''}" id="solo-btn">S</button>
             <div class="pan-container">
                 <div class="pan-indicator"></div>

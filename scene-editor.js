@@ -290,6 +290,9 @@ export class SceneEditor {
         this.sceneConfig.name = name;
         const [rows, cols] = this.sceneConfig.layout.split('x').map(Number);
 
+        console.log(`[SceneEditor] Saving scene "${name}" with ${rows}x${cols} layout`);
+        console.log(`[SceneEditor] Faders:`, this.sceneConfig.faders);
+
         // Collect all device IDs from faders for polling
         const deviceIds = new Set();
         this.sceneConfig.faders.forEach(fader => {
@@ -312,8 +315,11 @@ export class SceneEditor {
             columnsPerRow: cols,
             slots: this.sceneConfig.faders.slice(0, rows * cols), // Include all slots (even nulls/empty)
             pollDevices: Array.from(deviceIds),
-            pollInterval: 100
+            pollInterval: 100,
+            render: () => this.sceneManager.renderSliderScene(this.currentSceneId) // Add render function!
         };
+
+        console.log(`[SceneEditor] Scene config:`, sceneConfig);
 
         // Add scene to scene manager
         this.sceneManager.addScene(this.currentSceneId, sceneConfig);
@@ -323,6 +329,12 @@ export class SceneEditor {
 
         // Refresh scenes list
         this.refreshScenesList();
+
+        // If we're currently viewing this scene, re-render it
+        if (this.sceneManager.currentScene === this.currentSceneId) {
+            console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
+            this.sceneManager.switchScene(this.currentSceneId);
+        }
 
         alert(`Scene "${name}" saved!`);
         this.closeSceneEditor();
@@ -345,7 +357,8 @@ export class SceneEditor {
     saveScenesToStorage() {
         const scenes = {};
         this.sceneManager.scenes.forEach((scene, id) => {
-            if (id !== 'pads' && id !== 'mixer') {
+            // Save all scenes except pads (mixer CAN be saved now)
+            if (id !== 'pads') {
                 scenes[id] = {
                     name: scene.name,
                     type: scene.type,
@@ -360,7 +373,7 @@ export class SceneEditor {
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
-        console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} custom scene(s) to localStorage`);
+        console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} scene(s) to localStorage`);
     }
 
     loadScenesFromStorage() {
@@ -368,9 +381,16 @@ export class SceneEditor {
             const saved = localStorage.getItem('meisterScenes');
             if (saved) {
                 const scenes = JSON.parse(saved);
+
+                // Load saved scenes BEFORE registering defaults
+                // This allows saved mixer scene to override the default
                 Object.entries(scenes).forEach(([id, config]) => {
+                    console.log(`[SceneEditor] Loading saved scene: ${id}`);
                     this.sceneManager.addScene(id, config);
                 });
+
+                // Re-register defaults with loadSaved=true to skip mixer if saved
+                this.sceneManager.registerDefaultScenes(true);
             }
         } catch (e) {
             console.error('Failed to load scenes from storage:', e);
