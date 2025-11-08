@@ -175,10 +175,14 @@ export class SceneEditor {
         switch(fader.type) {
             case 'MIX':
                 return `MIX<br>${fader.label || 'Master'}<br>${deviceName}`;
+            case 'INPUT':
+                return `INPUT<br>${fader.label || 'Input'}<br>${deviceName}`;
             case 'CHANNEL':
                 return `CH ${fader.channel + 1}<br>${deviceName}`;
             case 'TEMPO':
                 return `TEMPO<br>${deviceName}`;
+            case 'STEREO':
+                return `STEREO<br>${deviceName}`;
             case 'EMPTY':
                 return 'EMPTY';
             default:
@@ -241,7 +245,7 @@ export class SceneEditor {
         const channelField = document.getElementById('fader-channel-field');
         const deviceField = document.getElementById('fader-device-field');
 
-        labelField.style.display = type === 'MIX' ? 'block' : 'none';
+        labelField.style.display = (type === 'MIX' || type === 'INPUT') ? 'block' : 'none';
         channelField.style.display = type === 'CHANNEL' ? 'block' : 'none';
         deviceField.style.display = (type !== 'EMPTY') ? 'block' : 'none';
     }
@@ -262,9 +266,12 @@ export class SceneEditor {
 
             if (type === 'MIX') {
                 fader.label = document.getElementById('fader-label').value || 'Master';
+            } else if (type === 'INPUT') {
+                fader.label = document.getElementById('fader-label').value || 'Input';
             } else if (type === 'CHANNEL') {
                 fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
             }
+            // TEMPO and STEREO don't need additional fields
 
             this.sceneConfig.faders[this.editingSlotIndex] = fader;
         }

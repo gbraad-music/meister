@@ -416,14 +416,87 @@ class TempoFader extends BaseFader {
         tempoSlider?.addEventListener('input', (e) => {
             const value = e.detail?.value ?? e.target?.value;
             this.setAttribute('bpm', value);
+            // Mark that we're actively changing the tempo
+            this.dataset.tempoChanging = 'true';
+            clearTimeout(this._tempoChangeTimeout);
+            this._tempoChangeTimeout = setTimeout(() => {
+                delete this.dataset.tempoChanging;
+            }, 300); // 300ms debounce to prevent state updates during drag
             this.dispatchEvent(new CustomEvent('tempo-change', {
                 detail: { bpm: parseInt(value) }
             }));
         });
 
         resetBtn?.addEventListener('click', () => {
-            this.setAttribute('bpm', '120');
-            this.dispatchEvent(new CustomEvent('tempo-reset', { detail: { bpm: 120 } }));
+            this.setAttribute('bpm', '125');
+            this.dispatchEvent(new CustomEvent('tempo-reset', { detail: { bpm: 125 } }));
+        });
+    }
+}
+
+/**
+ * STEREO SEPARATION Fader Component
+ * Format: Just slider with reset button
+ * Range: 0-127 (maps to 0-200, where 64≈100=normal)
+ */
+class StereoFader extends BaseFader {
+    constructor() {
+        super();
+        this.render();
+    }
+
+    static get observedAttributes() {
+        return ['separation'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue) {
+            this.render();
+        }
+    }
+
+    render() {
+        const separation = parseInt(this.getAttribute('separation') || '64'); // Default to 64 (≈100 = normal)
+
+        this.shadowRoot.innerHTML = `
+            <style>${this.getBaseStyles()}</style>
+            <div class="fader-label">STEREO</div>
+            <button class="fader-button" style="visibility: hidden;">S</button>
+            <div class="pan-container">
+                <div class="pan-indicator" style="visibility: hidden;"></div>
+                <input type="range" class="pan-slider" style="visibility: hidden;"
+                       min="-100" max="100" value="0" step="1">
+            </div>
+            <div class="slider-container">
+                <svg-slider id="stereo-slider" min="0" max="127" value="${separation}" width="60"></svg-slider>
+            </div>
+            <button class="fader-button" id="reset-btn">R</button>
+        `;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const stereoSlider = this.shadowRoot.getElementById('stereo-slider');
+        const resetBtn = this.shadowRoot.getElementById('reset-btn');
+
+        stereoSlider?.addEventListener('input', (e) => {
+            const value = e.detail?.value ?? e.target?.value;
+            this.setAttribute('separation', value);
+            // Mark that we're actively changing the separation
+            this.dataset.separationChanging = 'true';
+            clearTimeout(this._separationChangeTimeout);
+            this._separationChangeTimeout = setTimeout(() => {
+                delete this.dataset.separationChanging;
+            }, 300); // 300ms debounce to prevent state updates during drag
+            this.dispatchEvent(new CustomEvent('separation-change', {
+                detail: { separation: parseInt(value) }
+            }));
+        });
+
+        resetBtn?.addEventListener('click', () => {
+            this.setAttribute('separation', '64'); // Reset to 64 (≈100 = normal stereo)
+            this.dispatchEvent(new CustomEvent('separation-reset', { detail: { separation: 64 } }));
         });
     }
 }
@@ -432,5 +505,6 @@ class TempoFader extends BaseFader {
 customElements.define('mix-fader', MixFader);
 customElements.define('channel-fader', ChannelFader);
 customElements.define('tempo-fader', TempoFader);
+customElements.define('stereo-fader', StereoFader);
 
 export { MixFader, ChannelFader, TempoFader };

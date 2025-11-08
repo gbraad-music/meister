@@ -197,9 +197,9 @@ export class SceneManager {
         // Clear grid and switch to fader layout
         container.style.display = 'flex';
         container.style.flexDirection = rows > 1 ? 'column' : 'row';
-        container.style.gap = rows > 1 ? '20px' : '0';
+        container.style.gap = rows > 1 ? '20px' : '20px';
         container.style.padding = '10px';
-        container.style.justifyContent = 'center';
+        container.style.justifyContent = 'space-evenly';
         container.style.alignItems = 'stretch';
         container.style.height = 'calc(100vh - 60px)';
         container.innerHTML = '';
@@ -210,8 +210,8 @@ export class SceneManager {
                 const rowContainer = document.createElement('div');
                 rowContainer.style.display = 'flex';
                 rowContainer.style.flexDirection = 'row';
-                rowContainer.style.gap = '0';
-                rowContainer.style.justifyContent = 'center';
+                rowContainer.style.gap = '20px';
+                rowContainer.style.justifyContent = 'space-evenly';
                 rowContainer.style.alignItems = 'stretch';
                 rowContainer.style.flex = '1';
                 rowContainer.style.minHeight = '0'; // Important for flex children
@@ -297,7 +297,7 @@ export class SceneManager {
             // Empty placeholder
             fader = document.createElement('div');
             fader.style.width = '80px';
-            fader.style.margin = '0 8px';
+            fader.style.margin = '0';
             return fader;
         }
 
@@ -306,7 +306,7 @@ export class SceneManager {
             fader = document.createElement('div');
             fader.style.width = '2px';
             fader.style.background = 'var(--border-color, #333)';
-            fader.style.margin = '10px 15px';
+            fader.style.margin = '10px 0';
             fader.style.alignSelf = 'stretch';
             if (column.label) {
                 fader.title = column.label;
@@ -452,13 +452,35 @@ export class SceneManager {
 
                 // Event listeners for tempo fader
                 fader.addEventListener('tempo-change', (e) => {
-                    console.log('[Tempo] BPM:', e.detail.bpm);
-                    this.handleTempoChange(e.detail.bpm);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Tempo] BPM:`, e.detail.bpm);
+                    this.handleTempoChange(deviceId, e.detail.bpm);
                 });
 
                 fader.addEventListener('tempo-reset', (e) => {
-                    console.log('[Tempo] Reset to 120');
-                    this.handleTempoChange(120);
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Tempo] Reset to 125`);
+                    this.handleTempoChange(deviceId, 125);
+                });
+
+            } else if (column.type === 'STEREO') {
+                fader = document.createElement('stereo-fader');
+                fader.setAttribute('separation', '64'); // Default to 64 (≈100 = normal)
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
+
+                // Event listeners for stereo fader
+                fader.addEventListener('separation-change', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    const percent = Math.round((e.detail.separation / 127) * 200);
+                    console.log(`[Dev${deviceId} Stereo] Separation: ${e.detail.separation} (${percent}%)`);
+                    this.handleStereoChange(deviceId, e.detail.separation);
+                });
+
+                fader.addEventListener('separation-reset', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    console.log(`[Dev${deviceId} Stereo] Reset to 64 (100%)`);
+                    this.handleStereoChange(deviceId, 64);
                 });
         }
 
@@ -584,18 +606,40 @@ export class SceneManager {
     /**
      * Handle tempo change
      */
-    handleTempoChange(bpm) {
-        if (this.controller.setBPM) {
-            this.controller.setBPM(bpm);
+    handleTempoChange(deviceId, bpm) {
+        // Send SysEx SET_TEMPO (0x42) command
+        console.log(`[Dev${deviceId}] Sending Tempo BPM=${bpm} via SysEx 0x42`);
+        if (this.controller.sendSysExSetTempo) {
+            this.controller.sendSysExSetTempo(deviceId, bpm);
         } else {
-            this.controller.clockBPM = bpm;
-            this.controller.config.bpm = bpm;
+            console.warn(`[Dev${deviceId}] Tempo SysEx command not available`);
+            // Fallback to old clock-based method
+            if (this.controller.setBPM) {
+                this.controller.setBPM(bpm);
+            } else {
+                this.controller.clockBPM = bpm;
+                this.controller.config.bpm = bpm;
 
-            // Restart clock if running
-            if (this.controller.clockMaster) {
-                this.controller.stopClock();
-                this.controller.startClock();
+                // Restart clock if running
+                if (this.controller.clockMaster) {
+                    this.controller.stopClock();
+                    this.controller.startClock();
+                }
             }
+        }
+    }
+
+    /**
+     * Handle stereo separation change
+     */
+    handleStereoChange(deviceId, separation) {
+        // Send SysEx STEREO_SEPARATION (0x57) command
+        const percent = Math.round((separation / 127) * 200);
+        console.log(`[Dev${deviceId}] Sending Stereo Separation=${separation} (${percent}%) via SysEx 0x57`);
+        if (this.controller.sendSysExStereoSeparation) {
+            this.controller.sendSysExStereoSeparation(deviceId, separation);
+        } else {
+            console.warn(`[Dev${deviceId}] Stereo separation SysEx command not available`);
         }
     }
 
@@ -708,6 +752,40 @@ export class SceneManager {
             // Update volume if available
             if (deviceState.channelVolumes && deviceState.channelVolumes[channel] !== undefined) {
                 fader.setAttribute('volume', deviceState.channelVolumes[channel].toString());
+            }
+        });
+
+        // Update TEMPO faders for this device
+        const tempoFaders = container.querySelectorAll('tempo-fader');
+        tempoFaders.forEach(fader => {
+            const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
+            if (faderDeviceId !== deviceId) return; // Skip faders for other devices
+
+            // Check if user is currently changing the tempo
+            if (fader.dataset.tempoChanging === 'true') {
+                return; // Skip update while user is adjusting tempo
+            }
+
+            // Update BPM from device state
+            if (deviceState.bpm !== undefined) {
+                fader.setAttribute('bpm', deviceState.bpm.toString());
+            }
+        });
+
+        // Update STEREO faders for this device
+        const stereoFaders = container.querySelectorAll('stereo-fader');
+        stereoFaders.forEach(fader => {
+            const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
+            if (faderDeviceId !== deviceId) return; // Skip faders for other devices
+
+            // Check if user is currently changing the separation
+            if (fader.dataset.separationChanging === 'true') {
+                return; // Skip update while user is adjusting separation
+            }
+
+            // Update stereo separation from device state
+            if (deviceState.stereoSeparation !== undefined) {
+                fader.setAttribute('separation', deviceState.stereoSeparation.toString());
             }
         });
     }
