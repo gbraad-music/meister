@@ -440,6 +440,9 @@ export class SceneEditor {
             this.sceneManager.addScene(id, config);
         });
 
+        // Save to localStorage
+        this.saveScenesToStorage();
+
         // Refresh the scenes list UI
         this.refreshScenesList();
     }
