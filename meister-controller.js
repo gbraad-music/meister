@@ -405,6 +405,11 @@ class MeisterController {
             this.updatePadEditorFields(e.target.value);
         });
 
+        // Secondary message type selector
+        document.getElementById('pad-secondary-message-type').addEventListener('change', (e) => {
+            this.updateSecondaryPadEditorFields(e.target.value);
+        });
+
         // MIDI Clock Master
         document.getElementById('clock-master').addEventListener('change', (e) => {
             this.clockMaster = e.target.checked;
@@ -505,6 +510,30 @@ class MeisterController {
             }
 
             this.updatePadEditorFields(document.getElementById('pad-message-type').value);
+
+            // Load secondary action if present
+            if (pad.secondaryCC !== undefined || pad.secondaryNote !== undefined || pad.secondaryMMC !== undefined) {
+                if (pad.secondaryMMC !== undefined) {
+                    document.getElementById('pad-secondary-message-type').value = 'mmc';
+                    document.getElementById('pad-secondary-mmc-command').value = pad.secondaryMMC || 'stop';
+                } else if (pad.secondaryCC !== undefined) {
+                    if (this.isRegrooveActionCC(pad.secondaryCC)) {
+                        document.getElementById('pad-secondary-message-type').value = 'regroove';
+                        document.getElementById('pad-secondary-regroove-action').value = pad.secondaryCC.toString();
+                    } else {
+                        document.getElementById('pad-secondary-message-type').value = 'cc';
+                        document.getElementById('pad-secondary-cc').value = pad.secondaryCC || '';
+                    }
+                } else if (pad.secondaryNote !== undefined) {
+                    document.getElementById('pad-secondary-message-type').value = 'note';
+                    document.getElementById('pad-secondary-note').value = pad.secondaryNote || '';
+                }
+                this.updateSecondaryPadEditorFields(document.getElementById('pad-secondary-message-type').value);
+            } else {
+                document.getElementById('pad-secondary-message-type').value = 'none';
+                this.updateSecondaryPadEditorFields('none');
+            }
+
             document.getElementById('pad-editor-title').textContent = `EDIT PAD ${padIndex + 1}`;
         } else {
             // New pad
@@ -514,6 +543,8 @@ class MeisterController {
             document.getElementById('pad-message-type').value = 'regroove';
             document.getElementById('pad-regroove-action').value = '41';
             this.updatePadEditorFields('regroove');
+            document.getElementById('pad-secondary-message-type').value = 'none';
+            this.updateSecondaryPadEditorFields('none');
             document.getElementById('pad-editor-title').textContent = 'EDIT PAD';
         }
 
@@ -568,6 +599,18 @@ class MeisterController {
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
     }
 
+    updateSecondaryPadEditorFields(messageType) {
+        const regrooveField = document.getElementById('pad-secondary-regroove-field');
+        const ccField = document.getElementById('pad-secondary-cc-field');
+        const noteField = document.getElementById('pad-secondary-note-field');
+        const mmcField = document.getElementById('pad-secondary-mmc-field');
+
+        regrooveField.style.display = messageType === 'regroove' ? 'block' : 'none';
+        ccField.style.display = messageType === 'cc' ? 'block' : 'none';
+        noteField.style.display = messageType === 'note' ? 'block' : 'none';
+        mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
+    }
+
     savePadConfig() {
         if (this.editingPadIndex === null) return;
 
@@ -576,6 +619,9 @@ class MeisterController {
         const messageType = document.getElementById('pad-message-type').value;
         const deviceBinding = document.getElementById('pad-device-binding').value;
         const errorElement = document.getElementById('pad-label-error');
+
+        // Check for secondary action fields
+        const secondaryMessageType = document.getElementById('pad-secondary-message-type')?.value;
 
         const padConfig = {};
 
@@ -604,6 +650,28 @@ class MeisterController {
         } else if (messageType === 'mmc') {
             padConfig.mmc = document.getElementById('pad-mmc-command').value;
             hasMessage = true;
+        }
+
+        // Check for secondary action
+        if (secondaryMessageType && secondaryMessageType !== 'none') {
+            if (secondaryMessageType === 'regroove') {
+                const cc = parseInt(document.getElementById('pad-secondary-regroove-action').value);
+                if (!isNaN(cc) && cc >= 0 && cc <= 127) {
+                    padConfig.secondaryCC = cc;
+                }
+            } else if (secondaryMessageType === 'cc') {
+                const cc = parseInt(document.getElementById('pad-secondary-cc').value);
+                if (!isNaN(cc) && cc >= 0 && cc <= 127) {
+                    padConfig.secondaryCC = cc;
+                }
+            } else if (secondaryMessageType === 'note') {
+                const note = parseInt(document.getElementById('pad-secondary-note').value);
+                if (!isNaN(note) && note >= 0 && note <= 127) {
+                    padConfig.secondaryNote = note;
+                }
+            } else if (secondaryMessageType === 'mmc') {
+                padConfig.secondaryMMC = document.getElementById('pad-secondary-mmc-command').value;
+            }
         }
 
         // If we have a message but no label, show error
@@ -696,12 +764,19 @@ class MeisterController {
 
                 // Build sublabel with device indicator if non-default device is bound
                 let sublabel = padConfig.sublabel ? this.replacePlaceholders(padConfig.sublabel) : '';
-                if (padConfig.deviceBinding && this.deviceManager) {
-                    const device = this.deviceManager.getDevice(padConfig.deviceBinding);
-                    if (device) {
-                        // Add device name as a note
-                        const deviceNote = `[${device.name}]`;
-                        sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
+                if (padConfig.deviceBinding) {
+                    if (this.deviceManager) {
+                        const device = this.deviceManager.getDevice(padConfig.deviceBinding);
+                        if (device) {
+                            // Add device name as a note
+                            const deviceNote = `[${device.name}]`;
+                            sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
+                            console.log(`[Pad ${i}] Added device label: ${device.name}`);
+                        } else {
+                            console.warn(`[Pad ${i}] Device binding "${padConfig.deviceBinding}" not found`);
+                        }
+                    } else {
+                        console.warn(`[Pad ${i}] DeviceManager not initialized yet`);
                     }
                 }
                 if (sublabel) padElement.setAttribute('sublabel', sublabel);
@@ -709,6 +784,11 @@ class MeisterController {
                 if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
                 if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
                 if (padConfig.mmc !== undefined) padElement.setAttribute('mmc', padConfig.mmc);
+
+                // Set secondary actions
+                if (padConfig.secondaryCC !== undefined) padElement.setAttribute('secondary-cc', padConfig.secondaryCC);
+                if (padConfig.secondaryNote !== undefined) padElement.setAttribute('secondary-note', padConfig.secondaryNote);
+                if (padConfig.secondaryMMC !== undefined) padElement.setAttribute('secondary-mmc', padConfig.secondaryMMC);
 
                 // Store device binding on the element
                 if (padConfig.deviceBinding) {
@@ -720,10 +800,61 @@ class MeisterController {
                 });
             }
 
-            // Right-click or long-press to edit
+            // Store pad index
+            padElement.dataset.padIndex = i;
+
+            // Right-click to edit
             padElement.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 this.openPadEditor(i);
+            });
+
+            // Drag and drop with Ctrl + left mouse button
+            padElement.setAttribute('draggable', 'false');
+
+            padElement.addEventListener('mousedown', (e) => {
+                // Ctrl + Left click = drag mode
+                if (e.button === 0 && e.ctrlKey) {
+                    e.preventDefault();
+                    padElement.setAttribute('draggable', 'true');
+                    padElement.style.cursor = 'move';
+                }
+            });
+
+            padElement.addEventListener('dragstart', (e) => {
+                if (padElement.getAttribute('draggable') === 'true') {
+                    this.draggingPadIndex = i;
+                    padElement.style.opacity = '0.4';
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', i);
+                }
+            });
+
+            padElement.addEventListener('dragend', (e) => {
+                padElement.style.opacity = '';
+                padElement.setAttribute('draggable', 'false');
+                padElement.style.cursor = '';
+                this.draggingPadIndex = null;
+            });
+
+            // Make pad a drop target
+            padElement.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (this.draggingPadIndex !== null && this.draggingPadIndex !== i) {
+                    padElement.style.opacity = '0.5';
+                }
+            });
+
+            padElement.addEventListener('dragleave', (e) => {
+                padElement.style.opacity = '';
+            });
+
+            padElement.addEventListener('drop', (e) => {
+                e.preventDefault();
+                padElement.style.opacity = '';
+                if (this.draggingPadIndex !== null && this.draggingPadIndex !== i) {
+                    this.swapPads(this.draggingPadIndex, i);
+                }
             });
 
             let longPressTimer;
@@ -743,6 +874,22 @@ class MeisterController {
             container.appendChild(padElement);
             this.pads.push(padElement);
         }
+    }
+
+    swapPads(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+
+        console.log(`Swapping pad ${fromIndex} with pad ${toIndex}`);
+
+        // Swap configs in array
+        if (!this.config.pads) this.config.pads = [];
+        const temp = this.config.pads[fromIndex];
+        this.config.pads[fromIndex] = this.config.pads[toIndex];
+        this.config.pads[toIndex] = temp;
+
+        // Save and re-render
+        this.saveConfig();
+        this.createPads();
     }
 
     handlePadPress(detail, padElement) {

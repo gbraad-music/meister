@@ -199,30 +199,42 @@ class RegroovePad extends HTMLElement {
         // Don't add listeners to empty pads
         if (pad.classList.contains('empty')) return;
 
-        this.addEventListener('mousedown', () => this.handlePress());
+        this.addEventListener('mousedown', (e) => {
+            // Don't trigger on Ctrl key (used for drag)
+            if (e.ctrlKey) return;
+            this.handlePress(e.shiftKey);
+        });
         this.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            this.handlePress();
+            this.handlePress(false);
         });
     }
 
-    handlePress() {
+    handlePress(isShiftHeld = false) {
         // Check if pad has any message type
         const hasCC = this.getAttribute('cc') !== null;
         const hasNote = this.getAttribute('note') !== null;
         const hasMMC = this.getAttribute('mmc') !== null;
+        const hasSecondaryCC = this.getAttribute('secondary-cc') !== null;
+        const hasSecondaryNote = this.getAttribute('secondary-note') !== null;
+        const hasSecondaryMMC = this.getAttribute('secondary-mmc') !== null;
 
         if (!hasCC && !hasNote && !hasMMC) return; // Empty pad
 
         this.trigger();
+
+        // Use secondary action if Shift is held and secondary exists
+        const useSecondary = isShiftHeld && (hasSecondaryCC || hasSecondaryNote || hasSecondaryMMC);
+
         this.dispatchEvent(new CustomEvent('pad-press', {
             bubbles: true,
             composed: true,
             detail: {
-                cc: this.getAttribute('cc'),
-                note: this.getAttribute('note'),
-                mmc: this.getAttribute('mmc'),
-                label: this.getAttribute('label') || ''
+                cc: useSecondary ? this.getAttribute('secondary-cc') : this.getAttribute('cc'),
+                note: useSecondary ? this.getAttribute('secondary-note') : this.getAttribute('note'),
+                mmc: useSecondary ? this.getAttribute('secondary-mmc') : this.getAttribute('mmc'),
+                label: this.getAttribute('label') || '',
+                isSecondary: useSecondary
             }
         }));
     }
