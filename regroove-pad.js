@@ -215,11 +215,12 @@ class RegroovePad extends HTMLElement {
         const hasCC = this.getAttribute('cc') !== null;
         const hasNote = this.getAttribute('note') !== null;
         const hasMMC = this.getAttribute('mmc') !== null;
+        const hasSysEx = this.getAttribute('sysex') !== null;
         const hasSecondaryCC = this.getAttribute('secondary-cc') !== null;
         const hasSecondaryNote = this.getAttribute('secondary-note') !== null;
         const hasSecondaryMMC = this.getAttribute('secondary-mmc') !== null;
 
-        if (!hasCC && !hasNote && !hasMMC) return; // Empty pad
+        if (!hasCC && !hasNote && !hasMMC && !hasSysEx) return; // Empty pad
 
         this.trigger();
 
@@ -233,6 +234,7 @@ class RegroovePad extends HTMLElement {
                 cc: useSecondary ? this.getAttribute('secondary-cc') : this.getAttribute('cc'),
                 note: useSecondary ? this.getAttribute('secondary-note') : this.getAttribute('note'),
                 mmc: useSecondary ? this.getAttribute('secondary-mmc') : this.getAttribute('mmc'),
+                sysex: this.getAttribute('sysex'),
                 label: this.getAttribute('label') || '',
                 isSecondary: useSecondary
             }

@@ -410,6 +410,21 @@ class MeisterController {
             this.updateSecondaryPadEditorFields(e.target.value);
         });
 
+        // MMC command selector - show/hide locate params
+        document.getElementById('pad-mmc-command').addEventListener('change', (e) => {
+            const locateParams = document.getElementById('pad-mmc-locate-params');
+            locateParams.style.display = e.target.value === 'locate' ? 'block' : 'none';
+        });
+
+        // SysEx action selector - show/hide parameter fields
+        document.getElementById('pad-sysex-action').addEventListener('change', (e) => {
+            const jumpParams = document.getElementById('pad-sysex-jump-params');
+            const fileParams = document.getElementById('pad-sysex-file-params');
+
+            jumpParams.style.display = e.target.value === 'jump_to_order_row' ? 'block' : 'none';
+            fileParams.style.display = e.target.value === 'file_load' ? 'block' : 'none';
+        });
+
         // MIDI Clock Master
         document.getElementById('clock-master').addEventListener('change', (e) => {
             this.clockMaster = e.target.checked;
@@ -505,8 +520,30 @@ class MeisterController {
             } else if (pad.note !== undefined && pad.note !== null) {
                 document.getElementById('pad-message-type').value = 'note';
                 document.getElementById('pad-note').value = pad.note || '';
+            } else if (pad.sysex !== undefined) {
+                document.getElementById('pad-message-type').value = 'sysex';
+                document.getElementById('pad-sysex-action').value = pad.sysex || 'play';
+
+                // Load SysEx parameters if present
+                if (pad.sysexParams) {
+                    if (pad.sysex === 'jump_to_order_row' && pad.sysexParams.order !== undefined) {
+                        document.getElementById('pad-sysex-jump-order').value = pad.sysexParams.order;
+                        document.getElementById('pad-sysex-jump-row').value = pad.sysexParams.row || 0;
+                        document.getElementById('pad-sysex-jump-params').style.display = 'block';
+                    } else if (pad.sysex === 'file_load' && pad.sysexParams.filename) {
+                        document.getElementById('pad-sysex-filename').value = pad.sysexParams.filename;
+                        document.getElementById('pad-sysex-file-params').style.display = 'block';
+                    }
+                }
             } else {
                 document.getElementById('pad-message-type').value = 'regroove';
+            }
+
+            // Load MMC parameters if present
+            if (pad.mmc === 'locate' && pad.mmcParams) {
+                document.getElementById('pad-mmc-locate-order').value = pad.mmcParams.order || 0;
+                document.getElementById('pad-mmc-locate-row').value = pad.mmcParams.row || 0;
+                document.getElementById('pad-mmc-locate-params').style.display = 'block';
             }
 
             this.updatePadEditorFields(document.getElementById('pad-message-type').value);
@@ -589,14 +626,20 @@ class MeisterController {
 
     updatePadEditorFields(messageType) {
         const regrooveField = document.getElementById('pad-regroove-field');
+        const sysexField = document.getElementById('pad-sysex-field');
         const ccField = document.getElementById('pad-cc-field');
         const noteField = document.getElementById('pad-note-field');
         const mmcField = document.getElementById('pad-mmc-field');
+        const deviceField = document.getElementById('pad-device-field');
 
         regrooveField.style.display = messageType === 'regroove' ? 'block' : 'none';
+        sysexField.style.display = messageType === 'sysex' ? 'block' : 'none';
         ccField.style.display = messageType === 'cc' ? 'block' : 'none';
         noteField.style.display = messageType === 'note' ? 'block' : 'none';
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
+
+        // Show device binding for all message types
+        deviceField.style.display = 'block';
     }
 
     updateSecondaryPadEditorFields(messageType) {
@@ -648,8 +691,36 @@ class MeisterController {
                 hasMessage = true;
             }
         } else if (messageType === 'mmc') {
-            padConfig.mmc = document.getElementById('pad-mmc-command').value;
+            const mmcCommand = document.getElementById('pad-mmc-command').value;
+            padConfig.mmc = mmcCommand;
             hasMessage = true;
+
+            // Save MMC LOCATE parameters if present
+            if (mmcCommand === 'locate') {
+                const order = parseInt(document.getElementById('pad-mmc-locate-order').value);
+                const row = parseInt(document.getElementById('pad-mmc-locate-row').value);
+                if (!isNaN(order) && !isNaN(row)) {
+                    padConfig.mmcParams = { order, row };
+                }
+            }
+        } else if (messageType === 'sysex') {
+            const sysexAction = document.getElementById('pad-sysex-action').value;
+            padConfig.sysex = sysexAction;
+            hasMessage = true;
+
+            // Save SysEx parameters based on action type
+            if (sysexAction === 'jump_to_order_row') {
+                const order = parseInt(document.getElementById('pad-sysex-jump-order').value);
+                const row = parseInt(document.getElementById('pad-sysex-jump-row').value);
+                if (!isNaN(order) && !isNaN(row)) {
+                    padConfig.sysexParams = { order, row };
+                }
+            } else if (sysexAction === 'file_load') {
+                const filename = document.getElementById('pad-sysex-filename').value.trim();
+                if (filename) {
+                    padConfig.sysexParams = { filename };
+                }
+            }
         }
 
         // Check for secondary action
@@ -783,7 +854,20 @@ class MeisterController {
 
                 if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
                 if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
-                if (padConfig.mmc !== undefined) padElement.setAttribute('mmc', padConfig.mmc);
+                if (padConfig.mmc !== undefined) {
+                    padElement.setAttribute('mmc', padConfig.mmc);
+                    // Store MMC parameters in dataset
+                    if (padConfig.mmcParams) {
+                        padElement.dataset.mmcParams = JSON.stringify(padConfig.mmcParams);
+                    }
+                }
+                if (padConfig.sysex !== undefined) {
+                    padElement.setAttribute('sysex', padConfig.sysex);
+                    // Store SysEx parameters in dataset
+                    if (padConfig.sysexParams) {
+                        padElement.dataset.sysexParams = JSON.stringify(padConfig.sysexParams);
+                    }
+                }
 
                 // Set secondary actions
                 if (padConfig.secondaryCC !== undefined) padElement.setAttribute('secondary-cc', padConfig.secondaryCC);
@@ -796,7 +880,7 @@ class MeisterController {
                 }
 
                 padElement.addEventListener('pad-press', (e) => {
-                    this.handlePadPress(e.detail, padElement);
+                    this.handlePadPress(e.detail, padElement, i);
                 });
             }
 
@@ -892,7 +976,7 @@ class MeisterController {
         this.createPads();
     }
 
-    handlePadPress(detail, padElement) {
+    handlePadPress(detail, padElement, padIndex) {
         // Resolve device binding to device ID
         let deviceId = null;
         if (padElement && padElement.dataset.deviceBinding) {
@@ -905,9 +989,79 @@ class MeisterController {
             }
         }
 
+        // If no device binding, use default device
+        if (deviceId === null && this.deviceManager) {
+            const defaultDevice = this.deviceManager.getDefaultDevice();
+            if (defaultDevice) {
+                deviceId = defaultDevice.deviceId;
+            }
+        }
+
+        // Fallback to device ID 0
+        if (deviceId === null) {
+            deviceId = 0;
+        }
+
+        // Get pad config for parameters
+        const padConfig = this.config.pads[padIndex];
+
         // Send the message
-        if (detail.mmc) {
-            this.sendMMC(detail.mmc);
+        if (detail.sysex) {
+            // Handle SysEx actions
+            const sysexAction = detail.sysex;
+            let params = null;
+            if (padElement.dataset.sysexParams) {
+                try {
+                    params = JSON.parse(padElement.dataset.sysexParams);
+                } catch(e) {
+                    console.error('Failed to parse sysex params:', e);
+                }
+            }
+
+            switch(sysexAction) {
+                case 'play':
+                    this.sendSysExPlay(deviceId);
+                    break;
+                case 'stop':
+                    this.sendSysExStop(deviceId);
+                    break;
+                case 'pause':
+                    this.sendSysExPause(deviceId);
+                    break;
+                case 'retrigger':
+                    this.sendSysExRetrigger(deviceId);
+                    break;
+                case 'next_order':
+                    this.sendSysExNextOrder(deviceId);
+                    break;
+                case 'prev_order':
+                    this.sendSysExPrevOrder(deviceId);
+                    break;
+                case 'jump_to_order_row':
+                    if (params && params.order !== undefined && params.row !== undefined) {
+                        this.sendSysExJumpToOrderRow(deviceId, params.order, params.row);
+                    }
+                    break;
+                case 'file_load':
+                    if (params && params.filename) {
+                        this.sendSysExFileLoad(deviceId, params.filename);
+                    }
+                    break;
+                case 'set_loop_current':
+                    this.sendSysExSetLoopCurrent(deviceId, 1); // Toggle on
+                    break;
+            }
+        } else if (detail.mmc) {
+            // Handle MMC with parameters and device ID
+            let mmcParams = {};
+            if (padElement.dataset.mmcParams) {
+                try {
+                    mmcParams = JSON.parse(padElement.dataset.mmcParams);
+                } catch(e) {
+                    console.error('Failed to parse MMC params:', e);
+                }
+            }
+            this.sendMMC(detail.mmc, mmcParams, deviceId);
         } else if (detail.cc !== undefined && detail.cc !== null) {
             // Use device-aware sending for CC (Regroove actions)
             if (this.sendRegrooveCC && deviceId !== null) {
@@ -1069,7 +1223,7 @@ class MeisterController {
         return mutedChannels.length > 0;
     }
 
-    sendMMC(command) {
+    sendMMC(command, params = {}, deviceId = 0x7F) {
         if (!this.midiOutput) {
             console.warn('No MIDI output selected');
             return;
@@ -1099,20 +1253,119 @@ class MeisterController {
             return;
         }
 
-        // MMC SysEx message format:
-        // F0 7F <device-id> 06 <command> F7
-        const deviceId = 0x7F; // All devices
-        const message = [
+        let message = [
             0xF0,       // SysEx start
             0x7F,       // Real-time Universal SysEx
-            deviceId,   // Device ID (0x7F = all)
+            deviceId & 0x7F,   // Device ID (0x7F = all, or specific device)
             0x06,       // MMC sub-ID
-            cmdByte,    // Command
-            0xF7        // SysEx end
+            cmdByte     // Command
+        ];
+
+        // Add parameters for LOCATE command
+        if (command === 'locate' && params.order !== undefined && params.row !== undefined) {
+            // MMC LOCATE format:
+            // F0 7F <dev> 06 44 06 01 <order> <row> 00 00 00 F7
+            // 06 = information field length (6 bytes: type + 5 time bytes)
+            // 01 = target position type (0x04 = loop start, 0x05 = loop end)
+            const order = params.order & 0x7F;
+            const row = params.row & 0x7F;
+            message.push(
+                0x06,  // Information field length (6 bytes)
+                0x01,  // Locate type: target position
+                order, // Hours (order)
+                row,   // Minutes (row)
+                0x00,  // Seconds (unused)
+                0x00,  // Frames (unused)
+                0x00   // Subframes (unused)
+            );
+        }
+
+        message.push(0xF7); // SysEx end
+
+        this.midiOutput.send(message);
+        console.log(`Sent MMC to device ${deviceId}: ${command} (0x${cmdByte.toString(16).toUpperCase()})`, params);
+    }
+
+    // SysEx Helper Functions for Regroove
+    sendSysEx(deviceId, command, data = []) {
+        if (!this.midiOutput) {
+            console.warn('No MIDI output selected');
+            return;
+        }
+
+        const message = [
+            0xF0,  // SysEx start
+            0x7D,  // Regroove manufacturer ID
+            deviceId,
+            command,
+            ...data,
+            0xF7   // SysEx end
         ];
 
         this.midiOutput.send(message);
-        console.log(`Sent MMC: ${command} (0x${cmdByte.toString(16).toUpperCase()})`);
+        console.log(`Sent SysEx to device ${deviceId}: command 0x${command.toString(16).toUpperCase()}, data: [${data.join(', ')}]`);
+    }
+
+    // SysEx: NEXT_ORDER (0x24) - Queue next order (beat-synced)
+    sendSysExNextOrder(deviceId) {
+        this.sendSysEx(deviceId, 0x24, []);
+    }
+
+    // SysEx: PREV_ORDER (0x25) - Queue previous order (beat-synced)
+    sendSysExPrevOrder(deviceId) {
+        this.sendSysEx(deviceId, 0x25, []);
+    }
+
+    // SysEx: JUMP_TO_ORDER_ROW (0x40) - Immediate jump to order+row
+    sendSysExJumpToOrderRow(deviceId, order, row) {
+        this.sendSysEx(deviceId, 0x40, [order & 0x7F, row & 0x7F]);
+    }
+
+    // SysEx: FILE_LOAD (0x10) - Load file by filename
+    sendSysExFileLoad(deviceId, filename) {
+        // Format: <length_byte> <filename_bytes...>
+        const filenameBytes = [];
+        for (let i = 0; i < filename.length; i++) {
+            filenameBytes.push(filename.charCodeAt(i) & 0x7F);
+        }
+        // Prepend length byte
+        const data = [filenameBytes.length, ...filenameBytes];
+        this.sendSysEx(deviceId, 0x10, data);
+    }
+
+    // SysEx: PLAY (0x20)
+    sendSysExPlay(deviceId) {
+        this.sendSysEx(deviceId, 0x20, []);
+    }
+
+    // SysEx: STOP (0x21)
+    sendSysExStop(deviceId) {
+        this.sendSysEx(deviceId, 0x21, []);
+    }
+
+    // SysEx: PAUSE (0x22)
+    sendSysExPause(deviceId) {
+        this.sendSysEx(deviceId, 0x22, []);
+    }
+
+    // SysEx: RETRIGGER (0x23)
+    sendSysExRetrigger(deviceId) {
+        this.sendSysEx(deviceId, 0x23, []);
+    }
+
+    // SysEx: CHANNEL_MUTE (0x30)
+    sendSysExChannelMute(deviceId, channel, mute) {
+        this.sendSysEx(deviceId, 0x30, [channel & 0x7F, mute ? 1 : 0]);
+    }
+
+    // SysEx: CHANNEL_SOLO (0x31)
+    sendSysExChannelSolo(deviceId, channel, solo) {
+        this.sendSysEx(deviceId, 0x31, [channel & 0x7F, solo ? 1 : 0]);
+    }
+
+    // SysEx: SET_LOOP_CURRENT (0x43)
+    sendSysExSetLoopCurrent(deviceId, enable) {
+        this.sendSysEx(deviceId, 0x43, [enable ? 1 : 0]);
     }
 
     // MIDI Clock Master functions

@@ -828,7 +828,8 @@
             <div class="setting-group">
                 <label class="setting-label">MESSAGE TYPE</label>
                 <select id="pad-message-type">
-                    <option value="regroove">Regroove Action</option>
+                    <option value="regroove">Regroove Action (CC)</option>
+                    <option value="sysex">Regroove SysEx</option>
                     <option value="cc">Control Change (CC)</option>
                     <option value="note">Note On/Off</option>
                     <option value="mmc">MIDI Machine Control (MMC)</option>
@@ -931,9 +932,65 @@
                     <option value="eject">Eject</option>
                     <option value="chase">Chase</option>
                     <option value="reset">Reset</option>
-                    <option value="locate">Locate</option>
+                    <option value="locate">Locate (Go to Order+Row)</option>
                     <option value="shuttle">Shuttle</option>
                 </select>
+                <div id="pad-mmc-locate-params" style="display: none; margin-top: 10px;">
+                    <label class="setting-label">LOCATE PARAMETERS</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="font-size: 0.75em; color: #666;">Order (0-127)</label>
+                            <input type="number" id="pad-mmc-locate-order" min="0" max="127" value="0" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75em; color: #666;">Row (0-127)</label>
+                            <input type="number" id="pad-mmc-locate-row" min="0" max="127" value="0" style="width: 100%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-sysex-field" style="display: none;">
+                <label class="setting-label">SYSEX ACTION</label>
+                <select id="pad-sysex-action">
+                    <optgroup label="Transport">
+                        <option value="play">Play (0x20)</option>
+                        <option value="stop">Stop (0x21)</option>
+                        <option value="pause">Pause (0x22)</option>
+                        <option value="retrigger">Retrigger (0x23)</option>
+                        <option value="next_order">Next Order - Queued (0x24)</option>
+                        <option value="prev_order">Previous Order - Queued (0x25)</option>
+                    </optgroup>
+                    <optgroup label="Position">
+                        <option value="jump_to_order_row">Jump to Order+Row (0x40)</option>
+                    </optgroup>
+                    <optgroup label="File">
+                        <option value="file_load">Load File by Index (0x10)</option>
+                    </optgroup>
+                    <optgroup label="Loop">
+                        <option value="set_loop_current">Toggle Loop Current (0x43)</option>
+                    </optgroup>
+                </select>
+                <div id="pad-sysex-jump-params" style="display: none; margin-top: 10px;">
+                    <label class="setting-label">JUMP PARAMETERS</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="font-size: 0.75em; color: #666;">Order (0-127)</label>
+                            <input type="number" id="pad-sysex-jump-order" min="0" max="127" value="0" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75em; color: #666;">Row (0-127)</label>
+                            <input type="number" id="pad-sysex-jump-row" min="0" max="127" value="0" style="width: 100%;">
+                        </div>
+                    </div>
+                </div>
+                <div id="pad-sysex-file-params" style="display: none; margin-top: 10px;">
+                    <label class="setting-label">FILENAME</label>
+                    <input type="text" id="pad-sysex-filename" placeholder="song.xm" style="width: 100%;">
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Relative to Regroove's current directory
+                    </div>
+                </div>
             </div>
 
             <!-- Secondary Action (Shift + Click) -->
