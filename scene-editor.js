@@ -44,6 +44,15 @@ export class SceneEditor {
             this.openSceneEditor();
         });
 
+        // Template buttons
+        document.getElementById('template-1x10-btn')?.addEventListener('click', () => {
+            this.applyTemplate('1x10');
+        });
+
+        document.getElementById('template-1x12-btn')?.addEventListener('click', () => {
+            this.applyTemplate('1x12');
+        });
+
         // New effects scene button
         document.getElementById('new-effects-btn')?.addEventListener('click', () => {
             this.openEffectsSceneEditor();
@@ -854,5 +863,64 @@ export class SceneEditor {
 
         // Update the scene selector dropdown in the status bar
         this.sceneManager.updateSceneSelector();
+    }
+
+    /**
+     * Apply a template to the current scene being edited
+     */
+    applyTemplate(templateType) {
+        let layout, slots;
+
+        switch (templateType) {
+            case '1x10':
+                layout = '1x10';
+                slots = [
+                    { type: 'CHANNEL', channel: 0, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 1, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 2, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 3, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 4, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 5, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 6, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 7, deviceBinding: null },
+                    { type: 'MIX', label: 'Master', deviceBinding: null },
+                    { type: 'TEMPO', label: 'BPM', deviceBinding: null }
+                ];
+                break;
+
+            case '1x12':
+                layout = '1x12';
+                slots = [
+                    { type: 'CHANNEL', channel: 0, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 1, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 2, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 3, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 4, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 5, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 6, deviceBinding: null },
+                    { type: 'CHANNEL', channel: 7, deviceBinding: null },
+                    { type: 'INPUT', label: 'Input', deviceBinding: null },
+                    { type: 'MIX', label: 'Master', deviceBinding: null },
+                    { type: 'STEREO', label: 'Stereo', deviceBinding: null },
+                    { type: 'TEMPO', label: 'BPM', deviceBinding: null }
+                ];
+                break;
+
+            default:
+                console.error(`Unknown template type: ${templateType}`);
+                return;
+        }
+
+        // Update scene config with template
+        this.sceneConfig.layout = layout;
+        this.sceneConfig.faders = slots;
+
+        // Update layout dropdown
+        document.getElementById('scene-layout').value = layout;
+
+        // Re-render the fader grid
+        this.renderFaderGrid();
+
+        console.log(`[SceneEditor] Applied ${layout} template`);
     }
 }
