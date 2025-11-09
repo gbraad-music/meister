@@ -1357,11 +1357,16 @@ export class SceneManager {
         let touchEndX = 0;
         let touchEndY = 0;
         let hasMoved = false;
+        let touchOnInteractive = false; // Track if touch started on interactive element
 
         container.addEventListener('touchstart', (e) => {
             // Only track gestures on the container itself, not on interactive elements
             const tagName = e.target.tagName;
-            const isInteractive = tagName === 'REGROOVE-PAD' ||
+
+            // Check if touching an interactive element or inside one
+            const isInteractive =
+                // Direct element checks
+                tagName === 'REGROOVE-PAD' ||
                 tagName === 'MIX-FADER' ||
                 tagName === 'CHANNEL-FADER' ||
                 tagName === 'TEMPO-FADER' ||
@@ -1371,12 +1376,28 @@ export class SceneManager {
                 tagName === 'BUTTON' ||
                 tagName === 'SELECT' ||
                 tagName === 'INPUT' ||
+                tagName === 'SVG' ||
+                tagName === 'PATH' ||
+                tagName === 'RECT' ||
+                tagName === 'CIRCLE' ||
+                tagName === 'CANVAS' ||
+                // Class checks
                 e.target.classList.contains('fx-enable-btn') ||
+                e.target.classList.contains('effect-group') ||
+                e.target.classList.contains('pad') ||
+                e.target.classList.contains('pad-label') ||
+                e.target.classList.contains('pad-sublabel') ||
+                // Parent element checks (for elements inside custom components)
+                e.target.closest('regroove-pad') ||
                 e.target.closest('mix-fader') ||
                 e.target.closest('channel-fader') ||
                 e.target.closest('tempo-fader') ||
                 e.target.closest('stereo-fader') ||
-                e.target.closest('effects-fader');
+                e.target.closest('effects-fader') ||
+                e.target.closest('.effect-group') ||
+                e.target.closest('.fx-enable-btn');
+
+            touchOnInteractive = isInteractive;
 
             if (isInteractive) {
                 return; // Don't interfere with interactive element interactions
@@ -1388,6 +1409,9 @@ export class SceneManager {
         }, { passive: true });
 
         container.addEventListener('touchmove', (e) => {
+            // Don't track movement if touch started on interactive element
+            if (touchOnInteractive) return;
+
             const moveX = Math.abs(e.changedTouches[0].screenX - touchStartX);
             const moveY = Math.abs(e.changedTouches[0].screenY - touchStartY);
 
@@ -1398,6 +1422,12 @@ export class SceneManager {
         }, { passive: true });
 
         container.addEventListener('touchend', (e) => {
+            // Don't process gestures if touch started on interactive element
+            if (touchOnInteractive) {
+                touchOnInteractive = false; // Reset for next touch
+                return;
+            }
+
             // Only process gestures if we actually moved
             if (!hasMoved) return;
 
