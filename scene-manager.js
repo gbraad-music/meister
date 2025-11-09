@@ -4,6 +4,7 @@
  */
 
 import './fader-components.js';
+import './effects-fader.js';
 import { InputAction, InputEvent } from './input-actions.js';
 
 export class SceneManager {
@@ -75,6 +76,17 @@ export class SceneManager {
             });
         }
 
+        // Effects scene (default - always available)
+        this.scenes.set('effects', {
+            name: 'Effects',
+            type: 'effects',
+            pollDevices: [0], // Poll device 0 for effects state (default)
+            pollInterval: 250, // Poll effects state every 250ms
+            deviceBinding: null, // Device binding (null = use first available)
+            programId: 0, // Program ID (0 for Regroove, 0-31 for Samplecrate pads)
+            render: () => this.renderEffectsScene('effects')
+        });
+
     }
 
     /**
@@ -108,7 +120,7 @@ export class SceneManager {
 
         const scene = {
             name: config.name,
-            type: config.type || 'grid', // 'grid' or 'slider'
+            type: config.type || 'grid', // 'grid', 'slider', or 'effects'
             render: null
         };
 
@@ -125,10 +137,16 @@ export class SceneManager {
             scene.pollDevices = config.pollDevices || [];
             scene.pollInterval = config.pollInterval || 250;
             scene.render = () => this.renderSliderScene(id);
+        } else if (config.type === 'effects') {
+            scene.deviceBinding = config.deviceBinding || null;
+            scene.programId = config.programId !== undefined ? config.programId : 0;
+            scene.pollDevices = config.pollDevices || [];
+            scene.pollInterval = config.pollInterval || 250;
+            scene.render = () => this.renderEffectsScene(id);
         }
 
         this.scenes.set(id, scene);
-        console.log(`[Scene] Added scene: ${config.name} (${config.type}), polling: ${scene.pollDevices?.length || 0} devices @ ${scene.pollInterval || 'global'}ms`);
+        // console.log(`[Scene] Added scene: ${config.name} (${config.type}), polling: ${scene.pollDevices?.length || 0} devices @ ${scene.pollInterval || 'global'}ms`);
     }
 
     /**
@@ -141,8 +159,13 @@ export class SceneManager {
             return;
         }
 
-        console.log(`[Scene] Switching to: ${scene.name}`);
+        // console.log(`[Scene] Switching to: ${scene.name}`);
         this.currentScene = sceneName;
+
+        // Close any open editor overlays
+        document.getElementById('scene-editor-overlay')?.classList.remove('active');
+        document.getElementById('effects-scene-editor-overlay')?.classList.remove('active');
+        document.getElementById('pad-scene-editor-overlay')?.classList.remove('active');
 
         // Stop polling for previous scene
         if (this.pollInterval) {
@@ -156,14 +179,14 @@ export class SceneManager {
         // Start polling if this scene has devices to poll
         if (scene.pollDevices && scene.pollDevices.length > 0 && scene.pollInterval) {
             // Stop global polling to avoid duplicate requests
-            console.log(`[Scene] Using scene-specific polling (${scene.pollInterval}ms), stopping global polling`);
+            // console.log(`[Scene] Using scene-specific polling (${scene.pollInterval}ms), stopping global polling`);
             if (this.controller.regrooveState) {
                 this.controller.regrooveState.stopPolling();
             }
             this.startDevicePolling(scene.pollDevices, scene.pollInterval);
         } else {
             // No scene-specific polling - restart global polling
-            console.log(`[Scene] No scene-specific polling, using global polling (${this.controller.regrooveState?.pollingIntervalMs || 500}ms)`);
+            // console.log(`[Scene] No scene-specific polling, using global polling (${this.controller.regrooveState?.pollingIntervalMs || 500}ms)`);
             if (this.controller.regrooveState && this.controller.midiOutput) {
                 this.controller.startStatePolling();
             }
@@ -270,6 +293,353 @@ export class SceneManager {
     }
 
     /**
+     * Render effects scene (effects control panel)
+     */
+    renderEffectsScene(sceneId = 'effects') {
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        // Clear grid and switch to effects layout
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '20px';
+        container.style.padding = '20px';
+        container.style.justifyContent = 'flex-start';
+        container.style.alignItems = 'stretch';
+        container.style.height = 'calc(100vh - 60px)';
+        container.innerHTML = '';
+
+        // Get scene and resolve device binding
+        const scene = this.scenes.get(sceneId);
+        if (!scene) {
+            console.error(`[Effects] Scene "${sceneId}" not found`);
+            return;
+        }
+        const currentBinding = scene.deviceBinding;
+
+        // Resolve device from binding
+        let device = null;
+        if (currentBinding && this.controller.deviceManager) {
+            device = this.controller.deviceManager.getDevice(currentBinding);
+        }
+
+        // If no device found and we have a device manager, get first available device
+        if (!device && this.controller.deviceManager) {
+            const devices = this.controller.deviceManager.getAllDevices();
+            if (devices.length > 0) {
+                device = devices[0]; // Use first available device
+                scene.deviceBinding = device.id; // Update binding
+                scene.pollDevices = [device.deviceId];
+            }
+        }
+
+        // Create device info header (display only)
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.gap = '10px';
+        header.style.alignItems = 'center';
+        header.style.padding = '12px 16px';
+        header.style.background = '#1a1a1a';
+        header.style.borderRadius = '4px';
+
+        // Device name display
+        const deviceLabel = document.createElement('div');
+        deviceLabel.style.color = '#aaa';
+        deviceLabel.style.fontSize = '1em';
+        deviceLabel.style.fontWeight = 'bold';
+        deviceLabel.style.textTransform = 'uppercase';
+        deviceLabel.style.letterSpacing = '0.5px';
+        deviceLabel.style.flex = '1';
+
+        if (device) {
+            deviceLabel.textContent = `${device.name} (CH ${device.midiChannel + 1} / ID ${device.deviceId})`;
+        } else {
+            deviceLabel.textContent = 'NO DEVICE ASSIGNED';
+            deviceLabel.style.color = '#666';
+        }
+
+        // Program ID display
+        const programLabel = document.createElement('div');
+        programLabel.style.color = '#666';
+        programLabel.style.fontSize = '0.9em';
+        programLabel.style.fontWeight = 'bold';
+        programLabel.style.textTransform = 'uppercase';
+        programLabel.style.letterSpacing = '0.5px';
+        programLabel.style.padding = '8px 16px';
+        programLabel.style.background = '#0a0a0a';
+        programLabel.style.borderRadius = '4px';
+        programLabel.textContent = `PROGRAM: ${scene.programId || 0}`;
+
+        header.appendChild(deviceLabel);
+        header.appendChild(programLabel);
+        container.appendChild(header);
+
+        // Create effects container
+        const effectsContainer = document.createElement('div');
+        effectsContainer.style.display = 'flex';
+        effectsContainer.style.flexDirection = 'row';
+        effectsContainer.style.gap = '20px';
+        effectsContainer.style.flex = '1';
+        effectsContainer.style.justifyContent = 'space-evenly';
+        effectsContainer.style.alignItems = 'stretch';
+        effectsContainer.style.minHeight = '0';
+
+        // Effect definitions with default values from REGROOVE_EFFECTS.md
+        const effects = [
+            {
+                id: 0x00,
+                name: 'DISTORTION',
+                params: [
+                    { name: 'Drive', default: 64 },
+                    { name: 'Mix', default: 64 }
+                ]
+            },
+            {
+                id: 0x01,
+                name: 'FILTER',
+                params: [
+                    { name: 'Cutoff', default: 127 },
+                    { name: 'Resonance', default: 0 }
+                ]
+            },
+            {
+                id: 0x02,
+                name: 'EQ',
+                params: [
+                    { name: 'Low', default: 64 },
+                    { name: 'Mid', default: 64 },
+                    { name: 'High', default: 64 }
+                ]
+            },
+            {
+                id: 0x03,
+                name: 'COMPRESSOR',
+                params: [
+                    { name: 'Threshold', default: 64 },
+                    { name: 'Ratio', default: 32 }
+                ]
+            },
+            {
+                id: 0x04,
+                name: 'DELAY',
+                params: [
+                    { name: 'Time', default: 32 },
+                    { name: 'Feedback', default: 32 },
+                    { name: 'Mix', default: 32 }
+                ]
+            }
+        ];
+
+        // Create effect groups
+        effects.forEach(effect => {
+            const group = this.createEffectGroup(effect);
+            effectsContainer.appendChild(group);
+        });
+
+        container.appendChild(effectsContainer);
+
+        // Request current effects state if we have a device
+        if (device) {
+            const programId = scene.programId || 0;
+            this.controller.sendSysExFxGetAllState(device.deviceId, programId);
+        }
+    }
+
+    /**
+     * Create an effect group (enable button + sliders)
+     */
+    createEffectGroup(effect) {
+        const group = document.createElement('div');
+        group.className = 'effect-group';
+        group.dataset.effectId = effect.id;
+        group.style.display = 'flex';
+        group.style.flexDirection = 'column';
+        group.style.gap = '10px';
+        group.style.padding = '10px';
+        group.style.background = 'transparent';
+        group.style.borderRadius = '4px';
+        group.style.minWidth = '0';
+        group.style.flex = '1';
+
+        // Effect name header
+        const header = document.createElement('div');
+        header.textContent = effect.name;
+        header.style.color = '#aaa';
+        header.style.fontSize = '0.75em';
+        header.style.fontWeight = 'bold';
+        header.style.textAlign = 'center';
+        header.style.letterSpacing = '1px';
+        header.style.marginBottom = '10px';
+        header.style.padding = '6px';
+        header.style.background = '#1a1a1a';
+        header.style.borderRadius = '4px';
+        group.appendChild(header);
+
+        // Enable button - match mixer fader button style
+        const enableRow = document.createElement('div');
+        enableRow.style.display = 'flex';
+        enableRow.style.gap = '10px';
+        enableRow.style.justifyContent = 'center';
+        enableRow.style.marginBottom = '12px';
+
+        const enableBtn = document.createElement('button');
+        enableBtn.textContent = 'FX';
+        enableBtn.className = 'fx-enable-btn';
+        enableBtn.dataset.effectId = effect.id;
+        enableBtn.style.width = '60px';
+        enableBtn.style.minHeight = '44px';
+        enableBtn.style.padding = '12px';
+        enableBtn.style.margin = '0 auto';
+        enableBtn.style.background = '#2a2a2a';
+        enableBtn.style.color = '#aaa';
+        enableBtn.style.border = 'none';
+        enableBtn.style.borderRadius = '4px';
+        enableBtn.style.cursor = 'pointer';
+        enableBtn.style.fontSize = '1em';
+        enableBtn.style.fontWeight = 'bold';
+        enableBtn.style.textTransform = 'uppercase';
+        enableBtn.style.transition = 'all 0.15s';
+
+        enableBtn.addEventListener('click', () => {
+            const isEnabled = enableBtn.classList.contains('active');
+            this.handleEffectEnable(effect.id, !isEnabled);
+        });
+
+        enableRow.appendChild(enableBtn);
+        group.appendChild(enableRow);
+
+        // Sliders row
+        const slidersRow = document.createElement('div');
+        slidersRow.style.display = 'flex';
+        slidersRow.style.gap = '10px';
+        slidersRow.style.flex = '1';
+        slidersRow.style.alignItems = 'stretch';
+        slidersRow.style.minHeight = '0';
+
+        effect.params.forEach((param, index) => {
+            const fader = document.createElement('effects-fader');
+            fader.setAttribute('label', param.name);
+            fader.setAttribute('value', param.default);
+            fader.setAttribute('default', param.default);
+            fader.dataset.effectId = effect.id;
+            fader.dataset.paramIndex = index;
+
+            fader.addEventListener('change', (e) => {
+                this.handleEffectParameterChange(effect.id, index, e.detail.value);
+            });
+
+            fader.addEventListener('reset', (e) => {
+                this.handleEffectParameterChange(effect.id, index, e.detail.value);
+            });
+
+            slidersRow.appendChild(fader);
+        });
+
+        group.appendChild(slidersRow);
+
+        return group;
+    }
+
+    /**
+     * Handle effect enable/disable
+     */
+    handleEffectEnable(effectId, enabled) {
+        // Get device from current effects scene
+        const scene = this.scenes.get(this.currentScene);
+        if (!scene || scene.type !== 'effects') {
+            console.warn('[Effects] Current scene is not an effects scene');
+            return;
+        }
+
+        if (!scene.deviceBinding || !this.controller.deviceManager) {
+            console.warn('[Effects] No device bound to effects scene');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
+        if (!device) {
+            console.warn('[Effects] Device binding not found:', scene.deviceBinding);
+            return;
+        }
+
+        const deviceId = device.deviceId;
+        const programId = scene.programId || 0;
+
+        // Get current parameter values from UI
+        const params = this.getEffectParams(effectId);
+
+        // console.log(`[Dev${deviceId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
+
+        // Send SysEx command
+        this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
+
+        // Update UI - match mixer FX button style
+        const enableBtn = document.querySelector(`.fx-enable-btn[data-effect-id="${effectId}"]`);
+        if (enableBtn) {
+            if (enabled) {
+                enableBtn.classList.add('active');
+                enableBtn.style.background = '#ccaa44';
+                enableBtn.style.color = '#fff';
+            } else {
+                enableBtn.classList.remove('active');
+                enableBtn.style.background = '#2a2a2a';
+                enableBtn.style.color = '#aaa';
+            }
+        }
+    }
+
+    /**
+     * Handle effect parameter change
+     */
+    handleEffectParameterChange(effectId, paramIndex, value) {
+        // Get device from current effects scene
+        const scene = this.scenes.get(this.currentScene);
+        if (!scene || scene.type !== 'effects') {
+            console.warn('[Effects] Current scene is not an effects scene');
+            return;
+        }
+
+        if (!scene.deviceBinding || !this.controller.deviceManager) {
+            console.warn('[Effects] No device bound to effects scene');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
+        if (!device) {
+            console.warn('[Effects] Device binding not found:', scene.deviceBinding);
+            return;
+        }
+
+        const deviceId = device.deviceId;
+        const programId = scene.programId || 0;
+
+        // Get all current parameter values from UI
+        const params = this.getEffectParams(effectId);
+        params[paramIndex] = value;
+
+        // Get current enable state
+        const enableBtn = document.querySelector(`.fx-enable-btn[data-effect-id="${effectId}"]`);
+        const enabled = enableBtn ? enableBtn.classList.contains('active') : false;
+
+        // console.log(`[Dev${deviceId} Effects] Setting effect ${effectId} param ${paramIndex} = ${value}`);
+
+        // Send SysEx command
+        this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
+    }
+
+    /**
+     * Get current effect parameter values from UI
+     */
+    getEffectParams(effectId) {
+        const faders = document.querySelectorAll(`effects-fader[data-effect-id="${effectId}"]`);
+        const params = [];
+        faders.forEach(fader => {
+            params.push(parseInt(fader.getAttribute('value') || 64));
+        });
+        return params;
+    }
+
+    /**
      * Apply current device states to all faders
      */
     applyCurrentDeviceStates() {
@@ -367,7 +737,7 @@ export class SceneManager {
                 // Event listeners for mix fader
                 fader.addEventListener('fx-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Mix] FX Toggle:`, e.detail.enabled);
+                    // console.log(`[Dev${deviceId} Mix] FX Toggle:`, e.detail.enabled);
                     // MASTER fader: toggle between 1 (master) and 0 (off)
                     const route = e.detail.enabled ? 1 : 0;
                     this.handleFxRouting(deviceId, route);
@@ -377,19 +747,19 @@ export class SceneManager {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
                     const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
-                    console.log(`[Dev${deviceId} Mix] Pan: ${e.detail.value} -> ${panValue}`);
+                    // console.log(`[Dev${deviceId} Mix] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleMasterPan(deviceId, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Mix] Volume:`, e.detail.value);
+                    // console.log(`[Dev${deviceId} Mix] Volume:`, e.detail.value);
                     this.handleMasterVolume(deviceId, e.detail.value);
                 });
 
                 fader.addEventListener('mute-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Mix] Mute:`, e.detail.muted);
+                    // console.log(`[Dev${deviceId} Mix] Mute:`, e.detail.muted);
                     this.handleMasterMute(deviceId, e.detail.muted);
                 });
 
@@ -416,7 +786,7 @@ export class SceneManager {
                 // Event listeners for channel fader
                 fader.addEventListener('solo-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Solo:`, e.detail.solo);
+                    // console.log(`[Dev${deviceId} CH${e.detail.channel}] Solo:`, e.detail.solo);
                     this.handleChannelSolo(deviceId, e.detail.channel, e.detail.solo);
                 });
 
@@ -424,19 +794,19 @@ export class SceneManager {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
                     const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
-                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan: ${e.detail.value} -> ${panValue}`);
+                    // console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleChannelPan(deviceId, e.detail.channel, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Volume:`, e.detail.value);
+                    // console.log(`[Dev${deviceId} CH${e.detail.channel}] Volume:`, e.detail.value);
                     this.handleChannelVolume(deviceId, e.detail.channel, e.detail.value);
                 });
 
                 fader.addEventListener('mute-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} CH${e.detail.channel}] Mute:`, e.detail.muted);
+                    // console.log(`[Dev${deviceId} CH${e.detail.channel}] Mute:`, e.detail.muted);
                     this.handleChannelMute(deviceId, e.detail.channel, e.detail.muted);
                 });
 
@@ -457,7 +827,7 @@ export class SceneManager {
                 // Event listeners for input fader
                 fader.addEventListener('fx-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Input] FX Toggle:`, e.detail.enabled);
+                    // console.log(`[Dev${deviceId} Input] FX Toggle:`, e.detail.enabled);
                     // INPUT fader: toggle between 3 (input) and 0 (off)
                     const route = e.detail.enabled ? 3 : 0;
                     this.handleFxRouting(deviceId, route);
@@ -467,19 +837,19 @@ export class SceneManager {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
                     const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
-                    console.log(`[Dev${deviceId} Input] Pan: ${e.detail.value} -> ${panValue}`);
+                    // console.log(`[Dev${deviceId} Input] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleInputPan(deviceId, panValue);
                 });
 
                 fader.addEventListener('volume-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Input] Volume:`, e.detail.value);
+                    // console.log(`[Dev${deviceId} Input] Volume:`, e.detail.value);
                     this.handleInputVolume(deviceId, e.detail.value);
                 });
 
                 fader.addEventListener('mute-toggle', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Input] Mute:`, e.detail.muted);
+                    // console.log(`[Dev${deviceId} Input] Mute:`, e.detail.muted);
                     this.handleInputMute(deviceId, e.detail.muted);
                 });
 
@@ -492,13 +862,13 @@ export class SceneManager {
                 // Event listeners for tempo fader
                 fader.addEventListener('tempo-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Tempo] BPM:`, e.detail.bpm);
+                    // console.log(`[Dev${deviceId} Tempo] BPM:`, e.detail.bpm);
                     this.handleTempoChange(deviceId, e.detail.bpm);
                 });
 
                 fader.addEventListener('tempo-reset', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Tempo] Reset to 125`);
+                    // console.log(`[Dev${deviceId} Tempo] Reset to 125`);
                     this.handleTempoChange(deviceId, 125);
                 });
 
@@ -512,13 +882,13 @@ export class SceneManager {
                 fader.addEventListener('separation-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     const percent = Math.round((e.detail.separation / 127) * 200);
-                    console.log(`[Dev${deviceId} Stereo] Separation: ${e.detail.separation} (${percent}%)`);
+                    // console.log(`[Dev${deviceId} Stereo] Separation: ${e.detail.separation} (${percent}%)`);
                     this.handleStereoChange(deviceId, e.detail.separation);
                 });
 
                 fader.addEventListener('separation-reset', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
-                    console.log(`[Dev${deviceId} Stereo] Reset to 64 (100%)`);
+                    // console.log(`[Dev${deviceId} Stereo] Reset to 64 (100%)`);
                     this.handleStereoChange(deviceId, 64);
                 });
         }
@@ -570,7 +940,7 @@ export class SceneManager {
     handleChannelVolume(deviceId, channel, volume) {
         // Send SysEx CHANNEL_VOLUME (0x32) command
         // volume: 0-127 value from the fader
-        console.log(`[Dev${deviceId}] Sending CH${channel} volume=${volume} via SysEx 0x32`);
+        // console.log(`[Dev${deviceId}] Sending CH${channel} volume=${volume} via SysEx 0x32`);
         if (this.controller.sendSysExChannelVolume) {
             this.controller.sendSysExChannelVolume(deviceId, channel, volume);
         } else {
@@ -583,7 +953,7 @@ export class SceneManager {
      */
     handleMasterVolume(deviceId, volume) {
         // Send SysEx MASTER_VOLUME (0x33) command
-        console.log(`[Dev${deviceId}] Sending Master volume=${volume} via SysEx 0x33`);
+        // console.log(`[Dev${deviceId}] Sending Master volume=${volume} via SysEx 0x33`);
         if (this.controller.sendSysExMasterVolume) {
             this.controller.sendSysExMasterVolume(deviceId, volume);
         } else {
@@ -608,7 +978,7 @@ export class SceneManager {
      */
     handleInputVolume(deviceId, volume) {
         // Send SysEx INPUT_VOLUME (0x35) command
-        console.log(`[Dev${deviceId}] Sending Input volume=${volume} via SysEx 0x35`);
+        // console.log(`[Dev${deviceId}] Sending Input volume=${volume} via SysEx 0x35`);
         if (this.controller.sendSysExInputVolume) {
             this.controller.sendSysExInputVolume(deviceId, volume);
         } else {
@@ -634,7 +1004,7 @@ export class SceneManager {
     handleChannelPan(deviceId, channel, pan) {
         // Send SysEx CHANNEL_PANNING (0x58) command
         // pan: 0-127 value (0=left, 64=center, 127=right)
-        console.log(`[Dev${deviceId}] Sending CH${channel} pan=${pan} via SysEx 0x58`);
+        // console.log(`[Dev${deviceId}] Sending CH${channel} pan=${pan} via SysEx 0x58`);
         if (this.controller.sendSysExChannelPanning) {
             this.controller.sendSysExChannelPanning(deviceId, channel, pan);
         } else {
@@ -647,7 +1017,7 @@ export class SceneManager {
      */
     handleMasterPan(deviceId, pan) {
         // Send SysEx MASTER_PANNING (0x59) command
-        console.log(`[Dev${deviceId}] Sending Master pan=${pan} via SysEx 0x59`);
+        // console.log(`[Dev${deviceId}] Sending Master pan=${pan} via SysEx 0x59`);
         if (this.controller.sendSysExMasterPanning) {
             this.controller.sendSysExMasterPanning(deviceId, pan);
         } else {
@@ -660,7 +1030,7 @@ export class SceneManager {
      */
     handleInputPan(deviceId, pan) {
         // Send SysEx INPUT_PANNING (0x5A) command
-        console.log(`[Dev${deviceId}] Sending Input pan=${pan} via SysEx 0x5A`);
+        // console.log(`[Dev${deviceId}] Sending Input pan=${pan} via SysEx 0x5A`);
         if (this.controller.sendSysExInputPanning) {
             this.controller.sendSysExInputPanning(deviceId, pan);
         } else {
@@ -687,7 +1057,7 @@ export class SceneManager {
      */
     handleTempoChange(deviceId, bpm) {
         // Send SysEx SET_TEMPO (0x42) command
-        console.log(`[Dev${deviceId}] Sending Tempo BPM=${bpm} via SysEx 0x42`);
+        // console.log(`[Dev${deviceId}] Sending Tempo BPM=${bpm} via SysEx 0x42`);
         if (this.controller.sendSysExSetTempo) {
             this.controller.sendSysExSetTempo(deviceId, bpm);
         } else {
@@ -714,7 +1084,7 @@ export class SceneManager {
     handleStereoChange(deviceId, separation) {
         // Send SysEx STEREO_SEPARATION (0x57) command
         const percent = Math.round((separation / 127) * 200);
-        console.log(`[Dev${deviceId}] Sending Stereo Separation=${separation} (${percent}%) via SysEx 0x57`);
+        // console.log(`[Dev${deviceId}] Sending Stereo Separation=${separation} (${percent}%) via SysEx 0x57`);
         if (this.controller.sendSysExStereoSeparation) {
             this.controller.sendSysExStereoSeparation(deviceId, separation);
         } else {
@@ -727,9 +1097,16 @@ export class SceneManager {
      */
     updateSceneSelector() {
         const selector = document.getElementById('scene-selector');
-        if (selector) {
-            selector.value = this.currentScene;
-        }
+        if (!selector) return;
+
+        // Populate all scenes dynamically
+        const scenes = this.getScenes();
+        selector.innerHTML = scenes.map(scene =>
+            `<option value="${scene.id}">${scene.name}</option>`
+        ).join('');
+
+        // Set current scene
+        selector.value = this.currentScene;
     }
 
     /**
@@ -897,6 +1274,72 @@ export class SceneManager {
     }
 
     /**
+     * Update effects UI from device state
+     */
+    updateEffectsFromDeviceState(deviceId, deviceState) {
+        const scene = this.scenes.get(this.currentScene);
+        if (!scene || scene.type !== 'effects') return;
+
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        // Get FX state for the current scene's program ID
+        const programId = scene.programId || 0;
+        const fxState = deviceState.fxStates?.[programId];
+
+        // Check if we have effects state for this program
+        if (!fxState || !fxState.effects) return;
+
+        // console.log(`[Effects] Updating UI from device ${deviceId} program ${programId} state:`, fxState);
+
+        // Map effect IDs to effect names
+        const effectMap = {
+            0x00: 'distortion',
+            0x01: 'filter',
+            0x02: 'eq',
+            0x03: 'compressor',
+            0x04: 'delay'
+        };
+
+        // Update each effect group
+        for (const [effectId, effectName] of Object.entries(effectMap)) {
+            const effect = fxState.effects[effectName];
+            if (!effect) continue;
+
+            const effectIdNum = parseInt(effectId);
+
+            // Update enable button - match mixer FX button style
+            const enableBtn = container.querySelector(`.fx-enable-btn[data-effect-id="${effectIdNum}"]`);
+            if (enableBtn) {
+                if (effect.enabled) {
+                    enableBtn.classList.add('active');
+                    enableBtn.style.background = '#ccaa44';
+                    enableBtn.style.color = '#fff';
+                } else {
+                    enableBtn.classList.remove('active');
+                    enableBtn.style.background = '#2a2a2a';
+                    enableBtn.style.color = '#aaa';
+                }
+            }
+
+            // Update parameter sliders
+            const faders = container.querySelectorAll(`effects-fader[data-effect-id="${effectIdNum}"]`);
+            faders.forEach((fader, paramIndex) => {
+                // Check if user is currently changing this parameter
+                if (fader.dataset.paramChanging === 'true') {
+                    return; // Skip update while user is adjusting parameter
+                }
+
+                const params = Object.keys(effect).filter(k => k !== 'enabled');
+                const paramName = params[paramIndex];
+                if (paramName && effect[paramName] !== undefined) {
+                    fader.setAttribute('value', effect[paramName].toString());
+                }
+            });
+        }
+    }
+
+    /**
      * Setup swipe gesture controls for scene switching
      */
     setupGestureControls() {
@@ -1023,15 +1466,19 @@ export class SceneManager {
         const scenes = this.getScenes();
         const currentScene = this.currentScene;
 
-        container.innerHTML = scenes.map(scene => `
-            <div class="scene-quick-item ${scene.id === currentScene ? 'active' : ''}"
-                 data-scene-id="${scene.id}">
-                <div class="scene-quick-item-name">${scene.name}</div>
-                <div class="scene-quick-item-type">
-                    ${scene.type === 'grid' ? 'Grid' : 'Slider'}
+        container.innerHTML = scenes.map(scene => {
+            let typeLabel = 'Slider';
+            if (scene.type === 'grid') typeLabel = 'Grid';
+            else if (scene.type === 'effects') typeLabel = 'Effects';
+
+            return `
+                <div class="scene-quick-item ${scene.id === currentScene ? 'active' : ''}"
+                     data-scene-id="${scene.id}">
+                    <div class="scene-quick-item-name">${scene.name}</div>
+                    <div class="scene-quick-item-type">${typeLabel}</div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Add click handlers
         container.querySelectorAll('.scene-quick-item').forEach(item => {
@@ -1049,14 +1496,27 @@ export class SceneManager {
     startDevicePolling(deviceIds, intervalMs) {
         if (!Array.isArray(deviceIds) || deviceIds.length === 0) return;
 
-        console.log(`[Scene] Starting polling for devices [${deviceIds.join(', ')}] every ${intervalMs}ms`);
+        const scene = this.scenes.get(this.currentScene);
+        // console.log(`[Scene] Starting polling for devices [${deviceIds.join(', ')}] every ${intervalMs}ms`);
 
         // Request state immediately for all devices
-        deviceIds.forEach(deviceId => this.requestPlayerState(deviceId));
+        deviceIds.forEach(deviceId => {
+            this.requestPlayerState(deviceId);
+            // Also request FX state for effects scenes
+            if (scene && scene.type === 'effects') {
+                this.requestFxState(deviceId, scene.programId || 0);
+            }
+        });
 
         // Then poll at interval
         this.pollInterval = setInterval(() => {
-            deviceIds.forEach(deviceId => this.requestPlayerState(deviceId));
+            deviceIds.forEach(deviceId => {
+                this.requestPlayerState(deviceId);
+                // Also request FX state for effects scenes
+                if (scene && scene.type === 'effects') {
+                    this.requestFxState(deviceId, scene.programId || 0);
+                }
+            });
         }, intervalMs);
     }
 
@@ -1070,5 +1530,18 @@ export class SceneManager {
         // 0x60 = SYSEX_CMD_GET_PLAYER_STATE
         const sysex = [0xF0, 0x7D, deviceId, 0x60, 0xF7];
         this.controller.midiOutput.send(sysex);
+    }
+
+    /**
+     * Request FX state from device via SysEx
+     */
+    requestFxState(deviceId, programId) {
+        if (!this.controller.midiOutput) return;
+
+        // Commented out to reduce console spam - uncomment for debugging
+        // console.log(`[Scene] Requesting FX state for device ${deviceId} program ${programId}`);
+
+        // Use controller's sendSysExFxGetAllState method
+        this.controller.sendSysExFxGetAllState(deviceId, programId);
     }
 }

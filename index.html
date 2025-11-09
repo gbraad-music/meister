@@ -621,9 +621,10 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <button id="edit-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT PAD SCENE</button>
                         <button id="edit-mixer-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT MIXER SCENE</button>
+                        <button id="edit-effects-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT EFFECTS</button>
                     </div>
                     <div style="color: #666; font-size: 0.75em;">
-                        Configure layout, polling interval, and other settings for built-in scenes.
+                        Configure layout, polling interval, device binding, and other settings for built-in scenes.
                     </div>
                 </div>
 
@@ -632,6 +633,7 @@
                     <div style="display: flex; gap: 8px;">
                         <button id="new-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
                         <button id="new-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
+                        <button id="new-effects-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
                     </div>
                 </div>
 
@@ -1190,6 +1192,58 @@
     </div>
 
     <!-- Pad Scene Editor Overlay -->
+    <!-- Effects Scene Editor Overlay -->
+    <div class="settings-overlay" id="effects-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="effects-scene-editor-title">NEW EFFECTS SCENE</div>
+                <button class="close-settings" id="close-effects-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="effects-scene-name" placeholder="My Effects" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">DEVICE BINDING</label>
+                    <select id="effects-scene-device" style="width: 100%;">
+                        <option value="">-- Select Device --</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Which device's effects to control
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PROGRAM ID</label>
+                    <input type="number" id="effects-scene-program" min="0" max="31" value="0" style="width: 100px;">
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        0 = Regroove effects, 1-31 = Samplecrate pad effects
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">POLLING INTERVAL</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" id="effects-scene-polling-interval" min="50" max="1000" step="50" value="250"
+                            style="flex: 1; accent-color: #4a9eff;">
+                        <span id="effects-scene-polling-interval-value" style="color: #888; min-width: 60px; text-align: right;">250ms</span>
+                    </div>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        How often to poll FX state. Lower = more responsive, higher = less MIDI traffic.
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-effects-scene">💾 SAVE SCENE</button>
+                    <button id="delete-effects-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="settings-overlay" id="pad-scene-editor-overlay">
         <div class="settings-panel">
             <div class="settings-panel-header">
@@ -1289,9 +1343,12 @@
                 window.meisterController.sceneEditor.loadScenesFromStorage();
                 console.log('[Meister] Scene editor initialized');
 
-                // Setup scene selector
+                // Setup scene selector and populate it
                 const sceneSelector = document.getElementById('scene-selector');
                 if (sceneSelector) {
+                    // Initialize selector with all scenes
+                    window.meisterController.sceneManager.updateSceneSelector();
+
                     sceneSelector.addEventListener('change', (e) => {
                         window.meisterController.sceneManager.switchScene(e.target.value);
                     });

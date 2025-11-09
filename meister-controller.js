@@ -29,9 +29,10 @@ class MeisterController {
         this.regrooveState.onStateUpdate = (deviceId, state) => {
             // Update pad colors when state changes
             this.updatePadColors();
-            // Notify scene manager to update faders
+            // Notify scene manager to update faders and effects
             if (this.sceneManager) {
                 this.sceneManager.updateMixerFromDeviceState(deviceId, state);
+                this.sceneManager.updateEffectsFromDeviceState(deviceId, state);
             }
         };
         this.regrooveState.onConnectionChange = (connected) => {
@@ -169,14 +170,19 @@ class MeisterController {
         //     console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
         // }
 
-        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE)
-        if (command !== 0x60 && command !== 0x61) {
+        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
+        if (command !== 0x60 && command !== 0x61 && command !== 0x7E && command !== 0x7F) {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
             this.regrooveState.handlePlayerStateResponse(deviceId, payload);
+        }
+
+        // FX_STATE_RESPONSE = 0x7F
+        if (command === 0x7F) {
+            this.regrooveState.handleFxStateResponse(deviceId, payload);
         }
     }
 
@@ -1454,6 +1460,16 @@ class MeisterController {
     // SysEx: TRIGGER_PAD (0x52) - Trigger application/song pad by index
     sendSysExTriggerPad(deviceId, padIndex) {
         this.sendSysEx(deviceId, 0x52, [padIndex & 0x7F]);
+    }
+
+    // SysEx: FX_EFFECT_SET (0x71) - Set effect parameters
+    sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params) {
+        this.sendSysEx(deviceId, 0x71, [programId & 0x7F, effectId & 0x7F, enabled ? 1 : 0, ...params.map(p => p & 0x7F)]);
+    }
+
+    // SysEx: FX_GET_ALL_STATE (0x7E) - Request complete effects state
+    sendSysExFxGetAllState(deviceId, programId = 0) {
+        this.sendSysEx(deviceId, 0x7E, [programId & 0x7F]);
     }
 
     // MIDI Clock Master functions

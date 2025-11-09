@@ -350,6 +350,93 @@ class RegrooveStateManager {
         return Array.from(this.deviceStates.keys());
     }
 
+    // Handle FX_STATE_RESPONSE (0x7F)
+    handleFxStateResponse(deviceId, data) {
+        if (!data || data.length < 19) { // Minimum length for version 1 format
+            console.warn('[RegrooveState] FX_STATE_RESPONSE data too short');
+            return;
+        }
+
+        // Parse header
+        const programId = data[0];
+        const version = data[1];
+        const fxRouting = data[2];
+        const enableFlags = data[3];
+
+        if (version !== 0x01) {
+            console.warn(`[RegrooveState] Unknown FX state version: 0x${version.toString(16)}`);
+            return;
+        }
+
+        // Parse enable flags (bit-packed)
+        const effects = {
+            distortion: {
+                enabled: (enableFlags & 0x01) !== 0,
+                drive: data[4],
+                mix: data[5]
+            },
+            filter: {
+                enabled: (enableFlags & 0x02) !== 0,
+                cutoff: data[6],
+                resonance: data[7]
+            },
+            eq: {
+                enabled: (enableFlags & 0x04) !== 0,
+                low: data[8],
+                mid: data[9],
+                high: data[10]
+            },
+            compressor: {
+                enabled: (enableFlags & 0x08) !== 0,
+                threshold: data[11],
+                ratio: data[12]
+                // Note: Attack, release, makeup not implemented in UI yet
+                // attack: data[13],
+                // release: data[14],
+                // makeup: data[15]
+            },
+            delay: {
+                enabled: (enableFlags & 0x10) !== 0,
+                time: data[16],
+                feedback: data[17],
+                mix: data[18]
+            }
+        };
+
+        console.log(`[RegrooveState] Device ${deviceId} FX state (prog ${programId}): routing=${fxRouting}, enabled=${enableFlags.toString(2)}`);
+
+        // Get or create state for this device
+        let deviceState = this.deviceStates.get(deviceId);
+        if (!deviceState) {
+            deviceState = { deviceId, fxStates: {} };
+            this.deviceStates.set(deviceId, deviceState);
+        }
+
+        // Initialize fxStates object if not present
+        if (!deviceState.fxStates) {
+            deviceState.fxStates = {};
+        }
+
+        // Store effects state by program ID (allows multiple programs per device)
+        deviceState.fxStates[programId] = {
+            programId,
+            version,
+            fxRouting,
+            enableFlags,
+            effects
+        };
+
+        // Keep backward compatibility: default fxState points to program 0
+        if (programId === 0) {
+            deviceState.fxState = deviceState.fxStates[0];
+        }
+
+        // Notify callback
+        if (this.onStateUpdate) {
+            this.onStateUpdate(deviceId, deviceState);
+        }
+    }
+
     // Clear all state
     clearAllState() {
         this.deviceStates.clear();

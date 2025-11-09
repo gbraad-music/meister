@@ -34,9 +34,19 @@ export class SceneEditor {
             this.openSceneEditor('mixer');
         });
 
+        // Edit built-in effects scene
+        document.getElementById('edit-effects-btn')?.addEventListener('click', () => {
+            this.openEffectsSceneEditor('effects');
+        });
+
         // New mixer scene button
         document.getElementById('new-scene-btn')?.addEventListener('click', () => {
             this.openSceneEditor();
+        });
+
+        // New effects scene button
+        document.getElementById('new-effects-btn')?.addEventListener('click', () => {
+            this.openEffectsSceneEditor();
         });
 
         // New pad scene button
@@ -52,6 +62,11 @@ export class SceneEditor {
         // Close pad scene editor
         document.getElementById('close-pad-scene-editor')?.addEventListener('click', () => {
             this.closePadSceneEditor();
+        });
+
+        // Close effects scene editor
+        document.getElementById('close-effects-scene-editor')?.addEventListener('click', () => {
+            this.closeEffectsSceneEditor();
         });
 
         // Close fader editor
@@ -110,6 +125,22 @@ export class SceneEditor {
         document.getElementById('pad-scene-polling-interval')?.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById('pad-scene-polling-interval-value').textContent = value + 'ms';
+        });
+
+        // Save effects scene
+        document.getElementById('save-effects-scene')?.addEventListener('click', () => {
+            this.saveEffectsScene();
+        });
+
+        // Delete effects scene
+        document.getElementById('delete-effects-scene')?.addEventListener('click', () => {
+            this.deleteEffectsScene();
+        });
+
+        // Effects scene polling interval slider
+        document.getElementById('effects-scene-polling-interval')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('effects-scene-polling-interval-value').textContent = value + 'ms';
         });
     }
 
@@ -359,8 +390,8 @@ export class SceneEditor {
         // Get polling interval from slider
         const pollingInterval = parseInt(document.getElementById('scene-polling-interval').value);
 
-        console.log(`[SceneEditor] Saving scene "${name}" with ${rows}x${cols} layout, ${pollingInterval}ms polling`);
-        console.log(`[SceneEditor] Faders:`, this.sceneConfig.faders);
+        // console.log(`[SceneEditor] Saving scene "${name}" with ${rows}x${cols} layout, ${pollingInterval}ms polling`);
+        // console.log(`[SceneEditor] Faders:`, this.sceneConfig.faders);
 
         // Collect all device IDs from faders for polling
         const deviceIds = new Set();
@@ -388,7 +419,7 @@ export class SceneEditor {
             render: () => this.sceneManager.renderSliderScene(this.currentSceneId) // Add render function!
         };
 
-        console.log(`[SceneEditor] Scene config:`, sceneConfig);
+        // console.log(`[SceneEditor] Scene config:`, sceneConfig);
 
         // Add scene to scene manager
         this.sceneManager.addScene(this.currentSceneId, sceneConfig);
@@ -401,7 +432,7 @@ export class SceneEditor {
 
         // If we're currently viewing this scene, re-render it
         if (this.sceneManager.currentScene === this.currentSceneId) {
-            console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
+            // console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
             this.sceneManager.switchScene(this.currentSceneId);
         }
 
@@ -475,6 +506,142 @@ export class SceneEditor {
         document.getElementById('pad-scene-editor-overlay').classList.remove('active');
     }
 
+    /**
+     * Open effects scene editor
+     */
+    openEffectsSceneEditor(sceneId = null) {
+        // Populate device dropdown
+        this.populateEffectsDeviceDropdown();
+
+        if (sceneId) {
+            // Edit existing effects scene
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'effects') {
+                this.currentSceneId = sceneId;
+
+                document.getElementById('effects-scene-name').value = scene.name;
+                document.getElementById('effects-scene-device').value = scene.deviceBinding || '';
+                document.getElementById('effects-scene-program').value = scene.programId || 0;
+
+                // Set polling interval
+                const pollingSlider = document.getElementById('effects-scene-polling-interval');
+                if (pollingSlider) {
+                    pollingSlider.value = scene.pollInterval || 250;
+                    document.getElementById('effects-scene-polling-interval-value').textContent = (scene.pollInterval || 250) + 'ms';
+                }
+
+                document.getElementById('effects-scene-editor-title').textContent = sceneId === 'effects' ? 'EDIT EFFECTS SCENE' : 'EDIT CUSTOM EFFECTS';
+            }
+        } else {
+            // New effects scene
+            this.currentSceneId = 'custom-effects-' + Date.now();
+
+            document.getElementById('effects-scene-name').value = 'Custom Effects';
+            document.getElementById('effects-scene-device').value = '';
+            document.getElementById('effects-scene-program').value = 0;
+
+            // Set default polling interval
+            const pollingSlider = document.getElementById('effects-scene-polling-interval');
+            if (pollingSlider) {
+                pollingSlider.value = 250;
+                document.getElementById('effects-scene-polling-interval-value').textContent = '250ms';
+            }
+
+            document.getElementById('effects-scene-editor-title').textContent = 'NEW EFFECTS SCENE';
+        }
+
+        document.getElementById('effects-scene-editor-overlay').classList.add('active');
+    }
+
+    closeEffectsSceneEditor() {
+        document.getElementById('effects-scene-editor-overlay').classList.remove('active');
+    }
+
+    populateEffectsDeviceDropdown() {
+        const select = document.getElementById('effects-scene-device');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">-- Select Device --</option>';
+
+        if (this.sceneManager.controller.deviceManager) {
+            const devices = this.sceneManager.controller.deviceManager.getAllDevices();
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.id;
+                option.textContent = `${device.name} (Ch ${device.midiChannel + 1}, ID ${device.deviceId})`;
+                select.appendChild(option);
+            });
+        }
+    }
+
+    saveEffectsScene() {
+        const name = document.getElementById('effects-scene-name').value.trim();
+        const deviceBinding = document.getElementById('effects-scene-device').value;
+        const programId = parseInt(document.getElementById('effects-scene-program').value) || 0;
+        const pollingInterval = parseInt(document.getElementById('effects-scene-polling-interval').value) || 250;
+
+        if (!name) {
+            alert('Please enter a scene name');
+            return;
+        }
+
+        if (!deviceBinding) {
+            alert('Please select a device');
+            return;
+        }
+
+        // Get device ID for polling
+        let deviceId = 0;
+        if (this.sceneManager.controller.deviceManager) {
+            const device = this.sceneManager.controller.deviceManager.getDevice(deviceBinding);
+            if (device) {
+                deviceId = device.deviceId;
+            }
+        }
+
+        // Save scene
+        this.sceneManager.addScene(this.currentSceneId, {
+            name: name,
+            type: 'effects',
+            deviceBinding: deviceBinding,
+            programId: programId,
+            pollDevices: [deviceId],
+            pollInterval: pollingInterval
+        });
+
+        // console.log(`[SceneEditor] Saved effects scene: ${name} (device: ${deviceBinding}, program: ${programId})`);
+
+        // Save to localStorage
+        this.saveScenesToStorage();
+
+        // Refresh scenes list
+        this.refreshScenesList();
+
+        // Close editor
+        this.closeEffectsSceneEditor();
+
+        // Switch to the scene
+        this.sceneManager.switchScene(this.currentSceneId);
+    }
+
+    deleteEffectsScene() {
+        if (this.currentSceneId === 'effects') {
+            alert('Cannot delete the built-in effects scene');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this effects scene?')) {
+            return;
+        }
+
+        this.sceneManager.scenes.delete(this.currentSceneId);
+        this.saveScenesToStorage();
+        this.refreshScenesList();
+        this.closeEffectsSceneEditor();
+
+        // console.log(`[SceneEditor] Deleted effects scene: ${this.currentSceneId}`);
+    }
+
     savePadScene() {
         const name = document.getElementById('pad-scene-name').value.trim();
         if (!name) {
@@ -489,7 +656,7 @@ export class SceneEditor {
         this.padSceneConfig.layout = layout;
         this.padSceneConfig.pollInterval = pollingInterval;
 
-        console.log(`[SceneEditor] Saving pad scene "${name}" with ${layout} layout, ${pollingInterval}ms polling`);
+        // console.log(`[SceneEditor] Saving pad scene "${name}" with ${layout} layout, ${pollingInterval}ms polling`);
 
         // Collect all device IDs from device manager for polling
         const deviceIds = new Set();
@@ -509,7 +676,7 @@ export class SceneEditor {
             pollInterval: pollingInterval
         };
 
-        console.log(`[SceneEditor] Pad scene config:`, sceneConfig);
+        // console.log(`[SceneEditor] Pad scene config:`, sceneConfig);
 
         // Add scene to scene manager
         this.sceneManager.addScene(this.currentSceneId, sceneConfig);
@@ -522,7 +689,7 @@ export class SceneEditor {
 
         // If we're currently viewing this scene, re-render it
         if (this.sceneManager.currentScene === this.currentSceneId) {
-            console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
+            // console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
             this.sceneManager.switchScene(this.currentSceneId);
         }
 
@@ -562,7 +729,7 @@ export class SceneEditor {
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
-        console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} scene(s) to localStorage`);
+        // console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} scene(s) to localStorage`);
     }
 
     loadScenesFromStorage() {
@@ -574,7 +741,7 @@ export class SceneEditor {
                 // Load saved scenes BEFORE registering defaults
                 // This allows saved mixer scene to override the default
                 Object.entries(scenes).forEach(([id, config]) => {
-                    console.log(`[SceneEditor] Loading saved scene: ${id}`);
+                    // console.log(`[SceneEditor] Loading saved scene: ${id}`);
                     this.sceneManager.addScene(id, config);
                 });
 
@@ -635,14 +802,21 @@ export class SceneEditor {
         const scenes = this.sceneManager.getScenes();
 
         container.innerHTML = scenes.map(scene => {
-            const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer');
+            // Only pads scene is truly non-editable built-in
+            const isNonEditable = (scene.id === 'pads');
+            const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer' || scene.id === 'effects');
+
+            let typeLabel = 'Mixer Layout';
+            if (scene.type === 'grid') typeLabel = 'Pad Grid';
+            else if (scene.type === 'effects') typeLabel = 'Effects';
+
             return `
                 <div class="scene-list-item" data-scene-id="${scene.id}" style="
                     background: #2a2a2a;
                     border: 2px solid #444;
                     border-radius: 4px;
                     padding: 12px;
-                    cursor: ${isBuiltIn ? 'default' : 'pointer'};
+                    cursor: ${isNonEditable ? 'default' : 'pointer'};
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -650,30 +824,35 @@ export class SceneEditor {
                     <div>
                         <div style="font-weight: bold; color: #ccc;">${scene.name}</div>
                         <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
-                            ${scene.type === 'grid' ? 'Pad Grid' : 'Mixer Layout'}
+                            ${typeLabel}
                             ${isBuiltIn ? '(Built-in)' : ''}
                         </div>
                     </div>
-                    ${!isBuiltIn ? '<div style="color: #cc4444;">✏️</div>' : ''}
+                    ${!isNonEditable ? '<div style="color: #cc4444;">✏️</div>' : ''}
                 </div>
             `;
         }).join('');
 
-        // Add click handlers for custom scenes
+        // Add click handlers - all scenes except pads are editable
         container.querySelectorAll('.scene-list-item').forEach(item => {
             const sceneId = item.getAttribute('data-scene-id');
-            const isBuiltIn = (sceneId === 'pads' || sceneId === 'mixer');
 
-            if (!isBuiltIn) {
+            // Only pads is non-editable
+            if (sceneId !== 'pads') {
                 item.addEventListener('click', () => {
                     const scene = this.sceneManager.scenes.get(sceneId);
                     if (scene && scene.type === 'grid') {
                         this.openPadSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'effects') {
+                        this.openEffectsSceneEditor(sceneId);
                     } else {
                         this.openSceneEditor(sceneId);
                     }
                 });
             }
         });
+
+        // Update the scene selector dropdown in the status bar
+        this.sceneManager.updateSceneSelector();
     }
 }
