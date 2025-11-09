@@ -302,11 +302,12 @@ export class SceneManager {
         // Clear grid and switch to effects layout
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
-        container.style.gap = '20px';
-        container.style.padding = '20px';
+        container.style.gap = '10px';
+        container.style.padding = '10px';
         container.style.justifyContent = 'flex-start';
         container.style.alignItems = 'stretch';
-        container.style.height = 'calc(100vh - 60px)';
+        container.style.height = '';
+        container.style.overflow = '';
         container.innerHTML = '';
 
         // Get scene and resolve device binding
@@ -338,9 +339,10 @@ export class SceneManager {
         header.style.display = 'flex';
         header.style.gap = '10px';
         header.style.alignItems = 'center';
-        header.style.padding = '12px 16px';
+        header.style.padding = '8px 12px';
         header.style.background = '#1a1a1a';
         header.style.borderRadius = '4px';
+        header.style.flexShrink = '0';
 
         // Device name display
         const deviceLabel = document.createElement('div');
@@ -378,10 +380,10 @@ export class SceneManager {
         const effectsContainer = document.createElement('div');
         effectsContainer.style.display = 'flex';
         effectsContainer.style.flexDirection = 'row';
-        effectsContainer.style.gap = '20px';
-        effectsContainer.style.flex = '1';
-        effectsContainer.style.justifyContent = 'space-evenly';
+        effectsContainer.style.gap = '10px';
+        effectsContainer.style.justifyContent = 'center';
         effectsContainer.style.alignItems = 'stretch';
+        effectsContainer.style.flex = '1';
         effectsContainer.style.minHeight = '0';
 
         // Effect definitions with default values from REGROOVE_EFFECTS.md
@@ -457,12 +459,13 @@ export class SceneManager {
         group.dataset.effectId = effect.id;
         group.style.display = 'flex';
         group.style.flexDirection = 'column';
-        group.style.gap = '10px';
-        group.style.padding = '10px';
+        group.style.gap = '8px';
+        group.style.padding = '8px';
         group.style.background = 'transparent';
         group.style.borderRadius = '4px';
-        group.style.minWidth = '0';
+        group.style.minWidth = 'min-content';
         group.style.flex = '0 0 auto'; // Only take space needed, not equal distribution
+        group.style.maxWidth = '100%'; // Don't exceed container width
 
         // Effect name header
         const header = document.createElement('div');
@@ -1357,12 +1360,26 @@ export class SceneManager {
 
         container.addEventListener('touchstart', (e) => {
             // Only track gestures on the container itself, not on interactive elements
-            if (e.target.tagName === 'REGROOVE-PAD' ||
-                e.target.tagName === 'MIX-FADER' ||
-                e.target.tagName === 'CHANNEL-FADER' ||
-                e.target.tagName === 'TEMPO-FADER' ||
-                e.target.tagName === 'SVG-SLIDER') {
-                return; // Don't interfere with pad/fader interactions
+            const tagName = e.target.tagName;
+            const isInteractive = tagName === 'REGROOVE-PAD' ||
+                tagName === 'MIX-FADER' ||
+                tagName === 'CHANNEL-FADER' ||
+                tagName === 'TEMPO-FADER' ||
+                tagName === 'STEREO-FADER' ||
+                tagName === 'EFFECTS-FADER' ||
+                tagName === 'SVG-SLIDER' ||
+                tagName === 'BUTTON' ||
+                tagName === 'SELECT' ||
+                tagName === 'INPUT' ||
+                e.target.classList.contains('fx-enable-btn') ||
+                e.target.closest('mix-fader') ||
+                e.target.closest('channel-fader') ||
+                e.target.closest('tempo-fader') ||
+                e.target.closest('stereo-fader') ||
+                e.target.closest('effects-fader');
+
+            if (isInteractive) {
+                return; // Don't interfere with interactive element interactions
             }
 
             touchStartX = e.changedTouches[0].screenX;
