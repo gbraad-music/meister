@@ -756,24 +756,28 @@
                     <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI MAPPINGS</h3>
                     <div style="margin-bottom: 15px;">
                         <button id="midi-learn-btn" class="learn-button">🎹 MIDI LEARN</button>
-                        <select id="learn-action-select" class="action-select" style="margin-left: 10px; width: calc(100% - 140px);">
-                            <option value="">-- Select action for next learned control --</option>
+                        <select id="learn-action-select" class="action-select" style="margin-left: 10px; width: calc(50% - 75px);">
+                            <option value="">-- Select action --</option>
+                        </select>
+                        <select id="learn-target-device-select" class="action-select" style="margin-left: 10px; width: calc(50% - 75px);">
+                            <option value="0">Target: Default Device (0)</option>
                         </select>
                     </div>
 
                     <table class="settings-table" id="midi-mappings-table">
                         <thead>
                             <tr>
-                                <th>Device</th>
+                                <th style="width: 80px;">From</th>
                                 <th style="width: 50px;">Type</th>
                                 <th style="width: 50px;">#</th>
                                 <th>Action</th>
+                                <th style="width: 100px;">Target</th>
                                 <th style="width: 60px;"></th>
                             </tr>
                         </thead>
                         <tbody id="midi-mappings-list">
                             <tr>
-                                <td colspan="5" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td>
+                                <td colspan="6" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td>
                             </tr>
                         </tbody>
                     </table>

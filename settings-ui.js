@@ -230,11 +230,52 @@ export class SettingsUI {
         // Populate action select
         this.populateActionSelect('learn-action-select');
 
+        // Populate target device select
+        this.populateTargetDeviceSelect();
+
         // MIDI Learn button
         const learnBtn = document.getElementById('midi-learn-btn');
         if (learnBtn) {
             learnBtn.addEventListener('click', () => {
                 this.toggleMIDILearn();
+            });
+        }
+
+        // Refresh device selector when MIDI mappings tab is shown
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (settingsOverlay.classList.contains('active')) {
+                        const activeTab = document.querySelector('.settings-tab.active');
+                        if (activeTab && activeTab.getAttribute('data-tab') === 'midi-mappings') {
+                            this.populateTargetDeviceSelect();
+                        }
+                    }
+                }
+            });
+        });
+        observer.observe(settingsOverlay, { attributes: true });
+    }
+
+    /**
+     * Populate target device selector
+     */
+    populateTargetDeviceSelect() {
+        const select = document.getElementById('learn-target-device-select');
+        if (!select) return;
+
+        // Default option
+        select.innerHTML = '<option value="0">Target: Default Device (0)</option>';
+
+        // Add all registered devices
+        if (this.controller.deviceManager) {
+            const devices = this.controller.deviceManager.getAllDevices();
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId.toString();
+                option.textContent = `Target: ${device.name} (${device.deviceId})`;
+                select.appendChild(option);
             });
         }
     }
@@ -245,6 +286,7 @@ export class SettingsUI {
     toggleMIDILearn() {
         const learnBtn = document.getElementById('midi-learn-btn');
         const actionSelect = document.getElementById('learn-action-select');
+        const targetDeviceSelect = document.getElementById('learn-target-device-select');
 
         if (this.controller.inputMapper.learnMode) {
             // Disable learn mode
@@ -259,12 +301,15 @@ export class SettingsUI {
                 return;
             }
 
+            // Get target device ID
+            const targetDeviceId = parseInt(targetDeviceSelect.value) || 0;
+
             // Enable learn mode
             learnBtn.classList.add('active');
             learnBtn.textContent = '⏹ STOP LEARNING (move a control...)';
 
             this.controller.inputMapper.enableLearnMode((deviceName, channel, number, type) => {
-                console.log(`[MIDI Learn] ${type.toUpperCase()} ${number} from ${deviceName}`);
+                console.log(`[MIDI Learn] ${type.toUpperCase()} ${number} from ${deviceName} → Action ${actionId} on Device ${targetDeviceId}`);
 
                 const mapping = new MidiInputMapping({
                     deviceName,
@@ -273,6 +318,8 @@ export class SettingsUI {
                     number,
                     action: actionId,
                     continuous: type === 'cc',
+                    targetDeviceId: targetDeviceId,
+                    targetProgramId: 0, // Default to 0 (Regroove)
                 });
 
                 this.controller.inputMapper.addMidiMapping(mapping);
@@ -286,7 +333,17 @@ export class SettingsUI {
                 // Refresh list
                 this.refreshMIDIMappingsList();
 
-                alert(`Mapped ${type.toUpperCase()} ${number} → ${getActionName(actionId)}`);
+                // Get target device name for alert
+                let targetDeviceName = `Device ${targetDeviceId}`;
+                if (this.controller.deviceManager) {
+                    const devices = this.controller.deviceManager.getAllDevices();
+                    const targetDevice = devices.find(d => d.deviceId === targetDeviceId);
+                    if (targetDevice) {
+                        targetDeviceName = targetDevice.name;
+                    }
+                }
+
+                alert(`Mapped ${type.toUpperCase()} ${number} → ${getActionName(actionId)}\nTarget: ${targetDeviceName}`);
             });
         }
     }
@@ -301,7 +358,7 @@ export class SettingsUI {
         const mappings = this.controller.inputMapper.midiMappings;
 
         if (mappings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No MIDI mappings configured<br>Use MIDI Learn to add mappings</td></tr>';
             return;
         }
 
@@ -310,10 +367,10 @@ export class SettingsUI {
         mappings.forEach((mapping, index) => {
             const row = document.createElement('tr');
 
-            // Device
+            // From Device
             const deviceCell = document.createElement('td');
             deviceCell.textContent = mapping.deviceName || 'Any';
-            deviceCell.style.fontSize = '0.8em';
+            deviceCell.style.fontSize = '0.75em';
             row.appendChild(deviceCell);
 
             // Type
@@ -332,6 +389,25 @@ export class SettingsUI {
             actionCell.textContent = getActionName(mapping.action);
             actionCell.style.fontSize = '0.85em';
             row.appendChild(actionCell);
+
+            // Target Device
+            const targetCell = document.createElement('td');
+            const targetDeviceId = mapping.targetDeviceId !== undefined ? mapping.targetDeviceId : 0;
+
+            // Get target device name
+            let targetName = `Dev ${targetDeviceId}`;
+            if (this.controller.deviceManager) {
+                const devices = this.controller.deviceManager.getAllDevices();
+                const targetDevice = devices.find(d => d.deviceId === targetDeviceId);
+                if (targetDevice) {
+                    targetName = targetDevice.name;
+                }
+            }
+
+            targetCell.textContent = targetName;
+            targetCell.style.fontSize = '0.75em';
+            targetCell.style.color = '#888';
+            row.appendChild(targetCell);
 
             // Delete button
             const deleteCell = document.createElement('td');
@@ -469,6 +545,25 @@ export class SettingsUI {
                 InputAction.ACTION_REGROOVE_FILE_LOAD,
                 InputAction.ACTION_REGROOVE_FILE_NEXT,
                 InputAction.ACTION_REGROOVE_FILE_PREV,
+            ],
+            'Mixer - Master': [
+                InputAction.ACTION_REGROOVE_MASTER_VOLUME,
+                InputAction.ACTION_REGROOVE_MASTER_PAN,
+                InputAction.ACTION_REGROOVE_MASTER_MUTE,
+            ],
+            'Mixer - Input': [
+                InputAction.ACTION_REGROOVE_INPUT_VOLUME,
+                InputAction.ACTION_REGROOVE_INPUT_PAN,
+                InputAction.ACTION_REGROOVE_INPUT_MUTE,
+            ],
+            'Mixer - Other': [
+                InputAction.ACTION_REGROOVE_FX_ROUTING,
+                InputAction.ACTION_REGROOVE_TEMPO_SET,
+                InputAction.ACTION_REGROOVE_STEREO_SEP,
+            ],
+            'Effects': [
+                InputAction.ACTION_REGROOVE_FX_ENABLE,
+                InputAction.ACTION_REGROOVE_FX_PARAM,
             ],
             'MIDI Clock': [
                 InputAction.ACTION_CLOCK_MASTER_TOGGLE,

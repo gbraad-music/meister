@@ -32,8 +32,9 @@ export const InputAction = {
     ACTION_REGROOVE_CHANNEL_MUTE: 130,    // parameter = channel index
     ACTION_REGROOVE_CHANNEL_SOLO: 131,    // parameter = channel index
     ACTION_REGROOVE_CHANNEL_VOLUME: 132,  // parameter = channel index, value = volume
-    ACTION_REGROOVE_MUTE_ALL: 133,
-    ACTION_REGROOVE_UNMUTE_ALL: 134,
+    ACTION_REGROOVE_CHANNEL_PAN: 133,     // parameter = channel index, value = pan (0-127)
+    ACTION_REGROOVE_MUTE_ALL: 134,
+    ACTION_REGROOVE_UNMUTE_ALL: 135,
 
     // === REGROOVE MIDI SYNC ===
     ACTION_REGROOVE_SYNC_TEMPO_TOGGLE: 140,
@@ -45,6 +46,21 @@ export const InputAction = {
     // === REGROOVE PERFORMANCE ===
     ACTION_REGROOVE_RECORD_TOGGLE: 150,
     ACTION_REGROOVE_TAP_TEMPO: 151,
+
+    // === REGROOVE MIXER CONTROL ===
+    ACTION_REGROOVE_MASTER_VOLUME: 160,   // value = volume (0-127)
+    ACTION_REGROOVE_MASTER_PAN: 161,      // value = pan (0-127, 64=center)
+    ACTION_REGROOVE_MASTER_MUTE: 162,     // toggle
+    ACTION_REGROOVE_INPUT_VOLUME: 163,    // value = volume (0-127)
+    ACTION_REGROOVE_INPUT_PAN: 164,       // value = pan (0-127, 64=center)
+    ACTION_REGROOVE_INPUT_MUTE: 165,      // toggle
+    ACTION_REGROOVE_FX_ROUTING: 166,      // parameter = route (0=off, 1=master, 2=playback, 3=input)
+    ACTION_REGROOVE_TEMPO_SET: 167,       // value = BPM (20-300)
+    ACTION_REGROOVE_STEREO_SEP: 168,      // value = separation (0-127)
+
+    // === REGROOVE EFFECTS CONTROL ===
+    ACTION_REGROOVE_FX_ENABLE: 170,       // parameter = effect_id (0-4), value = enable/disable
+    ACTION_REGROOVE_FX_PARAM: 171,        // parameter = (effect_id << 8) | param_index, value = param value
 
     // === MIDI CLOCK CONTROL ===
     ACTION_CLOCK_MASTER_TOGGLE: 200,
@@ -108,12 +124,23 @@ export function getActionCategory(action) {
         InputAction.ACTION_REGROOVE_SYNC_RECEIVE_TOGGLE,
         InputAction.ACTION_REGROOVE_SYNC_SEND_TOGGLE,
         InputAction.ACTION_REGROOVE_RECORD_TOGGLE,
+        InputAction.ACTION_REGROOVE_MASTER_MUTE,
+        InputAction.ACTION_REGROOVE_INPUT_MUTE,
         InputAction.ACTION_CLOCK_MASTER_TOGGLE,
     ];
 
     // Continuous actions (0-127 range)
     const continuousActions = [
         InputAction.ACTION_REGROOVE_CHANNEL_VOLUME,
+        InputAction.ACTION_REGROOVE_CHANNEL_PAN,
+        InputAction.ACTION_REGROOVE_MASTER_VOLUME,
+        InputAction.ACTION_REGROOVE_MASTER_PAN,
+        InputAction.ACTION_REGROOVE_INPUT_VOLUME,
+        InputAction.ACTION_REGROOVE_INPUT_PAN,
+        InputAction.ACTION_REGROOVE_TEMPO_SET,
+        InputAction.ACTION_REGROOVE_STEREO_SEP,
+        InputAction.ACTION_REGROOVE_FX_ENABLE,
+        InputAction.ACTION_REGROOVE_FX_PARAM,
         InputAction.ACTION_CLOCK_BPM_SET,
         InputAction.ACTION_MIDI_CC,
     ];
@@ -125,6 +152,10 @@ export function getActionCategory(action) {
         InputAction.ACTION_REGROOVE_CHANNEL_MUTE,
         InputAction.ACTION_REGROOVE_CHANNEL_SOLO,
         InputAction.ACTION_REGROOVE_CHANNEL_VOLUME,
+        InputAction.ACTION_REGROOVE_CHANNEL_PAN,
+        InputAction.ACTION_REGROOVE_FX_ROUTING,
+        InputAction.ACTION_REGROOVE_FX_ENABLE,
+        InputAction.ACTION_REGROOVE_FX_PARAM,
         InputAction.ACTION_CONFIG_LOAD,
         InputAction.ACTION_MIDI_NOTE,
         InputAction.ACTION_MIDI_CC,
@@ -169,8 +200,24 @@ export function getActionName(action) {
         [InputAction.ACTION_REGROOVE_CHANNEL_MUTE]: 'Regroove: Mute Channel',
         [InputAction.ACTION_REGROOVE_CHANNEL_SOLO]: 'Regroove: Solo Channel',
         [InputAction.ACTION_REGROOVE_CHANNEL_VOLUME]: 'Regroove: Channel Volume',
+        [InputAction.ACTION_REGROOVE_CHANNEL_PAN]: 'Regroove: Channel Pan',
         [InputAction.ACTION_REGROOVE_MUTE_ALL]: 'Regroove: Mute All',
         [InputAction.ACTION_REGROOVE_UNMUTE_ALL]: 'Regroove: Unmute All',
+
+        // Regroove Mixer
+        [InputAction.ACTION_REGROOVE_MASTER_VOLUME]: 'Regroove: Master Volume',
+        [InputAction.ACTION_REGROOVE_MASTER_PAN]: 'Regroove: Master Pan',
+        [InputAction.ACTION_REGROOVE_MASTER_MUTE]: 'Regroove: Master Mute',
+        [InputAction.ACTION_REGROOVE_INPUT_VOLUME]: 'Regroove: Input Volume',
+        [InputAction.ACTION_REGROOVE_INPUT_PAN]: 'Regroove: Input Pan',
+        [InputAction.ACTION_REGROOVE_INPUT_MUTE]: 'Regroove: Input Mute',
+        [InputAction.ACTION_REGROOVE_FX_ROUTING]: 'Regroove: FX Routing',
+        [InputAction.ACTION_REGROOVE_TEMPO_SET]: 'Regroove: Set Tempo',
+        [InputAction.ACTION_REGROOVE_STEREO_SEP]: 'Regroove: Stereo Separation',
+
+        // Regroove Effects
+        [InputAction.ACTION_REGROOVE_FX_ENABLE]: 'Regroove: FX Enable',
+        [InputAction.ACTION_REGROOVE_FX_PARAM]: 'Regroove: FX Parameter',
 
         // Regroove MIDI Sync
         [InputAction.ACTION_REGROOVE_SYNC_TEMPO_TOGGLE]: 'Regroove: Toggle Tempo Sync',
@@ -219,10 +266,12 @@ export function getActionName(action) {
  * Represents a parsed input event ready for action dispatching
  */
 export class InputEvent {
-    constructor(action, parameter = 0, value = 127) {
+    constructor(action, parameter = 0, value = 127, deviceId = 0, programId = 0) {
         this.action = action;
         this.parameter = parameter;
         this.value = value;
+        this.deviceId = deviceId;      // Target device ID (0-based)
+        this.programId = programId;    // Target program ID (0=Regroove, 0-31=Samplecrate pads)
         this.timestamp = Date.now();
     }
 
@@ -363,6 +412,8 @@ export class MidiInputMapping {
         this.continuous = config.continuous || false;
         this.threshold = config.threshold || 64;
         this.routingMode = config.routingMode || MidiRoutingMode.INPUT;
+        this.targetDeviceId = config.targetDeviceId || 0;    // Target device for action (0-based)
+        this.targetProgramId = config.targetProgramId || 0;  // Target program for action (0=Regroove, 0-31=Samplecrate)
     }
 
     /**
@@ -380,7 +431,7 @@ export class MidiInputMapping {
      * Create InputEvent from MIDI value
      */
     createEvent(value) {
-        return new InputEvent(this.action, this.parameter, value);
+        return new InputEvent(this.action, this.parameter, value, this.targetDeviceId, this.targetProgramId);
     }
 }
 
@@ -397,6 +448,8 @@ export class KeyboardMapping {
         this.ctrl = config.ctrl || false;
         this.shift = config.shift || false;
         this.alt = config.alt || false;
+        this.targetDeviceId = config.targetDeviceId || 0;    // Target device for action (0-based)
+        this.targetProgramId = config.targetProgramId || 0;  // Target program for action (0=Regroove, 0-31=Samplecrate)
     }
 
     /**
@@ -418,6 +471,6 @@ export class KeyboardMapping {
      * Create InputEvent from keyboard press
      */
     createEvent() {
-        return new InputEvent(this.action, this.parameter, 127);
+        return new InputEvent(this.action, this.parameter, 127, this.targetDeviceId, this.targetProgramId);
     }
 }

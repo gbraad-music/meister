@@ -193,6 +193,117 @@ export class ActionDispatcher {
                 }
                 break;
 
+            // === REGROOVE MIXER CONTROL ===
+            case InputAction.ACTION_REGROOVE_MASTER_VOLUME:
+                {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExMasterVolume(deviceId, event.value);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_MASTER_PAN:
+                {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExMasterPanning(deviceId, event.value);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_MASTER_MUTE:
+                if (meetsThreshold) {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExMasterMute(deviceId, 1); // Toggle
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_INPUT_VOLUME:
+                {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExInputVolume(deviceId, event.value);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_INPUT_PAN:
+                {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExInputPanning(deviceId, event.value);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_INPUT_MUTE:
+                if (meetsThreshold) {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExInputMute(deviceId, 1); // Toggle
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_CHANNEL_PAN:
+                {
+                    const channel = event.parameter;
+                    const deviceId = event.deviceId || 0;
+                    if (channel >= 0 && channel <= 63) {
+                        this.controller.sendSysExChannelPanning(deviceId, channel, event.value);
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_FX_ROUTING:
+                {
+                    const route = event.parameter; // 0=off, 1=master, 2=playback, 3=input
+                    const deviceId = event.deviceId || 0;
+                    if (route >= 0 && route <= 3) {
+                        this.controller.sendSysExFxSetRoute(deviceId, route);
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_TEMPO_SET:
+                {
+                    const deviceId = event.deviceId || 0;
+                    // Map 0-127 to 20-300 BPM
+                    const bpm = Math.round(20 + (event.value / 127) * 280);
+                    this.controller.sendSysExSetTempo(deviceId, bpm);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_STEREO_SEP:
+                {
+                    const deviceId = event.deviceId || 0;
+                    this.controller.sendSysExStereoSeparation(deviceId, event.value);
+                }
+                break;
+
+            // === REGROOVE EFFECTS CONTROL ===
+            case InputAction.ACTION_REGROOVE_FX_ENABLE:
+                {
+                    const effectId = event.parameter;
+                    const deviceId = event.deviceId || 0;
+                    const programId = event.programId || 0;
+                    const enabled = meetsThreshold;
+
+                    // Get current parameters from scene manager if available
+                    const params = this.controller.sceneManager?.getEffectParams(effectId) || [64, 64, 64];
+                    this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
+                }
+                break;
+
+            case InputAction.ACTION_REGROOVE_FX_PARAM:
+                {
+                    // Parameter is encoded as (effect_id << 8) | param_index
+                    const effectId = (event.parameter >> 8) & 0xFF;
+                    const paramIndex = event.parameter & 0xFF;
+                    const deviceId = event.deviceId || 0;
+                    const programId = event.programId || 0;
+
+                    // Get current parameters and update the specified one
+                    const params = this.controller.sceneManager?.getEffectParams(effectId) || [64, 64, 64];
+                    params[paramIndex] = event.value;
+
+                    // Get enable state
+                    const enabled = true; // Assume enabled when adjusting parameters
+                    this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
+                }
+                break;
+
             // === MIDI CLOCK CONTROL ===
             case InputAction.ACTION_CLOCK_MASTER_TOGGLE:
                 if (meetsThreshold) {
