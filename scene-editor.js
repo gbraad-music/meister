@@ -13,24 +13,45 @@ export class SceneEditor {
             layout: '1x5',
             faders: []
         };
+        this.padSceneConfig = {
+            name: '',
+            layout: '4x4',
+            pollDevices: [],
+            pollInterval: 250
+        };
 
         this.setupUI();
     }
 
     setupUI() {
+        // Edit built-in pad scene
+        document.getElementById('edit-pad-scene-btn')?.addEventListener('click', () => {
+            this.openPadSceneEditor('pads');
+        });
+
         // Edit built-in mixer scene
         document.getElementById('edit-mixer-btn')?.addEventListener('click', () => {
             this.openSceneEditor('mixer');
         });
 
-        // New scene button
+        // New mixer scene button
         document.getElementById('new-scene-btn')?.addEventListener('click', () => {
             this.openSceneEditor();
+        });
+
+        // New pad scene button
+        document.getElementById('new-pad-scene-btn')?.addEventListener('click', () => {
+            this.openPadSceneEditor();
         });
 
         // Close scene editor
         document.getElementById('close-scene-editor')?.addEventListener('click', () => {
             this.closeSceneEditor();
+        });
+
+        // Close pad scene editor
+        document.getElementById('close-pad-scene-editor')?.addEventListener('click', () => {
+            this.closePadSceneEditor();
         });
 
         // Close fader editor
@@ -73,6 +94,22 @@ export class SceneEditor {
         // Clear fader
         document.getElementById('clear-fader')?.addEventListener('click', () => {
             this.clearFader();
+        });
+
+        // Save pad scene
+        document.getElementById('save-pad-scene')?.addEventListener('click', () => {
+            this.savePadScene();
+        });
+
+        // Delete pad scene
+        document.getElementById('delete-pad-scene')?.addEventListener('click', () => {
+            this.deletePadScene();
+        });
+
+        // Pad scene polling interval slider
+        document.getElementById('pad-scene-polling-interval')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('pad-scene-polling-interval-value').textContent = value + 'ms';
         });
     }
 
@@ -386,22 +423,142 @@ export class SceneEditor {
         }
     }
 
+    openPadSceneEditor(sceneId = null) {
+        if (sceneId) {
+            // Edit existing pad scene (including built-in 'pads')
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'grid') {
+                this.currentSceneId = sceneId;
+                this.padSceneConfig.name = scene.name;
+                this.padSceneConfig.layout = scene.layout || '4x4';
+                this.padSceneConfig.pollInterval = scene.pollInterval || 250;
+                this.padSceneConfig.pollDevices = scene.pollDevices || [];
+
+                document.getElementById('pad-scene-name').value = scene.name;
+                document.getElementById('pad-scene-layout').value = this.padSceneConfig.layout;
+
+                // Set polling interval
+                const pollingSlider = document.getElementById('pad-scene-polling-interval');
+                if (pollingSlider) {
+                    pollingSlider.value = this.padSceneConfig.pollInterval;
+                    document.getElementById('pad-scene-polling-interval-value').textContent = this.padSceneConfig.pollInterval + 'ms';
+                }
+
+                document.getElementById('pad-scene-editor-title').textContent = 'EDIT PAD SCENE';
+            }
+        } else {
+            // New pad scene
+            this.currentSceneId = 'custom-pads-' + Date.now();
+            this.padSceneConfig = {
+                name: 'Custom Pads',
+                layout: '4x4',
+                pollDevices: [],
+                pollInterval: 250
+            };
+            document.getElementById('pad-scene-name').value = this.padSceneConfig.name;
+            document.getElementById('pad-scene-layout').value = this.padSceneConfig.layout;
+
+            // Set default polling interval
+            const pollingSlider = document.getElementById('pad-scene-polling-interval');
+            if (pollingSlider) {
+                pollingSlider.value = 250;
+                document.getElementById('pad-scene-polling-interval-value').textContent = '250ms';
+            }
+
+            document.getElementById('pad-scene-editor-title').textContent = 'NEW PAD SCENE';
+        }
+
+        document.getElementById('pad-scene-editor-overlay').classList.add('active');
+    }
+
+    closePadSceneEditor() {
+        document.getElementById('pad-scene-editor-overlay').classList.remove('active');
+    }
+
+    savePadScene() {
+        const name = document.getElementById('pad-scene-name').value.trim();
+        if (!name) {
+            alert('Please enter a scene name');
+            return;
+        }
+
+        const layout = document.getElementById('pad-scene-layout').value;
+        const pollingInterval = parseInt(document.getElementById('pad-scene-polling-interval').value);
+
+        this.padSceneConfig.name = name;
+        this.padSceneConfig.layout = layout;
+        this.padSceneConfig.pollInterval = pollingInterval;
+
+        console.log(`[SceneEditor] Saving pad scene "${name}" with ${layout} layout, ${pollingInterval}ms polling`);
+
+        // Collect all device IDs from device manager for polling
+        const deviceIds = new Set();
+        if (this.sceneManager.controller.deviceManager) {
+            const devices = this.sceneManager.controller.deviceManager.getAllDevices();
+            devices.forEach(device => {
+                deviceIds.add(device.deviceId);
+            });
+        }
+
+        // Create scene config for grid type
+        const sceneConfig = {
+            name: this.padSceneConfig.name,
+            type: 'grid',
+            layout: this.padSceneConfig.layout,
+            pollDevices: Array.from(deviceIds),
+            pollInterval: pollingInterval
+        };
+
+        console.log(`[SceneEditor] Pad scene config:`, sceneConfig);
+
+        // Add scene to scene manager
+        this.sceneManager.addScene(this.currentSceneId, sceneConfig);
+
+        // Save to localStorage
+        this.saveScenesToStorage();
+
+        // Refresh scenes list
+        this.refreshScenesList();
+
+        // If we're currently viewing this scene, re-render it
+        if (this.sceneManager.currentScene === this.currentSceneId) {
+            console.log(`[SceneEditor] Re-rendering current scene: ${this.currentSceneId}`);
+            this.sceneManager.switchScene(this.currentSceneId);
+        }
+
+        alert(`Pad scene "${name}" saved! Switch to the scene to configure individual pads.`);
+        this.closePadSceneEditor();
+    }
+
+    deletePadScene() {
+        if (!this.currentSceneId || this.currentSceneId === 'pads') {
+            alert('Cannot delete the built-in pads scene');
+            return;
+        }
+
+        if (confirm(`Delete pad scene "${this.padSceneConfig.name}"?`)) {
+            this.sceneManager.scenes.delete(this.currentSceneId);
+            this.saveScenesToStorage();
+            this.refreshScenesList();
+            this.closePadSceneEditor();
+        }
+    }
+
     saveScenesToStorage() {
         const scenes = {};
         this.sceneManager.scenes.forEach((scene, id) => {
-            // Save all scenes except pads (mixer CAN be saved now)
-            if (id !== 'pads') {
-                scenes[id] = {
-                    name: scene.name,
-                    type: scene.type,
-                    rows: scene.rows,
-                    columnsPerRow: scene.columnsPerRow,
-                    slots: scene.slots,
-                    columns: scene.columns, // Keep for backward compatibility
-                    pollDevices: scene.pollDevices,
-                    pollInterval: scene.pollInterval
-                };
-            }
+            // Save all scenes (pads and mixer can now be saved)
+            scenes[id] = {
+                name: scene.name,
+                type: scene.type,
+                rows: scene.rows,
+                columnsPerRow: scene.columnsPerRow,
+                slots: scene.slots,
+                columns: scene.columns, // Keep for backward compatibility
+                pollDevices: scene.pollDevices,
+                pollInterval: scene.pollInterval,
+                layout: scene.layout // For grid-type scenes
+            };
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
@@ -433,24 +590,23 @@ export class SceneEditor {
     }
 
     /**
-     * Get custom scenes for export (includes mixer)
+     * Get custom scenes for export (includes pads and mixer)
      */
     getCustomScenes() {
         const scenes = {};
         this.sceneManager.scenes.forEach((scene, id) => {
-            // Export all scenes except pads (mixer CAN be exported)
-            if (id !== 'pads') {
-                scenes[id] = {
-                    name: scene.name,
-                    type: scene.type,
-                    rows: scene.rows,
-                    columns: scene.columns,
-                    slots: scene.slots,
-                    columnsPerRow: scene.columnsPerRow,
-                    pollDevices: scene.pollDevices,
-                    pollInterval: scene.pollInterval
-                };
-            }
+            // Export all scenes (pads and mixer can now be exported)
+            scenes[id] = {
+                name: scene.name,
+                type: scene.type,
+                rows: scene.rows,
+                columns: scene.columns,
+                slots: scene.slots,
+                columnsPerRow: scene.columnsPerRow,
+                pollDevices: scene.pollDevices,
+                pollInterval: scene.pollInterval,
+                layout: scene.layout // For grid-type scenes
+            };
         });
         return scenes;
     }
@@ -510,7 +666,12 @@ export class SceneEditor {
 
             if (!isBuiltIn) {
                 item.addEventListener('click', () => {
-                    this.openSceneEditor(sceneId);
+                    const scene = this.sceneManager.scenes.get(sceneId);
+                    if (scene && scene.type === 'grid') {
+                        this.openPadSceneEditor(sceneId);
+                    } else {
+                        this.openSceneEditor(sceneId);
+                    }
                 });
             }
         });

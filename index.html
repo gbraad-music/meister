@@ -617,24 +617,22 @@
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">PAD GRID SCENE</label>
-                    <select id="grid-layout-pads">
-                        <option value="4x4">4×4 Grid (16 pads)</option>
-                        <option value="4x2">4×2 Grid (8 pads)</option>
-                        <option value="2x2">2×2 Grid (4 pads)</option>
-                        <option value="8x2">8×2 Grid (16 pads)</option>
-                        <option value="10x5">10×5 Grid (50 pads)</option>
-                    </select>
-                    <button id="edit-pad-btn" style="width: 100%; padding: 12px; font-size: 0.95em; margin-top: 8px;">✏️ EDIT PADS</button>
-                    <div style="color: #666; font-size: 0.75em; margin-top: 6px;">
-                        Right-click or long-press any pad to edit it directly. Use {order}, {pattern}, {row} for dynamic labels.
+                    <label class="setting-label">BUILT-IN SCENES</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <button id="edit-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT PAD SCENE</button>
+                        <button id="edit-mixer-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT MIXER SCENE</button>
+                    </div>
+                    <div style="color: #666; font-size: 0.75em;">
+                        Configure layout, polling interval, and other settings for built-in scenes.
                     </div>
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">MIXER SCENES</label>
-                    <button id="edit-mixer-btn" style="width: 100%; padding: 12px; font-size: 0.95em; margin-bottom: 8px;">✏️ EDIT MIXER SCENE</button>
-                    <button id="new-scene-btn" style="width: 100%; padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
+                    <label class="setting-label">CUSTOM SCENES</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="new-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
+                        <button id="new-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
+                    </div>
                 </div>
 
                 <div class="setting-group">
@@ -1186,6 +1184,62 @@
                 <div class="button-group">
                     <button id="save-fader">💾 SAVE</button>
                     <button id="clear-fader">🗑️ CLEAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pad Scene Editor Overlay -->
+    <div class="settings-overlay" id="pad-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="pad-scene-editor-title">NEW PAD SCENE</div>
+                <button class="close-settings" id="close-pad-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="pad-scene-name" placeholder="My Pads" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">GRID LAYOUT</label>
+                    <select id="pad-scene-layout">
+                        <option value="4x4">4×4 Grid (16 pads)</option>
+                        <option value="4x2">4×2 Grid (8 pads)</option>
+                        <option value="2x2">2×2 Grid (4 pads)</option>
+                        <option value="8x2">8×2 Grid (16 pads)</option>
+                        <option value="10x5">10×5 Grid (50 pads)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">POLLING INTERVAL</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" id="pad-scene-polling-interval" min="50" max="1000" step="50" value="250"
+                            style="flex: 1; accent-color: #4a9eff;">
+                        <span id="pad-scene-polling-interval-value" style="color: #888; min-width: 60px; text-align: right;">250ms</span>
+                    </div>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        How often to poll devices when this scene is active. Lower = more responsive, higher = less MIDI traffic.
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PAD CONFIGURATION</label>
+                    <div style="color: #666; font-size: 0.8em; margin-bottom: 10px;">
+                        After saving, you can edit individual pads by right-clicking them
+                    </div>
+                    <div style="background: #0a0a0a; padding: 15px; border-radius: 4px; text-align: center; color: #666;">
+                        Scene will be created with empty pads.<br>
+                        Configure pads after creation by switching to the scene and right-clicking pads.
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-pad-scene">💾 SAVE SCENE</button>
+                    <button id="delete-pad-scene">🗑️ DELETE SCENE</button>
                 </div>
             </div>
         </div>

@@ -25,12 +25,18 @@ export class SceneManager {
      * loadSaved: if true, skip registering mixer if it's saved in localStorage
      */
     registerDefaultScenes(loadSaved = false) {
-        // Pads scene (always available - grid layout)
-        this.scenes.set('pads', {
-            name: 'Pads',
-            type: 'grid',
-            render: () => this.renderPadsScene()
-        });
+        // Only register default pads scene if not loading a saved one
+        if (!loadSaved || !this.scenes.has('pads')) {
+            // Pads scene (always available - grid layout)
+            this.scenes.set('pads', {
+                name: 'Pads',
+                type: 'grid',
+                layout: '4x4',
+                pollDevices: [], // Empty = uses global polling by default
+                pollInterval: null, // null = uses global polling by default
+                render: () => this.renderPadsScene()
+            });
+        }
 
         // Only register default mixer if we're not loading a saved one
         if (!loadSaved || !this.scenes.has('mixer')) {
@@ -108,19 +114,21 @@ export class SceneManager {
 
         if (config.type === 'grid') {
             scene.layout = config.layout || '4x4';
-            scene.render = () => this.renderPadsScene();
+            scene.pollDevices = config.pollDevices || []; // Optional - uses global polling if empty
+            scene.pollInterval = config.pollInterval || null; // Optional - uses global polling if null
+            scene.render = () => this.renderPadsScene(id);
         } else if (config.type === 'slider') {
             scene.rows = config.rows || 1;
             scene.columnsPerRow = config.columnsPerRow;
             scene.slots = config.slots || [];
             scene.columns = config.columns || []; // Backward compatibility
             scene.pollDevices = config.pollDevices || [];
-            scene.pollInterval = config.pollInterval || 100;
+            scene.pollInterval = config.pollInterval || 250;
             scene.render = () => this.renderSliderScene(id);
         }
 
         this.scenes.set(id, scene);
-        console.log(`[Scene] Added scene: ${config.name} (${config.type}), slots: ${scene.slots?.length || 0}`);
+        console.log(`[Scene] Added scene: ${config.name} (${config.type}), polling: ${scene.pollDevices?.length || 0} devices @ ${scene.pollInterval || 'global'}ms`);
     }
 
     /**
@@ -168,12 +176,19 @@ export class SceneManager {
     /**
      * Render pads scene (existing grid)
      */
-    renderPadsScene() {
+    renderPadsScene(sceneId = 'pads') {
         const container = document.getElementById('pads-grid');
         if (!container) return;
 
-        // Restore grid layout
-        const layout = this.controller.config.gridLayout || '4x4';
+        // Get layout from scene if custom, otherwise use default config
+        let layout;
+        if (sceneId !== 'pads') {
+            const scene = this.scenes.get(sceneId);
+            layout = scene?.layout || '4x4';
+        } else {
+            layout = this.controller.config.gridLayout || '4x4';
+        }
+
         const [cols, rows] = layout.split('x').map(Number);
 
         container.style.display = 'grid';

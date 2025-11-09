@@ -282,13 +282,6 @@ class MeisterController {
             }
         });
 
-        // Grid layout (moved to Scenes tab, handled there)
-        document.getElementById('grid-layout-pads')?.addEventListener('change', (e) => {
-            this.config.gridLayout = e.target.value;
-            this.applyGridLayout();
-            this.saveConfig();
-        });
-
         // Load config
         document.getElementById('load-config').addEventListener('click', () => {
             document.getElementById('file-input').click();
@@ -309,11 +302,6 @@ class MeisterController {
                 return;
             }
             this.downloadConfig();
-        });
-
-        // Edit pad button
-        document.getElementById('edit-pad-btn').addEventListener('click', () => {
-            this.openPadEditor();
         });
 
         // Close pad editor
@@ -1653,9 +1641,7 @@ class MeisterController {
                 this.config = JSON.parse(saved);
 
                 // Apply saved settings to UI
-                const gridLayoutSelect = document.getElementById('grid-layout-pads');
-                if (gridLayoutSelect) gridLayoutSelect.value = this.config.gridLayout || '4x4';
-
+                // Note: Grid layout is now managed in the Scenes tab via scene editor
                 // Note: MIDI channel and Device ID are now managed in the Devices tab
                 // Keep legacy values in config for backward compatibility
                 this.midiChannel = this.config.midiChannel || 0;
@@ -1759,10 +1745,7 @@ class MeisterController {
                 }
 
                 // Apply to UI
-                if (config.gridLayout) {
-                    const gridLayoutSelect = document.getElementById('grid-layout-pads');
-                    if (gridLayoutSelect) gridLayoutSelect.value = config.gridLayout;
-                }
+                // Note: Grid layout is now managed in Scenes tab via scene editor
                 // Note: MIDI channel and Device ID are now managed in Devices tab
                 if (config.midiChannel !== undefined) {
                     this.midiChannel = config.midiChannel;
