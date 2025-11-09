@@ -416,7 +416,10 @@ export class SceneManager {
                 name: 'COMPRESSOR',
                 params: [
                     { name: 'Threshold', default: 64 },
-                    { name: 'Ratio', default: 32 }
+                    { name: 'Ratio', default: 32 },
+                    { name: 'Attack', default: 64 },
+                    { name: 'Release', default: 64 },
+                    { name: 'Makeup', default: 64 }
                 ]
             },
             {
@@ -459,7 +462,7 @@ export class SceneManager {
         group.style.background = 'transparent';
         group.style.borderRadius = '4px';
         group.style.minWidth = '0';
-        group.style.flex = '1';
+        group.style.flex = '0 0 auto'; // Only take space needed, not equal distribution
 
         // Effect name header
         const header = document.createElement('div');
@@ -568,7 +571,7 @@ export class SceneManager {
         // Get current parameter values from UI
         const params = this.getEffectParams(effectId);
 
-        // console.log(`[Dev${deviceId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
+        console.log(`[Dev${deviceId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
 
         // Send SysEx command
         this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
@@ -617,11 +620,11 @@ export class SceneManager {
         const params = this.getEffectParams(effectId);
         params[paramIndex] = value;
 
-        // Get current enable state
+        // Get current enable state from button
         const enableBtn = document.querySelector(`.fx-enable-btn[data-effect-id="${effectId}"]`);
         const enabled = enableBtn ? enableBtn.classList.contains('active') : false;
 
-        // console.log(`[Dev${deviceId} Effects] Setting effect ${effectId} param ${paramIndex} = ${value}`);
+        console.log(`[Dev${deviceId} Effects] Setting effect ${effectId} param ${paramIndex} = ${value}, enabled=${enabled}, params:`, params);
 
         // Send SysEx command
         this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
