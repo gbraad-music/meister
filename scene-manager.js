@@ -1884,10 +1884,10 @@ export class SceneManager {
         // Base MIDI note for this octave (C at octave)
         const baseNote = 12 * scene.octave;
 
-        // Active notes tracker and current note for sliding
-        const activeNotes = new Set();
-        let currentNote = null;
-        let isPointerDown = false;
+        // Polyphonic note tracking
+        const activeNotes = new Set(); // All currently playing notes (for visual feedback)
+        const activeTouches = new Map(); // touchId -> noteNumber (for multi-touch)
+        let mouseNote = null; // Current note for mouse input
 
         // Helper function to send note on/off
         const sendNote = (noteNumber, velocity) => {
@@ -1991,47 +1991,88 @@ export class SceneManager {
                 keyGroup.appendChild(path);
                 keyGroup.appendChild(text);
 
-                // Event handlers with velocity and sliding support
-                const handlePointerDown = (e) => {
-                    isPointerDown = true;
+                // Mouse event handlers
+                keyGroup.addEventListener('mousedown', (e) => {
                     const velocity = calculateVelocity(e, keyY, whiteKeyHeight);
 
-                    if (currentNote !== null && currentNote !== noteNumber) {
-                        // Release previous note
-                        const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
-                        if (prevPath) {
+                    // Release previous mouse note if sliding
+                    if (mouseNote !== null && mouseNote !== noteNumber) {
+                        const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
+                        if (prevPath && !activeTouches.has(mouseNote)) {
                             const isWhite = prevPath.dataset.isWhiteKey === 'true';
                             prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                         }
-                        activeNotes.delete(currentNote);
-                        sendNote(currentNote, 0);
+                        activeNotes.delete(mouseNote);
+                        sendNote(mouseNote, 0);
                     }
 
-                    currentNote = noteNumber;
+                    mouseNote = noteNumber;
                     activeNotes.add(noteNumber);
                     path.setAttribute('fill', '#cc4444');
                     sendNote(noteNumber, velocity);
-                };
+                });
 
-                const handlePointerUp = () => {
-                    isPointerDown = false;
-                    if (currentNote === noteNumber) {
+                keyGroup.addEventListener('mouseup', () => {
+                    if (mouseNote === noteNumber) {
                         activeNotes.delete(noteNumber);
-                        path.setAttribute('fill', '#f0f0f0');
+                        // Only clear visual if no touches are holding this note
+                        if (!Array.from(activeTouches.values()).includes(noteNumber)) {
+                            path.setAttribute('fill', '#f0f0f0');
+                        }
                         sendNote(noteNumber, 0);
-                        currentNote = null;
+                        mouseNote = null;
                     }
-                };
+                });
 
-                keyGroup.addEventListener('mousedown', handlePointerDown);
-                keyGroup.addEventListener('mouseup', handlePointerUp);
+                // Touch event handlers (polyphonic)
                 keyGroup.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    handlePointerDown(e);
+
+                    // Handle each new touch
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        const touchId = touch.identifier;
+                        const velocity = calculateVelocity(touch, keyY, whiteKeyHeight);
+
+                        // Release previous note for this touch if sliding
+                        const prevNote = activeTouches.get(touchId);
+                        if (prevNote !== undefined && prevNote !== noteNumber) {
+                            const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
+                            if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                                const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                                prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                            }
+                            activeNotes.delete(prevNote);
+                            sendNote(prevNote, 0);
+                        }
+
+                        activeTouches.set(touchId, noteNumber);
+                        activeNotes.add(noteNumber);
+                        path.setAttribute('fill', '#cc4444');
+                        sendNote(noteNumber, velocity);
+                    }
                 });
+
                 keyGroup.addEventListener('touchend', (e) => {
                     e.preventDefault();
-                    handlePointerUp();
+
+                    // Handle each ended touch
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        const touchId = touch.identifier;
+                        const touchNote = activeTouches.get(touchId);
+
+                        if (touchNote === noteNumber) {
+                            activeTouches.delete(touchId);
+                            activeNotes.delete(noteNumber);
+
+                            // Only clear visual if no other touches or mouse are holding this note
+                            if (!Array.from(activeTouches.values()).includes(noteNumber) && mouseNote !== noteNumber) {
+                                path.setAttribute('fill', '#f0f0f0');
+                            }
+                            sendNote(noteNumber, 0);
+                        }
+                    }
                 });
 
                 svg.appendChild(keyGroup);
@@ -2078,104 +2119,190 @@ export class SceneManager {
                 keyGroup.appendChild(path);
                 keyGroup.appendChild(text);
 
-                // Event handlers with velocity and sliding support
-                const handlePointerDown = (e) => {
-                    isPointerDown = true;
+                // Mouse event handlers
+                keyGroup.addEventListener('mousedown', (e) => {
                     const velocity = calculateVelocity(e, keyY, blackKeyHeight);
 
-                    if (currentNote !== null && currentNote !== noteNumber) {
-                        // Release previous note
-                        const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
-                        if (prevPath) {
+                    // Release previous mouse note if sliding
+                    if (mouseNote !== null && mouseNote !== noteNumber) {
+                        const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
+                        if (prevPath && !activeTouches.has(mouseNote)) {
                             const isWhite = prevPath.dataset.isWhiteKey === 'true';
                             prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                         }
-                        activeNotes.delete(currentNote);
-                        sendNote(currentNote, 0);
+                        activeNotes.delete(mouseNote);
+                        sendNote(mouseNote, 0);
                     }
 
-                    currentNote = noteNumber;
+                    mouseNote = noteNumber;
                     activeNotes.add(noteNumber);
                     path.setAttribute('fill', '#cc4444');
                     sendNote(noteNumber, velocity);
-                };
+                });
 
-                const handlePointerUp = () => {
-                    isPointerDown = false;
-                    if (currentNote === noteNumber) {
+                keyGroup.addEventListener('mouseup', () => {
+                    if (mouseNote === noteNumber) {
                         activeNotes.delete(noteNumber);
-                        path.setAttribute('fill', '#1a1a1a');
+                        // Only clear visual if no touches are holding this note
+                        if (!Array.from(activeTouches.values()).includes(noteNumber)) {
+                            path.setAttribute('fill', '#1a1a1a');
+                        }
                         sendNote(noteNumber, 0);
-                        currentNote = null;
+                        mouseNote = null;
                     }
-                };
+                });
 
-                keyGroup.addEventListener('mousedown', handlePointerDown);
-                keyGroup.addEventListener('mouseup', handlePointerUp);
+                // Touch event handlers (polyphonic)
                 keyGroup.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    handlePointerDown(e);
+
+                    // Handle each new touch
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        const touchId = touch.identifier;
+                        const velocity = calculateVelocity(touch, keyY, blackKeyHeight);
+
+                        // Release previous note for this touch if sliding
+                        const prevNote = activeTouches.get(touchId);
+                        if (prevNote !== undefined && prevNote !== noteNumber) {
+                            const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
+                            if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                                const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                                prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                            }
+                            activeNotes.delete(prevNote);
+                            sendNote(prevNote, 0);
+                        }
+
+                        activeTouches.set(touchId, noteNumber);
+                        activeNotes.add(noteNumber);
+                        path.setAttribute('fill', '#cc4444');
+                        sendNote(noteNumber, velocity);
+                    }
                 });
+
                 keyGroup.addEventListener('touchend', (e) => {
                     e.preventDefault();
-                    handlePointerUp();
+
+                    // Handle each ended touch
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        const touchId = touch.identifier;
+                        const touchNote = activeTouches.get(touchId);
+
+                        if (touchNote === noteNumber) {
+                            activeTouches.delete(touchId);
+                            activeNotes.delete(noteNumber);
+
+                            // Only clear visual if no other touches or mouse are holding this note
+                            if (!Array.from(activeTouches.values()).includes(noteNumber) && mouseNote !== noteNumber) {
+                                path.setAttribute('fill', '#1a1a1a');
+                            }
+                            sendNote(noteNumber, 0);
+                        }
+                    }
                 });
 
                 svg.appendChild(keyGroup);
             });
         }
 
-        // Global move handlers for sliding between keys
-        const handleMove = (e) => {
-            if (!isPointerDown) return;
+        // Global mouse move handler for sliding between keys
+        svg.addEventListener('mousemove', (e) => {
+            if (mouseNote === null) return;
 
             const keyInfo = getNoteAtPosition(e);
-            if (keyInfo && keyInfo.noteNumber !== currentNote) {
+            if (keyInfo && keyInfo.noteNumber !== mouseNote) {
                 // Moved to a different key - slide
                 const velocity = calculateVelocity(e, keyInfo.keyY, keyInfo.keyHeight);
 
-                // Release previous note
-                if (currentNote !== null) {
-                    const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
-                    if (prevPath) {
-                        const isWhite = prevPath.dataset.isWhiteKey === 'true';
-                        prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
-                    }
-                    activeNotes.delete(currentNote);
-                    sendNote(currentNote, 0);
+                // Release previous mouse note
+                const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
+                if (prevPath && !Array.from(activeTouches.values()).includes(mouseNote)) {
+                    const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                    prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                 }
+                activeNotes.delete(mouseNote);
+                sendNote(mouseNote, 0);
 
                 // Play new note
-                currentNote = keyInfo.noteNumber;
+                mouseNote = keyInfo.noteNumber;
                 activeNotes.add(keyInfo.noteNumber);
                 keyInfo.path.setAttribute('fill', '#cc4444');
                 sendNote(keyInfo.noteNumber, velocity);
             }
-        };
+        });
 
-        const handleGlobalUp = () => {
-            if (isPointerDown && currentNote !== null) {
-                const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
-                if (prevPath) {
+        // Global touch move handler for sliding between keys (polyphonic)
+        svg.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+
+            // Handle each active touch
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const touchId = touch.identifier;
+                const prevNote = activeTouches.get(touchId);
+
+                if (prevNote === undefined) continue; // This touch didn't start on a key
+
+                const keyInfo = getNoteAtPosition(touch);
+                if (keyInfo && keyInfo.noteNumber !== prevNote) {
+                    // This touch moved to a different key - slide
+                    const velocity = calculateVelocity(touch, keyInfo.keyY, keyInfo.keyHeight);
+
+                    // Release previous note for this touch
+                    const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
+                    if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                        const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                        prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                    }
+                    activeNotes.delete(prevNote);
+                    sendNote(prevNote, 0);
+
+                    // Play new note for this touch
+                    activeTouches.set(touchId, keyInfo.noteNumber);
+                    activeNotes.add(keyInfo.noteNumber);
+                    keyInfo.path.setAttribute('fill', '#cc4444');
+                    sendNote(keyInfo.noteNumber, velocity);
+                }
+            }
+        }, { passive: false });
+
+        // Global mouse up handler to catch releases outside keys
+        document.addEventListener('mouseup', () => {
+            if (mouseNote !== null) {
+                const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
+                if (prevPath && !Array.from(activeTouches.values()).includes(mouseNote)) {
                     const isWhite = prevPath.dataset.isWhiteKey === 'true';
                     prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                 }
-                activeNotes.delete(currentNote);
-                sendNote(currentNote, 0);
-                currentNote = null;
+                activeNotes.delete(mouseNote);
+                sendNote(mouseNote, 0);
+                mouseNote = null;
             }
-            isPointerDown = false;
-        };
+        });
 
-        svg.addEventListener('mousemove', handleMove);
-        svg.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            handleMove(e);
-        }, { passive: false });
+        // Global touch end handler to catch releases outside keys
+        document.addEventListener('touchend', (e) => {
+            // Handle each ended touch
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const touchId = touch.identifier;
+                const touchNote = activeTouches.get(touchId);
 
-        // Global up handlers to catch releases outside keys
-        document.addEventListener('mouseup', handleGlobalUp);
-        document.addEventListener('touchend', handleGlobalUp);
+                if (touchNote !== undefined) {
+                    activeTouches.delete(touchId);
+                    activeNotes.delete(touchNote);
+
+                    const prevPath = svg.querySelector(`[data-note-number="${touchNote}"]`);
+                    if (prevPath && !Array.from(activeTouches.values()).includes(touchNote) && mouseNote !== touchNote) {
+                        const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                        prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                    }
+                    sendNote(touchNote, 0);
+                }
+            }
+        });
 
         keyboardContainer.appendChild(svg);
         container.appendChild(keyboardContainer);
