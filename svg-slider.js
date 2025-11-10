@@ -105,14 +105,22 @@ class SvgSlider extends HTMLElement {
 
         // Mouse events - track and thumb both start drag
         svg.addEventListener('mousedown', (e) => this.startDrag(e));
-        document.addEventListener('mousemove', (e) => this.onDrag(e));
-        document.addEventListener('mouseup', (e) => this.stopDrag(e));
+
+        // Store bound handlers so we can remove them later
+        this.boundMouseMove = (e) => this.onDrag(e);
+        this.boundMouseUp = (e) => this.stopDrag(e);
+        this.boundTouchMove = (e) => this.onDrag(e);
+        this.boundTouchEnd = (e) => this.stopDrag(e);
+        this.boundTouchCancel = (e) => this.stopDrag(e);
+
+        document.addEventListener('mousemove', this.boundMouseMove);
+        document.addEventListener('mouseup', this.boundMouseUp);
 
         // Touch events - track and thumb both start drag
         svg.addEventListener('touchstart', (e) => this.startDrag(e), { passive: false });
-        document.addEventListener('touchmove', (e) => this.onDrag(e), { passive: false });
-        document.addEventListener('touchend', (e) => this.stopDrag(e));
-        document.addEventListener('touchcancel', (e) => this.stopDrag(e));
+        document.addEventListener('touchmove', this.boundTouchMove, { passive: false });
+        document.addEventListener('touchend', this.boundTouchEnd);
+        document.addEventListener('touchcancel', this.boundTouchCancel);
     }
 
     startDrag(e) {
@@ -120,8 +128,14 @@ class SvgSlider extends HTMLElement {
         e.stopPropagation();
 
         // Store touch identifier for multi-touch support
-        if (e.type.startsWith('touch') && e.touches.length > 0) {
-            this.activeTouchId = e.touches[0].identifier;
+        if (e.type.startsWith('touch')) {
+            // Use changedTouches[0] which is the NEW touch that just started on THIS element
+            // e.touches contains ALL active touches on the screen, not just this element
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                this.activeTouchId = e.changedTouches[0].identifier;
+            } else {
+                return; // No touch to start with
+            }
         } else {
             this.activeTouchId = null; // Mouse input
         }
@@ -157,28 +171,31 @@ class SvgSlider extends HTMLElement {
     onDrag(e) {
         if (!this.isDragging) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-
         let clientY;
         if (e.type.startsWith('touch')) {
-            // Find our specific touch
-            if (this.activeTouchId !== null) {
-                for (let i = 0; i < e.touches.length; i++) {
-                    if (e.touches[i].identifier === this.activeTouchId) {
-                        clientY = e.touches[i].clientY;
-                        break;
-                    }
+            // Only process if we have an active touch ID
+            if (this.activeTouchId === null) return;
+
+            // Find our specific touch in the current touches list
+            let found = false;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.activeTouchId) {
+                    clientY = e.touches[i].clientY;
+                    found = true;
+                    break;
                 }
-                if (clientY === undefined) return; // Our touch not found
-            } else {
-                clientY = e.touches[0]?.clientY; // Fallback
             }
+
+            // Our touch not found in current touches - it may have ended
+            if (!found) return;
         } else {
             clientY = e.clientY;
         }
 
         if (clientY !== undefined) {
+            // Only prevent default and stop propagation if we're actually handling this event
+            e.preventDefault();
+            e.stopPropagation();
             this.updateValueFromPosition(clientY);
         }
     }

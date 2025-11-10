@@ -1128,14 +1128,12 @@ export class SceneManager {
         const selector = document.getElementById('scene-selector');
         if (!selector) return;
 
-        // Populate all scenes dynamically
-        const scenes = this.getScenes();
-        selector.innerHTML = scenes.map(scene =>
-            `<option value="${scene.id}">${scene.name}</option>`
-        ).join('');
-
-        // Set current scene
-        selector.value = this.currentScene;
+        // Get current scene
+        const scene = this.scenes.get(this.currentScene);
+        if (scene) {
+            // Set button text to current scene name
+            selector.textContent = scene.name;
+        }
     }
 
     /**
@@ -1373,192 +1371,10 @@ export class SceneManager {
 
     /**
      * Setup swipe gesture controls for scene switching
+     * DISABLED - Gestures removed to prevent interference with interactive elements
      */
     setupGestureControls() {
-        const container = document.getElementById('pads-grid');
-        if (!container) return;
-
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchEndX = 0;
-        let touchEndY = 0;
-        let hasMoved = false;
-        let touchOnInteractive = false; // Track if touch started on interactive element
-
-        container.addEventListener('touchstart', (e) => {
-            // Disable gestures completely for slider (mixer), piano, and effects scenes
-            // These scenes are fully interactive with no empty space for swipe gestures
-            const scene = this.scenes.get(this.currentScene);
-            if (scene && (scene.type === 'slider' || scene.type === 'piano' || scene.type === 'effects')) {
-                touchOnInteractive = true;
-                return; // No gestures in slider/piano/effects scenes
-            }
-
-            // Only track gestures on the container itself, not on interactive elements
-            const tagName = e.target.tagName;
-
-            // Check composed path for shadow DOM elements and SVG elements
-            const path = e.composedPath ? e.composedPath() : (e.path || []);
-            const pathHasInteractive = path.some(el => {
-                const tag = el.tagName ? el.tagName.toUpperCase() : '';
-
-                // Special check for regroove-pad: only block if it has content (not empty)
-                if (tag === 'REGROOVE-PAD') {
-                    // Empty pads have no label, cc, note, mmc, or sysex attributes
-                    const hasContent = el.hasAttribute('label') ||
-                                     el.hasAttribute('cc') ||
-                                     el.hasAttribute('note') ||
-                                     el.hasAttribute('mmc') ||
-                                     el.hasAttribute('sysex');
-                    return hasContent; // Only block if pad has content
-                }
-
-                return tag === 'EFFECTS-FADER' ||
-                    tag === 'MIX-FADER' ||
-                    tag === 'CHANNEL-FADER' ||
-                    tag === 'TEMPO-FADER' ||
-                    tag === 'STEREO-FADER' ||
-                    tag === 'SVG-SLIDER' ||
-                    tag === 'SVG' ||
-                    tag === 'PATH' ||
-                    tag === 'G' ||
-                    tag === 'TEXT' ||
-                    tag === 'RECT' ||
-                    tag === 'CIRCLE';
-            });
-
-            // Helper to check if a pad element has content
-            const isPadWithContent = (element) => {
-                if (!element || element.tagName !== 'REGROOVE-PAD') return false;
-                return element.hasAttribute('label') ||
-                       element.hasAttribute('cc') ||
-                       element.hasAttribute('note') ||
-                       element.hasAttribute('mmc') ||
-                       element.hasAttribute('sysex');
-            };
-
-            // Check if touching an interactive element or inside one
-            const isInteractive =
-                pathHasInteractive ||
-                // Direct element checks
-                (tagName === 'REGROOVE-PAD' && isPadWithContent(e.target)) ||
-                tagName === 'MIX-FADER' ||
-                tagName === 'CHANNEL-FADER' ||
-                tagName === 'TEMPO-FADER' ||
-                tagName === 'STEREO-FADER' ||
-                tagName === 'EFFECTS-FADER' ||
-                tagName === 'SVG-SLIDER' ||
-                tagName === 'BUTTON' ||
-                tagName === 'SELECT' ||
-                tagName === 'INPUT' ||
-                tagName === 'SVG' ||
-                tagName === 'PATH' ||
-                tagName === 'RECT' ||
-                tagName === 'CIRCLE' ||
-                tagName === 'CANVAS' ||
-                // Class checks (only for non-empty pads)
-                e.target.classList.contains('fx-enable-btn') ||
-                e.target.classList.contains('effect-group') ||
-                (e.target.classList.contains('pad') && isPadWithContent(e.target.closest('regroove-pad'))) ||
-                (e.target.classList.contains('pad-label') && isPadWithContent(e.target.closest('regroove-pad'))) ||
-                (e.target.classList.contains('pad-sublabel') && isPadWithContent(e.target.closest('regroove-pad'))) ||
-                // Parent element checks (for elements inside custom components)
-                isPadWithContent(e.target.closest('regroove-pad')) ||
-                e.target.closest('mix-fader') ||
-                e.target.closest('channel-fader') ||
-                e.target.closest('tempo-fader') ||
-                e.target.closest('stereo-fader') ||
-                e.target.closest('effects-fader') ||
-                e.target.closest('.effect-group') ||
-                e.target.closest('.fx-enable-btn');
-
-            touchOnInteractive = isInteractive;
-
-            if (isInteractive) {
-                return; // Don't interfere with interactive element interactions
-            }
-
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-            hasMoved = false;
-        }, { passive: true });
-
-        container.addEventListener('touchmove', (e) => {
-            // Don't track movement if touch started on interactive element
-            if (touchOnInteractive) return;
-
-            const moveX = Math.abs(e.changedTouches[0].screenX - touchStartX);
-            const moveY = Math.abs(e.changedTouches[0].screenY - touchStartY);
-
-            // If moved more than 10px, mark as moved
-            if (moveX > 10 || moveY > 10) {
-                hasMoved = true;
-            }
-        }, { passive: true });
-
-        container.addEventListener('touchend', (e) => {
-            // Don't process gestures if touch started on interactive element
-            if (touchOnInteractive) {
-                touchOnInteractive = false; // Reset for next touch
-                return;
-            }
-
-            // Only process gestures if we actually moved
-            if (!hasMoved) return;
-
-            touchEndX = e.changedTouches[0].screenX;
-            touchEndY = e.changedTouches[0].screenY;
-            this.handleGesture(touchStartX, touchStartY, touchEndX, touchEndY);
-        }, { passive: true });
-    }
-
-    /**
-     * Handle swipe gestures
-     */
-    handleGesture(startX, startY, endX, endY) {
-        const diffX = endX - startX;
-        const diffY = endY - startY;
-        const minSwipeDistance = 50;
-
-        // Determine if it's a horizontal or vertical swipe
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-            // Horizontal swipe
-            if (Math.abs(diffX) > minSwipeDistance) {
-                if (diffX > 0) {
-                    // Swipe right - previous scene
-                    this.switchToPreviousScene();
-                } else {
-                    // Swipe left - next scene
-                    this.switchToNextScene();
-                }
-            }
-        } else {
-            // Vertical swipe
-            if (Math.abs(diffY) > minSwipeDistance) {
-                // Swipe up or down - toggle quick selector
-                this.toggleQuickSelector();
-            }
-        }
-    }
-
-    /**
-     * Switch to next scene
-     */
-    switchToNextScene() {
-        const sceneIds = Array.from(this.scenes.keys());
-        const currentIndex = sceneIds.indexOf(this.currentScene);
-        const nextIndex = (currentIndex + 1) % sceneIds.length;
-        this.switchScene(sceneIds[nextIndex]);
-    }
-
-    /**
-     * Switch to previous scene
-     */
-    switchToPreviousScene() {
-        const sceneIds = Array.from(this.scenes.keys());
-        const currentIndex = sceneIds.indexOf(this.currentScene);
-        const prevIndex = (currentIndex - 1 + sceneIds.length) % sceneIds.length;
-        this.switchScene(sceneIds[prevIndex]);
+        // Gesture detection disabled - use quick selector button in status bar instead
     }
 
     /**

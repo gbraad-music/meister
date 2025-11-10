@@ -423,30 +423,32 @@
 
         .scene-quick-selector {
             position: fixed;
-            bottom: -400px;
+            top: 0;
             left: 0;
             right: 0;
             height: 400px;
             background: #0a0a0a;
-            border-top: 2px solid #cc4444;
+            transform: translateY(-100%);
             z-index: 999;
-            transition: bottom 0.3s ease;
+            transition: transform 0.3s ease;
             display: flex;
             flex-direction: column;
         }
 
         .scene-quick-selector.active {
-            bottom: 0;
+            transform: translateY(0);
         }
 
         .scene-quick-header {
-            padding: 15px 20px;
+            padding: 8px 20px;
             background: #1a1a1a;
             color: #cc4444;
             font-weight: bold;
-            font-size: 1.1em;
+            font-size: 0.9em;
             text-align: center;
-            border-bottom: 1px solid #2a2a2a;
+            border-top: 2px solid #cc4444;
+            cursor: pointer;
+            order: 2;
         }
 
         .scene-quick-list {
@@ -457,6 +459,7 @@
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 10px;
             align-content: start;
+            order: 1;
         }
 
         .scene-quick-item {
@@ -528,10 +531,9 @@
 <body>
     <div class="status-bar" id="status-bar">
         <div>MEISTER</div>
-        <select id="scene-selector" style="background: #0a0a0a; color: #888; border: 1px solid #1a1a1a; padding: 2px 5px; font-size: 0.75em;">
-            <option value="pads">Pads</option>
-            <option value="mixer">Mixer</option>
-        </select>
+        <button id="scene-selector" style="background: transparent; color: #cc4444; border: none; padding: 0; font-size: 0.75em; cursor: pointer; font-family: inherit; font-weight: bold; text-transform: uppercase;">
+            Pads
+        </button>
         <div class="midi-indicator" id="midi-indicator">MIDI</div>
     </div>
 
@@ -1450,11 +1452,20 @@
                 // Setup scene selector and populate it
                 const sceneSelector = document.getElementById('scene-selector');
                 if (sceneSelector) {
-                    // Initialize selector with all scenes
+                    // Initialize selector with current scene name
                     window.meisterController.sceneManager.updateSceneSelector();
 
-                    sceneSelector.addEventListener('change', (e) => {
-                        window.meisterController.sceneManager.switchScene(e.target.value);
+                    // Click to open quick selector
+                    sceneSelector.addEventListener('click', (e) => {
+                        window.meisterController.sceneManager.toggleQuickSelector();
+                    });
+                }
+
+                // Make quick selector header clickable to close
+                const quickSelectorHeader = document.querySelector('.scene-quick-header');
+                if (quickSelectorHeader) {
+                    quickSelectorHeader.addEventListener('click', () => {
+                        window.meisterController.sceneManager.toggleQuickSelector();
                     });
                 }
 
