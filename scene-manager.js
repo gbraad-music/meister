@@ -328,8 +328,8 @@ export class SceneManager {
         container.style.padding = '10px';
         container.style.justifyContent = 'flex-start';
         container.style.alignItems = 'stretch';
-        container.style.height = '';
-        container.style.overflow = '';
+        container.style.height = 'calc(100vh - 60px)';
+        container.style.overflow = 'hidden';
         container.innerHTML = '';
 
         // Get scene and resolve device binding
