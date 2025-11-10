@@ -407,6 +407,7 @@ export class SceneManager {
         effectsContainer.style.alignItems = 'stretch';
         effectsContainer.style.flex = '1';
         effectsContainer.style.minHeight = '0';
+        effectsContainer.style.overflow = 'hidden';
 
         // Effect definitions with default values from REGROOVE_EFFECTS.md
         const effects = [
@@ -1385,6 +1386,14 @@ export class SceneManager {
         let touchOnInteractive = false; // Track if touch started on interactive element
 
         container.addEventListener('touchstart', (e) => {
+            // Disable gestures completely for slider (mixer), piano, and effects scenes
+            // These scenes are fully interactive with no empty space for swipe gestures
+            const scene = this.scenes.get(this.currentScene);
+            if (scene && (scene.type === 'slider' || scene.type === 'piano' || scene.type === 'effects')) {
+                touchOnInteractive = true;
+                return; // No gestures in slider/piano/effects scenes
+            }
+
             // Only track gestures on the container itself, not on interactive elements
             const tagName = e.target.tagName;
 
@@ -1899,14 +1908,18 @@ export class SceneManager {
         };
 
         // Helper to calculate velocity from Y position in key
-        const calculateVelocity = (event, keyY, keyHeight) => {
+        // Can accept either an Event (with touches) or a Touch object directly
+        const calculateVelocity = (eventOrTouch, keyY, keyHeight) => {
             const svgRect = svg.getBoundingClientRect();
             let clientY;
 
-            if (event.touches && event.touches.length > 0) {
-                clientY = event.touches[0].clientY;
+            // Check if it's a Touch object (has clientY directly) or an Event
+            if (eventOrTouch.clientY !== undefined) {
+                clientY = eventOrTouch.clientY;
+            } else if (eventOrTouch.touches && eventOrTouch.touches.length > 0) {
+                clientY = eventOrTouch.touches[0].clientY;
             } else {
-                clientY = event.clientY;
+                clientY = 0; // Fallback
             }
 
             // Calculate Y position relative to SVG
@@ -1926,16 +1939,20 @@ export class SceneManager {
         };
 
         // Helper to get note number at pointer position
-        const getNoteAtPosition = (event) => {
+        // Can accept either an Event (with touches) or a Touch object directly
+        const getNoteAtPosition = (eventOrTouch) => {
             const svgRect = svg.getBoundingClientRect();
             let clientX, clientY;
 
-            if (event.touches && event.touches.length > 0) {
-                clientX = event.touches[0].clientX;
-                clientY = event.touches[0].clientY;
+            // Check if it's a Touch object (has clientX/Y directly) or an Event
+            if (eventOrTouch.clientX !== undefined && eventOrTouch.clientY !== undefined) {
+                clientX = eventOrTouch.clientX;
+                clientY = eventOrTouch.clientY;
+            } else if (eventOrTouch.touches && eventOrTouch.touches.length > 0) {
+                clientX = eventOrTouch.touches[0].clientX;
+                clientY = eventOrTouch.touches[0].clientY;
             } else {
-                clientX = event.clientX;
-                clientY = event.clientY;
+                return null; // Can't determine position
             }
 
             // Use elementFromPoint to find which key we're over
