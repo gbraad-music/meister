@@ -13,6 +13,7 @@ class SvgSlider extends HTMLElement {
         this.min = 0;
         this.max = 127;
         this.isDragging = false;
+        this.activeTouchId = null; // Track which touch is controlling this slider
         this.cachedRect = null;
 
         this.render();
@@ -105,18 +106,25 @@ class SvgSlider extends HTMLElement {
         // Mouse events - track and thumb both start drag
         svg.addEventListener('mousedown', (e) => this.startDrag(e));
         document.addEventListener('mousemove', (e) => this.onDrag(e));
-        document.addEventListener('mouseup', () => this.stopDrag());
+        document.addEventListener('mouseup', (e) => this.stopDrag(e));
 
         // Touch events - track and thumb both start drag
         svg.addEventListener('touchstart', (e) => this.startDrag(e), { passive: false });
         document.addEventListener('touchmove', (e) => this.onDrag(e), { passive: false });
-        document.addEventListener('touchend', () => this.stopDrag());
-        document.addEventListener('touchcancel', () => this.stopDrag());
+        document.addEventListener('touchend', (e) => this.stopDrag(e));
+        document.addEventListener('touchcancel', (e) => this.stopDrag(e));
     }
 
     startDrag(e) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Store touch identifier for multi-touch support
+        if (e.type.startsWith('touch') && e.touches.length > 0) {
+            this.activeTouchId = e.touches[0].identifier;
+        } else {
+            this.activeTouchId = null; // Mouse input
+        }
 
         // Update cached rect at start of drag to get fresh position
         this.updateCachedRect();
@@ -126,11 +134,24 @@ class SvgSlider extends HTMLElement {
         this.onDrag(e);
     }
 
-    stopDrag() {
-        if (this.isDragging) {
-            this.isDragging = false;
-            this.thumb.classList.remove('dragging');
+    stopDrag(e) {
+        if (!this.isDragging) return;
+
+        // For touch events, only stop if it's our touch
+        if (e && e.type.startsWith('touch') && e.changedTouches) {
+            let isOurTouch = false;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.activeTouchId) {
+                    isOurTouch = true;
+                    break;
+                }
+            }
+            if (!isOurTouch) return; // Not our touch, ignore
         }
+
+        this.isDragging = false;
+        this.activeTouchId = null;
+        this.thumb.classList.remove('dragging');
     }
 
     onDrag(e) {
@@ -138,8 +159,28 @@ class SvgSlider extends HTMLElement {
 
         e.preventDefault();
         e.stopPropagation();
-        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        this.updateValueFromPosition(clientY);
+
+        let clientY;
+        if (e.type.startsWith('touch')) {
+            // Find our specific touch
+            if (this.activeTouchId !== null) {
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === this.activeTouchId) {
+                        clientY = e.touches[i].clientY;
+                        break;
+                    }
+                }
+                if (clientY === undefined) return; // Our touch not found
+            } else {
+                clientY = e.touches[0]?.clientY; // Fallback
+            }
+        } else {
+            clientY = e.clientY;
+        }
+
+        if (clientY !== undefined) {
+            this.updateValueFromPosition(clientY);
+        }
     }
 
     updateValueFromPosition(clientY) {
