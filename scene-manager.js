@@ -1388,10 +1388,51 @@ export class SceneManager {
             // Only track gestures on the container itself, not on interactive elements
             const tagName = e.target.tagName;
 
+            // Check composed path for shadow DOM elements and SVG elements
+            const path = e.composedPath ? e.composedPath() : (e.path || []);
+            const pathHasInteractive = path.some(el => {
+                const tag = el.tagName ? el.tagName.toUpperCase() : '';
+
+                // Special check for regroove-pad: only block if it has content (not empty)
+                if (tag === 'REGROOVE-PAD') {
+                    // Empty pads have no label, cc, note, mmc, or sysex attributes
+                    const hasContent = el.hasAttribute('label') ||
+                                     el.hasAttribute('cc') ||
+                                     el.hasAttribute('note') ||
+                                     el.hasAttribute('mmc') ||
+                                     el.hasAttribute('sysex');
+                    return hasContent; // Only block if pad has content
+                }
+
+                return tag === 'EFFECTS-FADER' ||
+                    tag === 'MIX-FADER' ||
+                    tag === 'CHANNEL-FADER' ||
+                    tag === 'TEMPO-FADER' ||
+                    tag === 'STEREO-FADER' ||
+                    tag === 'SVG-SLIDER' ||
+                    tag === 'SVG' ||
+                    tag === 'PATH' ||
+                    tag === 'G' ||
+                    tag === 'TEXT' ||
+                    tag === 'RECT' ||
+                    tag === 'CIRCLE';
+            });
+
+            // Helper to check if a pad element has content
+            const isPadWithContent = (element) => {
+                if (!element || element.tagName !== 'REGROOVE-PAD') return false;
+                return element.hasAttribute('label') ||
+                       element.hasAttribute('cc') ||
+                       element.hasAttribute('note') ||
+                       element.hasAttribute('mmc') ||
+                       element.hasAttribute('sysex');
+            };
+
             // Check if touching an interactive element or inside one
             const isInteractive =
+                pathHasInteractive ||
                 // Direct element checks
-                tagName === 'REGROOVE-PAD' ||
+                (tagName === 'REGROOVE-PAD' && isPadWithContent(e.target)) ||
                 tagName === 'MIX-FADER' ||
                 tagName === 'CHANNEL-FADER' ||
                 tagName === 'TEMPO-FADER' ||
@@ -1406,14 +1447,14 @@ export class SceneManager {
                 tagName === 'RECT' ||
                 tagName === 'CIRCLE' ||
                 tagName === 'CANVAS' ||
-                // Class checks
+                // Class checks (only for non-empty pads)
                 e.target.classList.contains('fx-enable-btn') ||
                 e.target.classList.contains('effect-group') ||
-                e.target.classList.contains('pad') ||
-                e.target.classList.contains('pad-label') ||
-                e.target.classList.contains('pad-sublabel') ||
+                (e.target.classList.contains('pad') && isPadWithContent(e.target.closest('regroove-pad'))) ||
+                (e.target.classList.contains('pad-label') && isPadWithContent(e.target.closest('regroove-pad'))) ||
+                (e.target.classList.contains('pad-sublabel') && isPadWithContent(e.target.closest('regroove-pad'))) ||
                 // Parent element checks (for elements inside custom components)
-                e.target.closest('regroove-pad') ||
+                isPadWithContent(e.target.closest('regroove-pad')) ||
                 e.target.closest('mix-fader') ||
                 e.target.closest('channel-fader') ||
                 e.target.closest('tempo-fader') ||
