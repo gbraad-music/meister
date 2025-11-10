@@ -70,9 +70,9 @@ class MeisterController {
     }
 
     async init() {
+        this.loadConfig(); // Load config FIRST so midiOutputId is available
         await this.setupMIDI();
         this.setupUI();
-        this.loadConfig();
         this.createPads();
     }
 
