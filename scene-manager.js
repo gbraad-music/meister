@@ -1831,7 +1831,8 @@ export class SceneManager {
                     // Release previous mouse note if sliding
                     if (mouseNote !== null && mouseNote !== noteNumber) {
                         const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
-                        if (prevPath && !activeTouches.has(mouseNote)) {
+                        // Check if any touch is holding the previous mouse note
+                        if (prevPath && !Array.from(activeTouches.values()).includes(mouseNote)) {
                             const isWhite = prevPath.dataset.isWhiteKey === 'true';
                             prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                         }
@@ -1871,7 +1872,11 @@ export class SceneManager {
                         const prevNote = activeTouches.get(touchId);
                         if (prevNote !== undefined && prevNote !== noteNumber) {
                             const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
-                            if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                            // Check if any OTHER touch (not this one) is holding the previous note
+                            const otherTouchHoldingPrev = Array.from(activeTouches.entries()).some(
+                                ([id, note]) => id !== touchId && note === prevNote
+                            );
+                            if (prevPath && !otherTouchHoldingPrev && mouseNote !== prevNote) {
                                 const isWhite = prevPath.dataset.isWhiteKey === 'true';
                                 prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                             }
@@ -1918,7 +1923,7 @@ export class SceneManager {
             const octaveNoteBase = baseNote + (octaveIndex * 12);
 
             blackKeys.forEach(({ note, offset, position }) => {
-                const noteNumber = octaveNoteBase + offset * 2 + 1; // Black keys are +1 from their base white key
+                const noteNumber = octaveNoteBase + offset * 2 + 1 + (offset >= 3 ? -1 : 0); // Black keys are +1 from their base white key, with E-F adjustment
                 const x = octaveOffset + position - blackKeyWidth / 2;
                 const keyY = 0;
 
@@ -1959,7 +1964,8 @@ export class SceneManager {
                     // Release previous mouse note if sliding
                     if (mouseNote !== null && mouseNote !== noteNumber) {
                         const prevPath = svg.querySelector(`[data-note-number="${mouseNote}"]`);
-                        if (prevPath && !activeTouches.has(mouseNote)) {
+                        // Check if any touch is holding the previous mouse note
+                        if (prevPath && !Array.from(activeTouches.values()).includes(mouseNote)) {
                             const isWhite = prevPath.dataset.isWhiteKey === 'true';
                             prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                         }
@@ -1999,7 +2005,11 @@ export class SceneManager {
                         const prevNote = activeTouches.get(touchId);
                         if (prevNote !== undefined && prevNote !== noteNumber) {
                             const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
-                            if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                            // Check if any OTHER touch (not this one) is holding the previous note
+                            const otherTouchHoldingPrev = Array.from(activeTouches.entries()).some(
+                                ([id, note]) => id !== touchId && note === prevNote
+                            );
+                            if (prevPath && !otherTouchHoldingPrev && mouseNote !== prevNote) {
                                 const isWhite = prevPath.dataset.isWhiteKey === 'true';
                                 prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                             }
@@ -2085,7 +2095,11 @@ export class SceneManager {
 
                     // Release previous note for this touch
                     const prevPath = svg.querySelector(`[data-note-number="${prevNote}"]`);
-                    if (prevPath && !Array.from(activeTouches.values()).includes(prevNote) && mouseNote !== prevNote) {
+                    // Check if any OTHER touch (not this one) is holding the previous note
+                    const otherTouchHoldingPrev = Array.from(activeTouches.entries()).some(
+                        ([id, note]) => id !== touchId && note === prevNote
+                    );
+                    if (prevPath && !otherTouchHoldingPrev && mouseNote !== prevNote) {
                         const isWhite = prevPath.dataset.isWhiteKey === 'true';
                         prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
                     }
