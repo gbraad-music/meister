@@ -1630,9 +1630,9 @@ export class SceneManager {
         container.style.flexDirection = 'column';
         container.style.gap = '10px';
         container.style.padding = '10px';
-        container.style.justifyContent = 'center';
+        container.style.justifyContent = 'flex-start';
         container.style.alignItems = 'center';
-        container.style.height = '';
+        container.style.height = 'calc(100vh - 60px)';
         container.style.overflow = 'hidden';
         container.innerHTML = '';
 
@@ -1721,23 +1721,30 @@ export class SceneManager {
         keyboardContainer.style.width = '100%';
         keyboardContainer.style.flex = '1';
         keyboardContainer.style.display = 'flex';
-        keyboardContainer.style.alignItems = 'center';
+        keyboardContainer.style.alignItems = 'stretch';
         keyboardContainer.style.justifyContent = 'center';
         keyboardContainer.style.padding = '0 10px';
+        keyboardContainer.style.minHeight = '0';
+
+        // Detect screen width to determine number of octaves
+        const screenWidth = window.innerWidth;
+        const numOctaves = screenWidth >= 768 ? 2 : 1; // 2 octaves on tablets/desktops, 1 on phones
 
         // Create SVG piano keyboard
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', '0 0 700 300');
+        const svgWidth = 700 * numOctaves;
+        const svgHeight = 600; // Taller viewBox for better vertical fill
+        svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
         svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
         svg.style.width = '100%';
-        svg.style.height = 'auto';
-        svg.style.maxHeight = '100%';
+        svg.style.height = '100%';
 
-        // Piano layout: 7 white keys (C, D, E, F, G, A, B) and 5 black keys (C#, D#, F#, G#, A#)
+        // Piano layout: 7 white keys (C, D, E, F, G, A, B) and 5 black keys (C#, D#, F#, G#, A#) per octave
         const whiteKeyWidth = 100;
-        const whiteKeyHeight = 280;
+        const whiteKeyHeight = 580; // Proportionally taller
         const blackKeyWidth = 60;
-        const blackKeyHeight = 180;
+        const blackKeyHeight = 380; // Proportionally taller
+        const keyRadius = 8; // Rounded corner radius
 
         const whiteKeys = [
             { note: 'C', offset: 0 },
@@ -1772,123 +1779,131 @@ export class SceneManager {
             this.controller.midiOutput.send([statusByte, noteNumber, velocity]);
         };
 
-        // Create white keys
-        whiteKeys.forEach(({ note, offset }) => {
-            const noteNumber = baseNote + offset * 2 + (offset >= 3 ? -1 : 0); // Adjust for E-F and B-C half steps
-            const x = offset * whiteKeyWidth;
+        // Create white keys for each octave
+        for (let octaveIndex = 0; octaveIndex < numOctaves; octaveIndex++) {
+            const octaveOffset = octaveIndex * 700; // One octave width
+            const octaveNoteBase = baseNote + (octaveIndex * 12);
 
-            const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            keyGroup.style.cursor = 'pointer';
+            whiteKeys.forEach(({ note, offset }) => {
+                const noteNumber = octaveNoteBase + offset * 2 + (offset >= 3 ? -1 : 0); // Adjust for E-F and B-C half steps
+                const x = octaveOffset + (offset * whiteKeyWidth);
 
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', x);
-            rect.setAttribute('y', '0');
-            rect.setAttribute('width', whiteKeyWidth);
-            rect.setAttribute('height', whiteKeyHeight);
-            rect.setAttribute('fill', '#f0f0f0');
-            rect.setAttribute('stroke', '#000');
-            rect.setAttribute('stroke-width', '2');
+                const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                keyGroup.style.cursor = 'pointer';
 
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', x + whiteKeyWidth / 2);
-            text.setAttribute('y', whiteKeyHeight - 20);
-            text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('fill', '#666');
-            text.setAttribute('font-size', '14');
-            text.setAttribute('font-family', 'Arial, sans-serif');
-            text.textContent = note;
+                // Create path with rounded bottom instead of rect
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const pathData = `M ${x},0 L ${x+whiteKeyWidth},0 L ${x+whiteKeyWidth},${whiteKeyHeight-keyRadius} Q ${x+whiteKeyWidth},${whiteKeyHeight} ${x+whiteKeyWidth-keyRadius},${whiteKeyHeight} L ${x+keyRadius},${whiteKeyHeight} Q ${x},${whiteKeyHeight} ${x},${whiteKeyHeight-keyRadius} Z`;
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', '#f0f0f0');
+                path.setAttribute('stroke', '#000');
+                path.setAttribute('stroke-width', '2');
 
-            keyGroup.appendChild(rect);
-            keyGroup.appendChild(text);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + whiteKeyWidth / 2);
+                text.setAttribute('y', whiteKeyHeight - 20);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#666');
+                text.setAttribute('font-size', '14');
+                text.setAttribute('font-family', 'Arial, sans-serif');
+                text.textContent = note;
 
-            // Mouse events
-            const noteOn = () => {
-                if (activeNotes.has(noteNumber)) return;
-                activeNotes.add(noteNumber);
-                rect.setAttribute('fill', '#cc4444');
-                sendNote(noteNumber, 100);
-            };
+                keyGroup.appendChild(path);
+                keyGroup.appendChild(text);
 
-            const noteOff = () => {
-                if (!activeNotes.has(noteNumber)) return;
-                activeNotes.delete(noteNumber);
-                rect.setAttribute('fill', '#f0f0f0');
-                sendNote(noteNumber, 0);
-            };
+                // Mouse events
+                const noteOn = () => {
+                    if (activeNotes.has(noteNumber)) return;
+                    activeNotes.add(noteNumber);
+                    path.setAttribute('fill', '#cc4444');
+                    sendNote(noteNumber, 100);
+                };
 
-            keyGroup.addEventListener('mousedown', noteOn);
-            keyGroup.addEventListener('mouseup', noteOff);
-            keyGroup.addEventListener('mouseleave', noteOff);
-            keyGroup.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                noteOn();
+                const noteOff = () => {
+                    if (!activeNotes.has(noteNumber)) return;
+                    activeNotes.delete(noteNumber);
+                    path.setAttribute('fill', '#f0f0f0');
+                    sendNote(noteNumber, 0);
+                };
+
+                keyGroup.addEventListener('mousedown', noteOn);
+                keyGroup.addEventListener('mouseup', noteOff);
+                keyGroup.addEventListener('mouseleave', noteOff);
+                keyGroup.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    noteOn();
+                });
+                keyGroup.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    noteOff();
+                });
+
+                svg.appendChild(keyGroup);
             });
-            keyGroup.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                noteOff();
+        }
+
+        // Create black keys for each octave (render on top)
+        for (let octaveIndex = 0; octaveIndex < numOctaves; octaveIndex++) {
+            const octaveOffset = octaveIndex * 700; // One octave width
+            const octaveNoteBase = baseNote + (octaveIndex * 12);
+
+            blackKeys.forEach(({ note, offset, position }) => {
+                const noteNumber = octaveNoteBase + offset * 2 + 1; // Black keys are +1 from their base white key
+                const x = octaveOffset + position - blackKeyWidth / 2;
+
+                const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                keyGroup.style.cursor = 'pointer';
+
+                // Create path with rounded bottom instead of rect
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const pathData = `M ${x},0 L ${x+blackKeyWidth},0 L ${x+blackKeyWidth},${blackKeyHeight-keyRadius} Q ${x+blackKeyWidth},${blackKeyHeight} ${x+blackKeyWidth-keyRadius},${blackKeyHeight} L ${x+keyRadius},${blackKeyHeight} Q ${x},${blackKeyHeight} ${x},${blackKeyHeight-keyRadius} Z`;
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', '#1a1a1a');
+                path.setAttribute('stroke', '#000');
+                path.setAttribute('stroke-width', '2');
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + blackKeyWidth / 2);
+                text.setAttribute('y', blackKeyHeight - 10);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#aaa');
+                text.setAttribute('font-size', '10');
+                text.setAttribute('font-family', 'Arial, sans-serif');
+                text.textContent = note;
+
+                keyGroup.appendChild(path);
+                keyGroup.appendChild(text);
+
+                // Mouse events
+                const noteOn = () => {
+                    if (activeNotes.has(noteNumber)) return;
+                    activeNotes.add(noteNumber);
+                    path.setAttribute('fill', '#cc4444');
+                    sendNote(noteNumber, 100);
+                };
+
+                const noteOff = () => {
+                    if (!activeNotes.has(noteNumber)) return;
+                    activeNotes.delete(noteNumber);
+                    path.setAttribute('fill', '#1a1a1a');
+                    sendNote(noteNumber, 0);
+                };
+
+                keyGroup.addEventListener('mousedown', noteOn);
+                keyGroup.addEventListener('mouseup', noteOff);
+                keyGroup.addEventListener('mouseleave', noteOff);
+                keyGroup.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    noteOn();
+                });
+                keyGroup.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    noteOff();
+                });
+
+                svg.appendChild(keyGroup);
             });
-
-            svg.appendChild(keyGroup);
-        });
-
-        // Create black keys (render on top)
-        blackKeys.forEach(({ note, offset, position }) => {
-            const noteNumber = baseNote + offset * 2 + 1; // Black keys are +1 from their base white key
-            const x = position - blackKeyWidth / 2;
-
-            const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            keyGroup.style.cursor = 'pointer';
-
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', x);
-            rect.setAttribute('y', '0');
-            rect.setAttribute('width', blackKeyWidth);
-            rect.setAttribute('height', blackKeyHeight);
-            rect.setAttribute('fill', '#1a1a1a');
-            rect.setAttribute('stroke', '#000');
-            rect.setAttribute('stroke-width', '2');
-
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', x + blackKeyWidth / 2);
-            text.setAttribute('y', blackKeyHeight - 10);
-            text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('fill', '#aaa');
-            text.setAttribute('font-size', '10');
-            text.setAttribute('font-family', 'Arial, sans-serif');
-            text.textContent = note;
-
-            keyGroup.appendChild(rect);
-            keyGroup.appendChild(text);
-
-            // Mouse events
-            const noteOn = () => {
-                if (activeNotes.has(noteNumber)) return;
-                activeNotes.add(noteNumber);
-                rect.setAttribute('fill', '#cc4444');
-                sendNote(noteNumber, 100);
-            };
-
-            const noteOff = () => {
-                if (!activeNotes.has(noteNumber)) return;
-                activeNotes.delete(noteNumber);
-                rect.setAttribute('fill', '#1a1a1a');
-                sendNote(noteNumber, 0);
-            };
-
-            keyGroup.addEventListener('mousedown', noteOn);
-            keyGroup.addEventListener('mouseup', noteOff);
-            keyGroup.addEventListener('mouseleave', noteOff);
-            keyGroup.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                noteOn();
-            });
-            keyGroup.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                noteOff();
-            });
-
-            svg.appendChild(keyGroup);
-        });
+        }
 
         keyboardContainer.appendChild(svg);
         container.appendChild(keyboardContainer);
