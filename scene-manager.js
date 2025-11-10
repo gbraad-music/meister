@@ -33,6 +33,7 @@ export class SceneManager {
                 name: 'Pads',
                 type: 'grid',
                 layout: '4x4',
+                enabled: true, // Can be disabled by user
                 pollDevices: [], // Empty = uses global polling by default
                 pollInterval: null, // null = uses global polling by default
                 render: () => this.renderPadsScene()
@@ -45,6 +46,7 @@ export class SceneManager {
             this.scenes.set('mixer', {
                 name: 'Mixer',
                 type: 'slider',
+                enabled: true, // Can be disabled by user
                 rows: 2,
                 columnsPerRow: 8,
                 pollDevices: [0], // Poll these device IDs (will be updated dynamically)
@@ -80,11 +82,23 @@ export class SceneManager {
         this.scenes.set('effects', {
             name: 'Effects',
             type: 'effects',
+            enabled: true, // Can be disabled by user
             pollDevices: [0], // Poll device 0 for effects state (default)
             pollInterval: 250, // Poll effects state every 250ms
             deviceBinding: null, // Device binding (null = use first available)
             programId: 0, // Program ID (0 for Regroove, 0-31 for Samplecrate pads)
             render: () => this.renderEffectsScene('effects')
+        });
+
+        // Piano scene (default - always available)
+        this.scenes.set('piano', {
+            name: 'Piano',
+            type: 'piano',
+            enabled: true, // Can be disabled by user
+            octave: 3, // Start at octave 3 (C3 = MIDI note 48)
+            midiChannel: 0, // MIDI channel (0-15)
+            deviceBinding: null, // Device binding (null = use default output)
+            render: () => this.renderPianoScene('piano')
         });
 
     }
@@ -120,7 +134,8 @@ export class SceneManager {
 
         const scene = {
             name: config.name,
-            type: config.type || 'grid', // 'grid', 'slider', or 'effects'
+            type: config.type || 'grid', // 'grid', 'slider', 'effects', or 'piano'
+            enabled: config.enabled !== undefined ? config.enabled : true, // Enabled by default
             render: null
         };
 
@@ -143,6 +158,11 @@ export class SceneManager {
             scene.pollDevices = config.pollDevices || [];
             scene.pollInterval = config.pollInterval || 250;
             scene.render = () => this.renderEffectsScene(id);
+        } else if (config.type === 'piano') {
+            scene.octave = config.octave !== undefined ? config.octave : 3;
+            scene.midiChannel = config.midiChannel !== undefined ? config.midiChannel : 0;
+            scene.deviceBinding = config.deviceBinding || null;
+            scene.render = () => this.renderPianoScene(id);
         }
 
         this.scenes.set(id, scene);
@@ -1118,12 +1138,15 @@ export class SceneManager {
     /**
      * Get all available scenes
      */
-    getScenes() {
-        return Array.from(this.scenes.entries()).map(([id, scene]) => ({
-            id,
-            name: scene.name,
-            type: scene.type
-        }));
+    getScenes(includeDisabled = false) {
+        return Array.from(this.scenes.entries())
+            .filter(([id, scene]) => includeDisabled || scene.enabled !== false)
+            .map(([id, scene]) => ({
+                id,
+                name: scene.name,
+                type: scene.type,
+                enabled: scene.enabled !== false
+            }));
     }
 
     /**
@@ -1593,5 +1616,281 @@ export class SceneManager {
 
         // Use controller's sendSysExFxGetAllState method
         this.controller.sendSysExFxGetAllState(deviceId, programId);
+    }
+
+    /**
+     * Render piano keyboard scene
+     */
+    renderPianoScene(sceneId = 'piano') {
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        // Clear and setup container
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '10px';
+        container.style.padding = '10px';
+        container.style.justifyContent = 'center';
+        container.style.alignItems = 'center';
+        container.style.height = '';
+        container.style.overflow = 'hidden';
+        container.innerHTML = '';
+
+        // Get scene
+        const scene = this.scenes.get(sceneId);
+        if (!scene) {
+            console.error(`[Piano] Scene "${sceneId}" not found`);
+            return;
+        }
+
+        // Create header with octave controls
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.gap = '10px';
+        header.style.alignItems = 'center';
+        header.style.padding = '8px 12px';
+        header.style.background = '#1a1a1a';
+        header.style.borderRadius = '4px';
+        header.style.flexShrink = '0';
+        header.style.width = '100%';
+
+        // Octave down button
+        const octaveDownBtn = document.createElement('button');
+        octaveDownBtn.textContent = 'OCT -';
+        octaveDownBtn.style.padding = '8px 16px';
+        octaveDownBtn.style.background = '#2a2a2a';
+        octaveDownBtn.style.color = '#aaa';
+        octaveDownBtn.style.border = '1px solid #333';
+        octaveDownBtn.style.borderRadius = '4px';
+        octaveDownBtn.style.cursor = 'pointer';
+        octaveDownBtn.style.fontSize = '0.9em';
+        octaveDownBtn.style.fontWeight = 'bold';
+        octaveDownBtn.addEventListener('click', () => {
+            if (scene.octave > 0) {
+                scene.octave--;
+                this.renderPianoScene(sceneId);
+            }
+        });
+
+        // Octave label
+        const octaveLabel = document.createElement('div');
+        octaveLabel.style.flex = '1';
+        octaveLabel.style.textAlign = 'center';
+        octaveLabel.style.color = '#aaa';
+        octaveLabel.style.fontSize = '1.2em';
+        octaveLabel.style.fontWeight = 'bold';
+        octaveLabel.textContent = `OCTAVE ${scene.octave}`;
+
+        // Octave up button
+        const octaveUpBtn = document.createElement('button');
+        octaveUpBtn.textContent = 'OCT +';
+        octaveUpBtn.style.padding = '8px 16px';
+        octaveUpBtn.style.background = '#2a2a2a';
+        octaveUpBtn.style.color = '#aaa';
+        octaveUpBtn.style.border = '1px solid #333';
+        octaveUpBtn.style.borderRadius = '4px';
+        octaveUpBtn.style.cursor = 'pointer';
+        octaveUpBtn.style.fontSize = '0.9em';
+        octaveUpBtn.style.fontWeight = 'bold';
+        octaveUpBtn.addEventListener('click', () => {
+            if (scene.octave < 8) {
+                scene.octave++;
+                this.renderPianoScene(sceneId);
+            }
+        });
+
+        // Channel info
+        const channelLabel = document.createElement('div');
+        channelLabel.style.color = '#666';
+        channelLabel.style.fontSize = '0.9em';
+        channelLabel.style.fontWeight = 'bold';
+        channelLabel.style.padding = '8px 16px';
+        channelLabel.style.background = '#0a0a0a';
+        channelLabel.style.borderRadius = '4px';
+        channelLabel.textContent = `CH ${scene.midiChannel + 1}`;
+
+        header.appendChild(octaveDownBtn);
+        header.appendChild(octaveLabel);
+        header.appendChild(octaveUpBtn);
+        header.appendChild(channelLabel);
+        container.appendChild(header);
+
+        // Create piano keyboard container
+        const keyboardContainer = document.createElement('div');
+        keyboardContainer.style.position = 'relative';
+        keyboardContainer.style.width = '100%';
+        keyboardContainer.style.flex = '1';
+        keyboardContainer.style.display = 'flex';
+        keyboardContainer.style.alignItems = 'center';
+        keyboardContainer.style.justifyContent = 'center';
+        keyboardContainer.style.padding = '0 10px';
+
+        // Create SVG piano keyboard
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 700 300');
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+        svg.style.maxHeight = '100%';
+
+        // Piano layout: 7 white keys (C, D, E, F, G, A, B) and 5 black keys (C#, D#, F#, G#, A#)
+        const whiteKeyWidth = 100;
+        const whiteKeyHeight = 280;
+        const blackKeyWidth = 60;
+        const blackKeyHeight = 180;
+
+        const whiteKeys = [
+            { note: 'C', offset: 0 },
+            { note: 'D', offset: 1 },
+            { note: 'E', offset: 2 },
+            { note: 'F', offset: 3 },
+            { note: 'G', offset: 4 },
+            { note: 'A', offset: 5 },
+            { note: 'B', offset: 6 }
+        ];
+
+        const blackKeys = [
+            { note: 'C#', offset: 0, position: 70 },  // Between C and D
+            { note: 'D#', offset: 1, position: 170 }, // Between D and E
+            { note: 'F#', offset: 3, position: 370 }, // Between F and G
+            { note: 'G#', offset: 4, position: 470 }, // Between G and A
+            { note: 'A#', offset: 5, position: 570 }  // Between A and B
+        ];
+
+        // Base MIDI note for this octave (C at octave)
+        const baseNote = 12 * scene.octave;
+
+        // Active notes tracker
+        const activeNotes = new Set();
+
+        // Helper function to send note on/off
+        const sendNote = (noteNumber, velocity) => {
+            if (!this.controller.midiOutput) return;
+
+            const channel = scene.midiChannel || 0;
+            const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
+            this.controller.midiOutput.send([statusByte, noteNumber, velocity]);
+        };
+
+        // Create white keys
+        whiteKeys.forEach(({ note, offset }) => {
+            const noteNumber = baseNote + offset * 2 + (offset >= 3 ? -1 : 0); // Adjust for E-F and B-C half steps
+            const x = offset * whiteKeyWidth;
+
+            const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            keyGroup.style.cursor = 'pointer';
+
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', '0');
+            rect.setAttribute('width', whiteKeyWidth);
+            rect.setAttribute('height', whiteKeyHeight);
+            rect.setAttribute('fill', '#f0f0f0');
+            rect.setAttribute('stroke', '#000');
+            rect.setAttribute('stroke-width', '2');
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + whiteKeyWidth / 2);
+            text.setAttribute('y', whiteKeyHeight - 20);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', '#666');
+            text.setAttribute('font-size', '14');
+            text.setAttribute('font-family', 'Arial, sans-serif');
+            text.textContent = note;
+
+            keyGroup.appendChild(rect);
+            keyGroup.appendChild(text);
+
+            // Mouse events
+            const noteOn = () => {
+                if (activeNotes.has(noteNumber)) return;
+                activeNotes.add(noteNumber);
+                rect.setAttribute('fill', '#cc4444');
+                sendNote(noteNumber, 100);
+            };
+
+            const noteOff = () => {
+                if (!activeNotes.has(noteNumber)) return;
+                activeNotes.delete(noteNumber);
+                rect.setAttribute('fill', '#f0f0f0');
+                sendNote(noteNumber, 0);
+            };
+
+            keyGroup.addEventListener('mousedown', noteOn);
+            keyGroup.addEventListener('mouseup', noteOff);
+            keyGroup.addEventListener('mouseleave', noteOff);
+            keyGroup.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                noteOn();
+            });
+            keyGroup.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                noteOff();
+            });
+
+            svg.appendChild(keyGroup);
+        });
+
+        // Create black keys (render on top)
+        blackKeys.forEach(({ note, offset, position }) => {
+            const noteNumber = baseNote + offset * 2 + 1; // Black keys are +1 from their base white key
+            const x = position - blackKeyWidth / 2;
+
+            const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            keyGroup.style.cursor = 'pointer';
+
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', '0');
+            rect.setAttribute('width', blackKeyWidth);
+            rect.setAttribute('height', blackKeyHeight);
+            rect.setAttribute('fill', '#1a1a1a');
+            rect.setAttribute('stroke', '#000');
+            rect.setAttribute('stroke-width', '2');
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + blackKeyWidth / 2);
+            text.setAttribute('y', blackKeyHeight - 10);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', '#aaa');
+            text.setAttribute('font-size', '10');
+            text.setAttribute('font-family', 'Arial, sans-serif');
+            text.textContent = note;
+
+            keyGroup.appendChild(rect);
+            keyGroup.appendChild(text);
+
+            // Mouse events
+            const noteOn = () => {
+                if (activeNotes.has(noteNumber)) return;
+                activeNotes.add(noteNumber);
+                rect.setAttribute('fill', '#cc4444');
+                sendNote(noteNumber, 100);
+            };
+
+            const noteOff = () => {
+                if (!activeNotes.has(noteNumber)) return;
+                activeNotes.delete(noteNumber);
+                rect.setAttribute('fill', '#1a1a1a');
+                sendNote(noteNumber, 0);
+            };
+
+            keyGroup.addEventListener('mousedown', noteOn);
+            keyGroup.addEventListener('mouseup', noteOff);
+            keyGroup.addEventListener('mouseleave', noteOff);
+            keyGroup.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                noteOn();
+            });
+            keyGroup.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                noteOff();
+            });
+
+            svg.appendChild(keyGroup);
+        });
+
+        keyboardContainer.appendChild(svg);
+        container.appendChild(keyboardContainer);
     }
 }

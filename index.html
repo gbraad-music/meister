@@ -618,22 +618,24 @@
 
                 <div class="setting-group">
                     <label class="setting-label">BUILT-IN SCENES</label>
-                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <button id="edit-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT PAD SCENE</button>
-                        <button id="edit-mixer-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT MIXER SCENE</button>
-                        <button id="edit-effects-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">✏️ EDIT EFFECTS</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <button id="edit-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT PAD SCENE</button>
+                        <button id="edit-mixer-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT MIXER SCENE</button>
+                        <button id="edit-effects-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT EFFECTS</button>
+                        <button id="edit-piano-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT PIANO</button>
                     </div>
                     <div style="color: #666; font-size: 0.75em;">
-                        Configure layout, polling interval, device binding, and other settings for built-in scenes.
+                        Configure octave, channel, layout, polling interval, device binding, and other settings for built-in scenes.
                     </div>
                 </div>
 
                 <div class="setting-group">
                     <label class="setting-label">CUSTOM SCENES</label>
-                    <div style="display: flex; gap: 8px;">
-                        <button id="new-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
-                        <button id="new-pad-scene-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
-                        <button id="new-effects-btn" style="flex: 1; padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
+                        <button id="new-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
+                        <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
+                        <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO</button>
                     </div>
                 </div>
 
@@ -1256,6 +1258,71 @@
                 <div class="button-group">
                     <button id="save-effects-scene">💾 SAVE SCENE</button>
                     <button id="delete-effects-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Piano Scene Editor Overlay -->
+    <div class="settings-overlay" id="piano-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="piano-scene-editor-title">NEW PIANO SCENE</div>
+                <button class="close-settings" id="close-piano-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="piano-scene-name" placeholder="My Piano" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI CHANNEL</label>
+                    <select id="piano-scene-channel" style="width: 100%;">
+                        <option value="0">Channel 1</option>
+                        <option value="1">Channel 2</option>
+                        <option value="2">Channel 3</option>
+                        <option value="3">Channel 4</option>
+                        <option value="4">Channel 5</option>
+                        <option value="5">Channel 6</option>
+                        <option value="6">Channel 7</option>
+                        <option value="7">Channel 8</option>
+                        <option value="8">Channel 9</option>
+                        <option value="9">Channel 10</option>
+                        <option value="10">Channel 11</option>
+                        <option value="11">Channel 12</option>
+                        <option value="12">Channel 13</option>
+                        <option value="13">Channel 14</option>
+                        <option value="14">Channel 15</option>
+                        <option value="15">Channel 16</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        MIDI channel to send notes on
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">DEFAULT OCTAVE</label>
+                    <select id="piano-scene-octave" style="width: 100%;">
+                        <option value="0">Octave 0</option>
+                        <option value="1">Octave 1</option>
+                        <option value="2">Octave 2</option>
+                        <option value="3" selected>Octave 3</option>
+                        <option value="4">Octave 4 (Middle C)</option>
+                        <option value="5">Octave 5</option>
+                        <option value="6">Octave 6</option>
+                        <option value="7">Octave 7</option>
+                        <option value="8">Octave 8</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Starting octave when scene opens (can be changed with OCT +/- buttons)
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-piano-scene">💾 SAVE SCENE</button>
+                    <button id="delete-piano-scene">🗑️ DELETE SCENE</button>
                 </div>
             </div>
         </div>

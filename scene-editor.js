@@ -39,6 +39,11 @@ export class SceneEditor {
             this.openEffectsSceneEditor('effects');
         });
 
+        // Edit built-in piano scene
+        document.getElementById('edit-piano-btn')?.addEventListener('click', () => {
+            this.openPianoSceneEditor('piano');
+        });
+
         // New mixer scene button
         document.getElementById('new-scene-btn')?.addEventListener('click', () => {
             this.openSceneEditor();
@@ -61,6 +66,11 @@ export class SceneEditor {
         // New pad scene button
         document.getElementById('new-pad-scene-btn')?.addEventListener('click', () => {
             this.openPadSceneEditor();
+        });
+
+        // New piano scene button
+        document.getElementById('new-piano-scene-btn')?.addEventListener('click', () => {
+            this.openPianoSceneEditor();
         });
 
         // Close scene editor
@@ -150,6 +160,21 @@ export class SceneEditor {
         document.getElementById('effects-scene-polling-interval')?.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById('effects-scene-polling-interval-value').textContent = value + 'ms';
+        });
+
+        // Close piano scene editor
+        document.getElementById('close-piano-scene-editor')?.addEventListener('click', () => {
+            this.closePianoSceneEditor();
+        });
+
+        // Save piano scene
+        document.getElementById('save-piano-scene')?.addEventListener('click', () => {
+            this.savePianoScene();
+        });
+
+        // Delete piano scene
+        document.getElementById('delete-piano-scene')?.addEventListener('click', () => {
+            this.deletePianoScene();
         });
     }
 
@@ -720,6 +745,88 @@ export class SceneEditor {
         }
     }
 
+    /**
+     * Open piano scene editor
+     */
+    openPianoSceneEditor(sceneId = null) {
+        if (sceneId) {
+            // Edit existing piano scene
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'piano') {
+                this.currentSceneId = sceneId;
+
+                document.getElementById('piano-scene-name').value = scene.name;
+                document.getElementById('piano-scene-channel').value = scene.midiChannel !== undefined ? scene.midiChannel : 0;
+                document.getElementById('piano-scene-octave').value = scene.octave !== undefined ? scene.octave : 4;
+
+                document.getElementById('piano-scene-editor-title').textContent = sceneId === 'piano' ? 'EDIT PIANO SCENE' : 'EDIT CUSTOM PIANO';
+            }
+        } else {
+            // New piano scene
+            this.currentSceneId = 'custom-piano-' + Date.now();
+
+            document.getElementById('piano-scene-name').value = 'Custom Piano';
+            document.getElementById('piano-scene-channel').value = 0;
+            document.getElementById('piano-scene-octave').value = 4;
+
+            document.getElementById('piano-scene-editor-title').textContent = 'NEW PIANO SCENE';
+        }
+
+        document.getElementById('piano-scene-editor-overlay').classList.add('active');
+    }
+
+    closePianoSceneEditor() {
+        document.getElementById('piano-scene-editor-overlay').classList.remove('active');
+    }
+
+    savePianoScene() {
+        const name = document.getElementById('piano-scene-name').value.trim();
+        const midiChannel = parseInt(document.getElementById('piano-scene-channel').value) || 0;
+        const octave = parseInt(document.getElementById('piano-scene-octave').value) || 4;
+
+        if (!name) {
+            alert('Please enter a scene name');
+            return;
+        }
+
+        // Save scene
+        this.sceneManager.addScene(this.currentSceneId, {
+            name: name,
+            type: 'piano',
+            octave: octave,
+            midiChannel: midiChannel,
+            deviceBinding: null
+        });
+
+        // Save to localStorage
+        this.saveScenesToStorage();
+
+        // Refresh scenes list
+        this.refreshScenesList();
+
+        // Close editor
+        this.closePianoSceneEditor();
+
+        // Switch to the scene
+        this.sceneManager.switchScene(this.currentSceneId);
+    }
+
+    deletePianoScene() {
+        if (this.currentSceneId === 'piano') {
+            alert('Cannot delete the built-in piano scene');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this piano scene?')) {
+            return;
+        }
+
+        this.sceneManager.scenes.delete(this.currentSceneId);
+        this.saveScenesToStorage();
+        this.refreshScenesList();
+        this.closePianoSceneEditor();
+    }
+
     saveScenesToStorage() {
         const scenes = {};
         this.sceneManager.scenes.forEach((scene, id) => {
@@ -727,13 +834,18 @@ export class SceneEditor {
             scenes[id] = {
                 name: scene.name,
                 type: scene.type,
+                enabled: scene.enabled !== undefined ? scene.enabled : true, // Save enabled state
                 rows: scene.rows,
                 columnsPerRow: scene.columnsPerRow,
                 slots: scene.slots,
                 columns: scene.columns, // Keep for backward compatibility
                 pollDevices: scene.pollDevices,
                 pollInterval: scene.pollInterval,
-                layout: scene.layout // For grid-type scenes
+                layout: scene.layout, // For grid-type scenes
+                octave: scene.octave, // For piano scenes
+                midiChannel: scene.midiChannel, // For piano scenes
+                deviceBinding: scene.deviceBinding, // For effects and piano scenes
+                programId: scene.programId // For effects scenes
             };
         });
 
@@ -775,13 +887,18 @@ export class SceneEditor {
             scenes[id] = {
                 name: scene.name,
                 type: scene.type,
+                enabled: scene.enabled !== undefined ? scene.enabled : true,
                 rows: scene.rows,
                 columns: scene.columns,
                 slots: scene.slots,
                 columnsPerRow: scene.columnsPerRow,
                 pollDevices: scene.pollDevices,
                 pollInterval: scene.pollInterval,
-                layout: scene.layout // For grid-type scenes
+                layout: scene.layout, // For grid-type scenes
+                octave: scene.octave, // For piano scenes
+                midiChannel: scene.midiChannel, // For piano scenes
+                deviceBinding: scene.deviceBinding, // For effects and piano scenes
+                programId: scene.programId // For effects scenes
             };
         });
         return scenes;
@@ -808,60 +925,156 @@ export class SceneEditor {
         const container = document.getElementById('scenes-list');
         if (!container) return;
 
-        const scenes = this.sceneManager.getScenes();
+        const scenes = this.sceneManager.getScenes(true); // Include disabled scenes
+        const sceneArray = Array.from(this.sceneManager.scenes.entries());
 
-        container.innerHTML = scenes.map(scene => {
+        container.innerHTML = scenes.map((scene, index) => {
             // Only pads scene is truly non-editable built-in
             const isNonEditable = (scene.id === 'pads');
-            const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer' || scene.id === 'effects');
+            const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer' || scene.id === 'effects' || scene.id === 'piano');
+            const isEnabled = scene.enabled !== false;
 
             let typeLabel = 'Mixer Layout';
             if (scene.type === 'grid') typeLabel = 'Pad Grid';
             else if (scene.type === 'effects') typeLabel = 'Effects';
+            else if (scene.type === 'piano') typeLabel = 'Piano Keyboard';
 
             return `
                 <div class="scene-list-item" data-scene-id="${scene.id}" style="
-                    background: #2a2a2a;
-                    border: 2px solid #444;
+                    background: ${isEnabled ? '#2a2a2a' : '#1a1a1a'};
+                    border: 2px solid ${isEnabled ? '#444' : '#333'};
                     border-radius: 4px;
                     padding: 12px;
-                    cursor: ${isNonEditable ? 'default' : 'pointer'};
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
+                    opacity: ${isEnabled ? '1' : '0.5'};
                 ">
-                    <div>
-                        <div style="font-weight: bold; color: #ccc;">${scene.name}</div>
+                    <div style="flex: 1; cursor: ${isNonEditable ? 'default' : 'pointer'};" class="scene-name-area">
+                        <div style="font-weight: bold; color: ${isEnabled ? '#ccc' : '#666'};">${scene.name}</div>
                         <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
                             ${typeLabel}
                             ${isBuiltIn ? '(Built-in)' : ''}
+                            ${!isEnabled ? '(Disabled)' : ''}
                         </div>
                     </div>
-                    ${!isNonEditable ? '<div style="color: #cc4444;">✏️</div>' : ''}
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        ${index > 0 ? '<button class="scene-move-up" style="padding: 5px 8px; background: #333; border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; font-size: 0.8em;">▲</button>' : ''}
+                        ${index < scenes.length - 1 ? '<button class="scene-move-down" style="padding: 5px 8px; background: #333; border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; font-size: 0.8em;">▼</button>' : ''}
+                        <button class="scene-toggle" style="padding: 5px 10px; background: ${isEnabled ? '#2a4a2a' : '#4a2a2a'}; border: 1px solid ${isEnabled ? '#3a5a3a' : '#5a3a3a'}; color: ${isEnabled ? '#4a9e4a' : '#9e4a4a'}; cursor: pointer; border-radius: 3px; font-size: 0.8em; min-width: 70px;">${isEnabled ? 'DISABLE' : 'ENABLE'}</button>
+                        ${!isNonEditable ? '<div style="color: #cc4444; font-size: 1.2em; cursor: pointer;" class="scene-edit">✏️</div>' : ''}
+                    </div>
                 </div>
             `;
         }).join('');
 
         // Add click handlers - all scenes except pads are editable
-        container.querySelectorAll('.scene-list-item').forEach(item => {
+        container.querySelectorAll('.scene-list-item').forEach((item, index) => {
             const sceneId = item.getAttribute('data-scene-id');
 
-            // Only pads is non-editable
-            if (sceneId !== 'pads') {
-                item.addEventListener('click', () => {
+            // Edit button handler
+            const editBtn = item.querySelector('.scene-edit');
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const scene = this.sceneManager.scenes.get(sceneId);
                     if (scene && scene.type === 'grid') {
                         this.openPadSceneEditor(sceneId);
                     } else if (scene && scene.type === 'effects') {
                         this.openEffectsSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'piano') {
+                        this.openPianoSceneEditor(sceneId);
                     } else {
                         this.openSceneEditor(sceneId);
                     }
                 });
             }
+
+            // Name area click handler (same as edit for non-pads)
+            const nameArea = item.querySelector('.scene-name-area');
+            if (nameArea && sceneId !== 'pads') {
+                nameArea.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const scene = this.sceneManager.scenes.get(sceneId);
+                    if (scene && scene.type === 'grid') {
+                        this.openPadSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'effects') {
+                        this.openEffectsSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'piano') {
+                        this.openPianoSceneEditor(sceneId);
+                    } else {
+                        this.openSceneEditor(sceneId);
+                    }
+                });
+            }
+
+            // Toggle enable/disable
+            const toggleBtn = item.querySelector('.scene-toggle');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const scene = this.sceneManager.scenes.get(sceneId);
+                    if (scene) {
+                        scene.enabled = !(scene.enabled !== false);
+                        this.saveScenesToStorage();
+                        this.refreshScenesList();
+                        this.sceneManager.updateSceneSelector();
+                    }
+                });
+            }
+
+            // Move up button
+            const moveUpBtn = item.querySelector('.scene-move-up');
+            if (moveUpBtn) {
+                moveUpBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.moveScene(sceneId, -1);
+                });
+            }
+
+            // Move down button
+            const moveDownBtn = item.querySelector('.scene-move-down');
+            if (moveDownBtn) {
+                moveDownBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.moveScene(sceneId, 1);
+                });
+            }
         });
 
         // Update the scene selector dropdown in the status bar
+        this.sceneManager.updateSceneSelector();
+    }
+
+    /**
+     * Move a scene up or down in the order
+     */
+    moveScene(sceneId, direction) {
+        // Convert Map to array
+        const scenesArray = Array.from(this.sceneManager.scenes.entries());
+
+        // Find the index of the scene to move
+        const currentIndex = scenesArray.findIndex(([id]) => id === sceneId);
+        if (currentIndex === -1) return;
+
+        // Calculate new index
+        const newIndex = currentIndex + direction;
+        if (newIndex < 0 || newIndex >= scenesArray.length) return;
+
+        // Swap scenes
+        const temp = scenesArray[currentIndex];
+        scenesArray[currentIndex] = scenesArray[newIndex];
+        scenesArray[newIndex] = temp;
+
+        // Recreate the Map with new order
+        this.sceneManager.scenes.clear();
+        scenesArray.forEach(([id, scene]) => {
+            this.sceneManager.scenes.set(id, scene);
+        });
+
+        // Save and refresh
+        this.saveScenesToStorage();
+        this.refreshScenesList();
         this.sceneManager.updateSceneSelector();
     }
 
