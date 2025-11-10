@@ -1843,8 +1843,10 @@ export class SceneManager {
         // Base MIDI note for this octave (C at octave)
         const baseNote = 12 * scene.octave;
 
-        // Active notes tracker
+        // Active notes tracker and current note for sliding
         const activeNotes = new Set();
+        let currentNote = null;
+        let isPointerDown = false;
 
         // Helper function to send note on/off
         const sendNote = (noteNumber, velocity) => {
@@ -1855,6 +1857,59 @@ export class SceneManager {
             this.controller.midiOutput.send([statusByte, noteNumber, velocity]);
         };
 
+        // Helper to calculate velocity from Y position in key
+        const calculateVelocity = (event, keyY, keyHeight) => {
+            const svgRect = svg.getBoundingClientRect();
+            let clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientY = event.touches[0].clientY;
+            } else {
+                clientY = event.clientY;
+            }
+
+            // Calculate Y position relative to SVG
+            const svgY = clientY - svgRect.top;
+            const svgHeightPixels = svgRect.height;
+
+            // Convert to viewBox coordinates
+            const viewBoxY = (svgY / svgHeightPixels) * svgHeight;
+
+            // Calculate position within the key (0 at top, 1 at bottom)
+            const relativeY = (viewBoxY - keyY) / keyHeight;
+            const clampedY = Math.max(0, Math.min(1, relativeY));
+
+            // Convert to velocity (0-127), with minimum velocity of 10 to ensure sound
+            const velocity = Math.round(10 + (clampedY * 117));
+            return Math.max(10, Math.min(127, velocity));
+        };
+
+        // Helper to get note number at pointer position
+        const getNoteAtPosition = (event) => {
+            const svgRect = svg.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            // Use elementFromPoint to find which key we're over
+            const element = document.elementFromPoint(clientX, clientY);
+            if (element && element.dataset && element.dataset.noteNumber) {
+                return {
+                    noteNumber: parseInt(element.dataset.noteNumber),
+                    keyY: parseFloat(element.dataset.keyY),
+                    keyHeight: parseFloat(element.dataset.keyHeight),
+                    path: element
+                };
+            }
+            return null;
+        };
+
         // Create white keys for each octave
         for (let octaveIndex = 0; octaveIndex < numOctaves; octaveIndex++) {
             const octaveOffset = octaveIndex * 700; // One octave width
@@ -1863,6 +1918,7 @@ export class SceneManager {
             whiteKeys.forEach(({ note, offset }) => {
                 const noteNumber = octaveNoteBase + offset * 2 + (offset >= 3 ? -1 : 0); // Adjust for E-F and B-C half steps
                 const x = octaveOffset + (offset * whiteKeyWidth);
+                const keyY = 0;
 
                 const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 keyGroup.style.cursor = 'pointer';
@@ -1875,6 +1931,12 @@ export class SceneManager {
                 path.setAttribute('stroke', '#000');
                 path.setAttribute('stroke-width', '2');
 
+                // Store data for velocity calculation and sliding
+                path.dataset.noteNumber = noteNumber;
+                path.dataset.keyY = keyY;
+                path.dataset.keyHeight = whiteKeyHeight;
+                path.dataset.isWhiteKey = 'true';
+
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.setAttribute('x', x + whiteKeyWidth / 2);
                 text.setAttribute('y', whiteKeyHeight - 20);
@@ -1882,36 +1944,53 @@ export class SceneManager {
                 text.setAttribute('fill', '#666');
                 text.setAttribute('font-size', '14');
                 text.setAttribute('font-family', 'Arial, sans-serif');
+                text.setAttribute('pointer-events', 'none'); // Don't interfere with path events
                 text.textContent = note;
 
                 keyGroup.appendChild(path);
                 keyGroup.appendChild(text);
 
-                // Mouse events
-                const noteOn = () => {
-                    if (activeNotes.has(noteNumber)) return;
+                // Event handlers with velocity and sliding support
+                const handlePointerDown = (e) => {
+                    isPointerDown = true;
+                    const velocity = calculateVelocity(e, keyY, whiteKeyHeight);
+
+                    if (currentNote !== null && currentNote !== noteNumber) {
+                        // Release previous note
+                        const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
+                        if (prevPath) {
+                            const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                            prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                        }
+                        activeNotes.delete(currentNote);
+                        sendNote(currentNote, 0);
+                    }
+
+                    currentNote = noteNumber;
                     activeNotes.add(noteNumber);
                     path.setAttribute('fill', '#cc4444');
-                    sendNote(noteNumber, 100);
+                    sendNote(noteNumber, velocity);
                 };
 
-                const noteOff = () => {
-                    if (!activeNotes.has(noteNumber)) return;
-                    activeNotes.delete(noteNumber);
-                    path.setAttribute('fill', '#f0f0f0');
-                    sendNote(noteNumber, 0);
+                const handlePointerUp = () => {
+                    isPointerDown = false;
+                    if (currentNote === noteNumber) {
+                        activeNotes.delete(noteNumber);
+                        path.setAttribute('fill', '#f0f0f0');
+                        sendNote(noteNumber, 0);
+                        currentNote = null;
+                    }
                 };
 
-                keyGroup.addEventListener('mousedown', noteOn);
-                keyGroup.addEventListener('mouseup', noteOff);
-                keyGroup.addEventListener('mouseleave', noteOff);
+                keyGroup.addEventListener('mousedown', handlePointerDown);
+                keyGroup.addEventListener('mouseup', handlePointerUp);
                 keyGroup.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    noteOn();
+                    handlePointerDown(e);
                 });
                 keyGroup.addEventListener('touchend', (e) => {
                     e.preventDefault();
-                    noteOff();
+                    handlePointerUp();
                 });
 
                 svg.appendChild(keyGroup);
@@ -1926,6 +2005,7 @@ export class SceneManager {
             blackKeys.forEach(({ note, offset, position }) => {
                 const noteNumber = octaveNoteBase + offset * 2 + 1; // Black keys are +1 from their base white key
                 const x = octaveOffset + position - blackKeyWidth / 2;
+                const keyY = 0;
 
                 const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 keyGroup.style.cursor = 'pointer';
@@ -1938,6 +2018,12 @@ export class SceneManager {
                 path.setAttribute('stroke', '#000');
                 path.setAttribute('stroke-width', '2');
 
+                // Store data for velocity calculation and sliding
+                path.dataset.noteNumber = noteNumber;
+                path.dataset.keyY = keyY;
+                path.dataset.keyHeight = blackKeyHeight;
+                path.dataset.isWhiteKey = 'false';
+
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.setAttribute('x', x + blackKeyWidth / 2);
                 text.setAttribute('y', blackKeyHeight - 10);
@@ -1945,41 +2031,110 @@ export class SceneManager {
                 text.setAttribute('fill', '#aaa');
                 text.setAttribute('font-size', '10');
                 text.setAttribute('font-family', 'Arial, sans-serif');
+                text.setAttribute('pointer-events', 'none'); // Don't interfere with path events
                 text.textContent = note;
 
                 keyGroup.appendChild(path);
                 keyGroup.appendChild(text);
 
-                // Mouse events
-                const noteOn = () => {
-                    if (activeNotes.has(noteNumber)) return;
+                // Event handlers with velocity and sliding support
+                const handlePointerDown = (e) => {
+                    isPointerDown = true;
+                    const velocity = calculateVelocity(e, keyY, blackKeyHeight);
+
+                    if (currentNote !== null && currentNote !== noteNumber) {
+                        // Release previous note
+                        const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
+                        if (prevPath) {
+                            const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                            prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                        }
+                        activeNotes.delete(currentNote);
+                        sendNote(currentNote, 0);
+                    }
+
+                    currentNote = noteNumber;
                     activeNotes.add(noteNumber);
                     path.setAttribute('fill', '#cc4444');
-                    sendNote(noteNumber, 100);
+                    sendNote(noteNumber, velocity);
                 };
 
-                const noteOff = () => {
-                    if (!activeNotes.has(noteNumber)) return;
-                    activeNotes.delete(noteNumber);
-                    path.setAttribute('fill', '#1a1a1a');
-                    sendNote(noteNumber, 0);
+                const handlePointerUp = () => {
+                    isPointerDown = false;
+                    if (currentNote === noteNumber) {
+                        activeNotes.delete(noteNumber);
+                        path.setAttribute('fill', '#1a1a1a');
+                        sendNote(noteNumber, 0);
+                        currentNote = null;
+                    }
                 };
 
-                keyGroup.addEventListener('mousedown', noteOn);
-                keyGroup.addEventListener('mouseup', noteOff);
-                keyGroup.addEventListener('mouseleave', noteOff);
+                keyGroup.addEventListener('mousedown', handlePointerDown);
+                keyGroup.addEventListener('mouseup', handlePointerUp);
                 keyGroup.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    noteOn();
+                    handlePointerDown(e);
                 });
                 keyGroup.addEventListener('touchend', (e) => {
                     e.preventDefault();
-                    noteOff();
+                    handlePointerUp();
                 });
 
                 svg.appendChild(keyGroup);
             });
         }
+
+        // Global move handlers for sliding between keys
+        const handleMove = (e) => {
+            if (!isPointerDown) return;
+
+            const keyInfo = getNoteAtPosition(e);
+            if (keyInfo && keyInfo.noteNumber !== currentNote) {
+                // Moved to a different key - slide
+                const velocity = calculateVelocity(e, keyInfo.keyY, keyInfo.keyHeight);
+
+                // Release previous note
+                if (currentNote !== null) {
+                    const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
+                    if (prevPath) {
+                        const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                        prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                    }
+                    activeNotes.delete(currentNote);
+                    sendNote(currentNote, 0);
+                }
+
+                // Play new note
+                currentNote = keyInfo.noteNumber;
+                activeNotes.add(keyInfo.noteNumber);
+                keyInfo.path.setAttribute('fill', '#cc4444');
+                sendNote(keyInfo.noteNumber, velocity);
+            }
+        };
+
+        const handleGlobalUp = () => {
+            if (isPointerDown && currentNote !== null) {
+                const prevPath = svg.querySelector(`[data-note-number="${currentNote}"]`);
+                if (prevPath) {
+                    const isWhite = prevPath.dataset.isWhiteKey === 'true';
+                    prevPath.setAttribute('fill', isWhite ? '#f0f0f0' : '#1a1a1a');
+                }
+                activeNotes.delete(currentNote);
+                sendNote(currentNote, 0);
+                currentNote = null;
+            }
+            isPointerDown = false;
+        };
+
+        svg.addEventListener('mousemove', handleMove);
+        svg.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            handleMove(e);
+        }, { passive: false });
+
+        // Global up handlers to catch releases outside keys
+        document.addEventListener('mouseup', handleGlobalUp);
+        document.addEventListener('touchend', handleGlobalUp);
 
         keyboardContainer.appendChild(svg);
         container.appendChild(keyboardContainer);
