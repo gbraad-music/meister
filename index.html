@@ -1278,6 +1278,16 @@
                 </div>
 
                 <div class="setting-group">
+                    <label class="setting-label">DEVICE BINDING</label>
+                    <select id="piano-scene-device" style="width: 100%;">
+                        <option value="">Default Device</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Which device instance to send notes to
+                    </div>
+                </div>
+
+                <div class="setting-group">
                     <label class="setting-label">MIDI CHANNEL</label>
                     <select id="piano-scene-channel" style="width: 100%;">
                         <option value="0">Channel 1</option>
@@ -1298,7 +1308,7 @@
                         <option value="15">Channel 16</option>
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
-                        MIDI channel to send notes on
+                        MIDI channel to send notes on (overrides device's channel if set)
                     </div>
                 </div>
 
@@ -1317,6 +1327,16 @@
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
                         Starting octave when scene opens (can be changed with OCT +/- buttons)
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PROGRAM CHANGE</label>
+                    <select id="piano-scene-program" style="width: 100%;">
+                        <option value="-1">No Program Change</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Send program change message when scene loads (can be changed with PROG +/- buttons)
                     </div>
                 </div>
 

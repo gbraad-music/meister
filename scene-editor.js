@@ -749,6 +749,9 @@ export class SceneEditor {
      * Open piano scene editor
      */
     openPianoSceneEditor(sceneId = null) {
+        // Populate device dropdown
+        this.populatePianoDeviceDropdown();
+
         if (sceneId) {
             // Edit existing piano scene
             const scene = this.sceneManager.scenes.get(sceneId);
@@ -756,8 +759,10 @@ export class SceneEditor {
                 this.currentSceneId = sceneId;
 
                 document.getElementById('piano-scene-name').value = scene.name;
+                document.getElementById('piano-scene-device').value = scene.deviceBinding || '';
                 document.getElementById('piano-scene-channel').value = scene.midiChannel !== undefined ? scene.midiChannel : 0;
                 document.getElementById('piano-scene-octave').value = scene.octave !== undefined ? scene.octave : 4;
+                document.getElementById('piano-scene-program').value = scene.program !== undefined ? scene.program : -1;
 
                 document.getElementById('piano-scene-editor-title').textContent = sceneId === 'piano' ? 'EDIT PIANO SCENE' : 'EDIT CUSTOM PIANO';
             }
@@ -766,13 +771,44 @@ export class SceneEditor {
             this.currentSceneId = 'custom-piano-' + Date.now();
 
             document.getElementById('piano-scene-name').value = 'Custom Piano';
+            document.getElementById('piano-scene-device').value = '';
             document.getElementById('piano-scene-channel').value = 0;
             document.getElementById('piano-scene-octave').value = 4;
+            document.getElementById('piano-scene-program').value = -1;
 
             document.getElementById('piano-scene-editor-title').textContent = 'NEW PIANO SCENE';
         }
 
         document.getElementById('piano-scene-editor-overlay').classList.add('active');
+    }
+
+    populatePianoDeviceDropdown() {
+        const select = document.getElementById('piano-scene-device');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Default Device</option>';
+
+        if (this.sceneManager.controller.deviceManager) {
+            const devices = this.sceneManager.controller.deviceManager.getAllDevices();
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.id;
+                option.textContent = `${device.name} (Ch ${device.midiChannel + 1}, ID ${device.deviceId})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Populate program dropdown (0-127 + "No Program Change")
+        const programSelect = document.getElementById('piano-scene-program');
+        if (programSelect) {
+            programSelect.innerHTML = '<option value="-1">No Program Change</option>';
+            for (let i = 0; i <= 127; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Program ${i + 1}`; // Display as 1-128 (user-facing)
+                programSelect.appendChild(option);
+            }
+        }
     }
 
     closePianoSceneEditor() {
@@ -781,8 +817,10 @@ export class SceneEditor {
 
     savePianoScene() {
         const name = document.getElementById('piano-scene-name').value.trim();
+        const deviceBinding = document.getElementById('piano-scene-device').value || null;
         const midiChannel = parseInt(document.getElementById('piano-scene-channel').value) || 0;
         const octave = parseInt(document.getElementById('piano-scene-octave').value) || 4;
+        const program = parseInt(document.getElementById('piano-scene-program').value);
 
         if (!name) {
             alert('Please enter a scene name');
@@ -795,7 +833,8 @@ export class SceneEditor {
             type: 'piano',
             octave: octave,
             midiChannel: midiChannel,
-            deviceBinding: null
+            deviceBinding: deviceBinding,
+            program: program
         });
 
         // Save to localStorage
@@ -844,6 +883,7 @@ export class SceneEditor {
                 layout: scene.layout, // For grid-type scenes
                 octave: scene.octave, // For piano scenes
                 midiChannel: scene.midiChannel, // For piano scenes
+                program: scene.program, // For piano scenes
                 deviceBinding: scene.deviceBinding, // For effects and piano scenes
                 programId: scene.programId // For effects scenes
             };
@@ -897,6 +937,7 @@ export class SceneEditor {
                 layout: scene.layout, // For grid-type scenes
                 octave: scene.octave, // For piano scenes
                 midiChannel: scene.midiChannel, // For piano scenes
+                program: scene.program, // For piano scenes
                 deviceBinding: scene.deviceBinding, // For effects and piano scenes
                 programId: scene.programId // For effects scenes
             };

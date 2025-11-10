@@ -97,6 +97,7 @@ export class SceneManager {
             enabled: true, // Can be disabled by user
             octave: 3, // Start at octave 3 (C3 = MIDI note 48)
             midiChannel: 0, // MIDI channel (0-15)
+            program: -1, // Program change (-1 = no program change, 0-127 = program)
             deviceBinding: null, // Device binding (null = use default output)
             render: () => this.renderPianoScene('piano')
         });
@@ -161,6 +162,7 @@ export class SceneManager {
         } else if (config.type === 'piano') {
             scene.octave = config.octave !== undefined ? config.octave : 3;
             scene.midiChannel = config.midiChannel !== undefined ? config.midiChannel : 0;
+            scene.program = config.program !== undefined ? config.program : -1;
             scene.deviceBinding = config.deviceBinding || null;
             scene.render = () => this.renderPianoScene(id);
         }
@@ -1674,12 +1676,15 @@ export class SceneManager {
 
         // Octave label
         const octaveLabel = document.createElement('div');
-        octaveLabel.style.flex = '1';
-        octaveLabel.style.textAlign = 'center';
-        octaveLabel.style.color = '#aaa';
-        octaveLabel.style.fontSize = '1.2em';
+        octaveLabel.style.color = '#666';
+        octaveLabel.style.fontSize = '0.9em';
         octaveLabel.style.fontWeight = 'bold';
-        octaveLabel.textContent = `OCTAVE ${scene.octave}`;
+        octaveLabel.style.padding = '8px 16px';
+        octaveLabel.style.background = '#0a0a0a';
+        octaveLabel.style.borderRadius = '4px';
+        octaveLabel.style.minWidth = '100px';
+        octaveLabel.style.textAlign = 'center';
+        octaveLabel.textContent = `OCT ${scene.octave}`;
 
         // Octave up button
         const octaveUpBtn = document.createElement('button');
@@ -1699,21 +1704,92 @@ export class SceneManager {
             }
         });
 
-        // Channel info
-        const channelLabel = document.createElement('div');
-        channelLabel.style.color = '#666';
-        channelLabel.style.fontSize = '0.9em';
-        channelLabel.style.fontWeight = 'bold';
-        channelLabel.style.padding = '8px 16px';
-        channelLabel.style.background = '#0a0a0a';
-        channelLabel.style.borderRadius = '4px';
-        channelLabel.textContent = `CH ${scene.midiChannel + 1}`;
+        // Device and channel info
+        const deviceLabel = document.createElement('div');
+        deviceLabel.style.color = '#666';
+        deviceLabel.style.fontSize = '0.9em';
+        deviceLabel.style.fontWeight = 'bold';
+        deviceLabel.style.padding = '8px 16px';
+        deviceLabel.style.background = '#0a0a0a';
+        deviceLabel.style.borderRadius = '4px';
+
+        // Resolve device from binding
+        let device = null;
+        if (scene.deviceBinding && this.controller.deviceManager) {
+            device = this.controller.deviceManager.getDevice(scene.deviceBinding);
+        }
+
+        if (device) {
+            deviceLabel.textContent = `${device.name} (CH ${scene.midiChannel + 1} / ID ${device.deviceId})`;
+        } else {
+            deviceLabel.textContent = `DEFAULT (CH ${scene.midiChannel + 1})`;
+        }
+
+        // Program down button
+        const programDownBtn = document.createElement('button');
+        programDownBtn.textContent = 'PROG -';
+        programDownBtn.style.padding = '8px 16px';
+        programDownBtn.style.background = '#2a2a2a';
+        programDownBtn.style.color = '#aaa';
+        programDownBtn.style.border = '1px solid #333';
+        programDownBtn.style.borderRadius = '4px';
+        programDownBtn.style.cursor = 'pointer';
+        programDownBtn.style.fontSize = '0.9em';
+        programDownBtn.style.fontWeight = 'bold';
+        programDownBtn.addEventListener('click', () => {
+            if (scene.program > -1) {
+                scene.program--;
+                if (scene.program >= 0) {
+                    this.sendProgramChange(scene.midiChannel, scene.program);
+                }
+                this.renderPianoScene(sceneId);
+            }
+        });
+
+        // Program label
+        const programLabel = document.createElement('div');
+        programLabel.style.color = '#666';
+        programLabel.style.fontSize = '0.9em';
+        programLabel.style.fontWeight = 'bold';
+        programLabel.style.padding = '8px 16px';
+        programLabel.style.background = '#0a0a0a';
+        programLabel.style.borderRadius = '4px';
+        programLabel.style.minWidth = '100px';
+        programLabel.style.textAlign = 'center';
+        programLabel.textContent = scene.program >= 0 ? `PROG ${scene.program + 1}` : 'NO PROG'; // Display as 1-128 (user-facing)
+
+        // Program up button
+        const programUpBtn = document.createElement('button');
+        programUpBtn.textContent = 'PROG +';
+        programUpBtn.style.padding = '8px 16px';
+        programUpBtn.style.background = '#2a2a2a';
+        programUpBtn.style.color = '#aaa';
+        programUpBtn.style.border = '1px solid #333';
+        programUpBtn.style.borderRadius = '4px';
+        programUpBtn.style.cursor = 'pointer';
+        programUpBtn.style.fontSize = '0.9em';
+        programUpBtn.style.fontWeight = 'bold';
+        programUpBtn.addEventListener('click', () => {
+            if (scene.program < 127) {
+                scene.program++;
+                this.sendProgramChange(scene.midiChannel, scene.program);
+                this.renderPianoScene(sceneId);
+            }
+        });
 
         header.appendChild(octaveDownBtn);
         header.appendChild(octaveLabel);
         header.appendChild(octaveUpBtn);
-        header.appendChild(channelLabel);
+        header.appendChild(deviceLabel);
+        header.appendChild(programDownBtn);
+        header.appendChild(programLabel);
+        header.appendChild(programUpBtn);
         container.appendChild(header);
+
+        // Send program change if scene has a program set
+        if (scene.program >= 0) {
+            this.sendProgramChange(scene.midiChannel, scene.program);
+        }
 
         // Create piano keyboard container
         const keyboardContainer = document.createElement('div');
@@ -1907,5 +1983,17 @@ export class SceneManager {
 
         keyboardContainer.appendChild(svg);
         container.appendChild(keyboardContainer);
+    }
+
+    /**
+     * Send MIDI program change message
+     */
+    sendProgramChange(channel, program) {
+        if (!this.controller.midiOutput) return;
+
+        // MIDI Program Change: 0xC0-0xCF (channel) + program number (0-127 on wire, 1-128 user-facing)
+        const statusByte = 0xC0 + channel;
+        this.controller.midiOutput.send([statusByte, program]);
+        console.log(`[Piano] Sent Program Change: CH ${channel + 1} -> Program ${program + 1} (wire: ${program})`);
     }
 }
