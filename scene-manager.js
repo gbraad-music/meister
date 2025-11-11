@@ -29,10 +29,11 @@ export class SceneManager {
         // Only register default pads scene if not loading a saved one
         if (!loadSaved || !this.scenes.has('pads')) {
             // Pads scene (always available - grid layout)
+            // Use controller's gridLayout to match what createPads() uses
             this.scenes.set('pads', {
                 name: 'Pads',
                 type: 'grid',
-                layout: '4x4',
+                layout: this.controller.config.gridLayout || '4x4',
                 enabled: true, // Can be disabled by user
                 pollDevices: [], // Empty = uses global polling by default
                 pollInterval: null, // null = uses global polling by default
@@ -128,14 +129,11 @@ export class SceneManager {
      * });
      */
     addScene(id, config) {
-        if (id === 'pads') {
-            console.error('Cannot override the default pads scene');
-            return;
-        }
+        // Allow editing all scenes, including built-in ones
 
         const scene = {
             name: config.name,
-            type: config.type || 'grid', // 'grid', 'slider', 'effects', or 'piano'
+            type: config.type || 'grid', // 'grid', 'slider', 'effects', 'piano', or 'split'
             enabled: config.enabled !== undefined ? config.enabled : true, // Enabled by default
             render: null
         };
@@ -153,6 +151,14 @@ export class SceneManager {
             scene.pollDevices = config.pollDevices || [];
             scene.pollInterval = config.pollInterval || 250;
             scene.render = () => this.renderSliderScene(id);
+        } else if (config.type === 'split') {
+            scene.padLayout = config.padLayout || '2x4'; // Grid size for pads (e.g., 2x4, 3x3)
+            scene.padSide = config.padSide || 'left'; // 'left' or 'right'
+            scene.pads = config.pads || []; // Pad configurations
+            scene.slots = config.slots || []; // Fader configurations (4-5 faders)
+            scene.pollDevices = config.pollDevices || [];
+            scene.pollInterval = config.pollInterval || 250;
+            scene.render = () => this.renderSplitScene(id);
         } else if (config.type === 'effects') {
             scene.deviceBinding = config.deviceBinding || null;
             scene.programId = config.programId !== undefined ? config.programId : 0;
@@ -277,21 +283,25 @@ export class SceneManager {
         const layout = scene?.layout || this.controller.config.gridLayout || '4x4';
         const [cols, rows] = layout.split('x').map(Number);
 
+        // Clear container first
+        container.innerHTML = '';
+
+        // Reset ALL container styles (split/slider scenes set flex properties)
+        container.removeAttribute('style');
         container.style.display = 'grid';
         container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
         container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
         container.style.gap = '10px';
         container.style.padding = '10px 10px 4px 10px';
-        container.style.flexDirection = '';
-        container.style.justifyContent = '';
-        container.style.alignItems = '';
-
-        // Clear container
-        container.innerHTML = '';
+        container.style.height = 'calc(100vh - 60px)';
 
         // For built-in 'pads' scene, use global config pads
         // For custom scenes, use scene's own pads array (or empty if not set)
         if (isBuiltIn) {
+            // Sync the scene's layout to controller config so createPads uses correct layout
+            if (scene && scene.layout) {
+                this.controller.config.gridLayout = scene.layout;
+            }
             this.controller.createPads();
         } else {
             // Custom pad scene - create empty pads or use scene's pads
@@ -371,6 +381,81 @@ export class SceneManager {
             const fader = this.createFader(item);
             if (fader) container.appendChild(fader);
         });
+
+        // Apply current device state to faders after rendering
+        this.applyCurrentDeviceStates();
+    }
+
+    /**
+     * Render split scene (pads on one side, sliders on the other)
+     */
+    renderSplitScene(sceneId) {
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        const scene = this.scenes.get(sceneId);
+        if (!scene) return;
+
+        // Clear and setup container for split layout
+        container.style.display = 'flex';
+        container.style.flexDirection = 'row';
+        container.style.gap = '10px';
+        container.style.padding = '10px';
+        container.style.height = 'calc(100vh - 60px)';
+        container.innerHTML = '';
+
+        // Get pad layout dimensions
+        const [cols, rows] = (scene.padLayout || '2x4').split('x').map(Number);
+        const totalPads = cols * rows;
+
+        // Create pads container
+        const padsContainer = document.createElement('div');
+        padsContainer.style.display = 'grid';
+        padsContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        padsContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        padsContainer.style.gap = '10px';
+        padsContainer.style.flex = '0 0 50%'; // 50/50 split with faders
+        padsContainer.style.minWidth = '0';
+
+        // Store current scene ID so pad editor knows which scene to save to
+        this.controller.currentPadSceneId = sceneId;
+
+        // Create pads
+        const scenePads = scene.pads || [];
+        for (let i = 0; i < totalPads; i++) {
+            const padConfig = scenePads[i] || { label: '', cc: null, note: null, mmc: null, sysex: null };
+            const pad = this.controller.createSinglePad(i, padConfig);
+            padsContainer.appendChild(pad);
+        }
+
+        // Store reference to scene pads
+        this.controller.pads = scenePads;
+
+        // Create faders container
+        const fadersContainer = document.createElement('div');
+        fadersContainer.style.display = 'flex';
+        fadersContainer.style.flexDirection = 'row';
+        fadersContainer.style.gap = '20px';
+        fadersContainer.style.justifyContent = 'space-evenly';
+        fadersContainer.style.alignItems = 'stretch';
+        fadersContainer.style.flex = '1';
+        fadersContainer.style.minWidth = '0';
+
+        // Create faders (4-5 typically)
+        const slots = scene.slots || [];
+        slots.forEach(slot => {
+            const fader = this.createFader(slot);
+            if (fader) fadersContainer.appendChild(fader);
+        });
+
+        // Add containers in correct order based on padSide
+        if (scene.padSide === 'right') {
+            container.appendChild(fadersContainer);
+            container.appendChild(padsContainer);
+        } else {
+            container.appendChild(padsContainer);
+            container.appendChild(fadersContainer);
+        }
 
         // Apply current device state to faders after rendering
         this.applyCurrentDeviceStates();

@@ -720,30 +720,77 @@ class MeisterController {
             padConfig.deviceBinding = deviceBinding;
         }
 
-        // Check if we have at least a message type (cc, note, or mmc)
-        // If not, treat as empty pad
-        if (!hasMessage) {
-            if (!this.config.pads) this.config.pads = [];
-            this.config.pads[this.editingPadIndex] = null;
+        // Check if we're editing a custom scene's pads or the default pads
+        const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
+
+        if (isCustomScene) {
+            // Save to scene's pads array
+            const scene = this.sceneManager.scenes.get(this.currentPadSceneId);
+            if (scene) {
+                if (!scene.pads) scene.pads = [];
+
+                // Check if we have at least a message type (cc, note, or mmc)
+                // If not, treat as empty pad
+                if (!hasMessage) {
+                    scene.pads[this.editingPadIndex] = null;
+                } else {
+                    scene.pads[this.editingPadIndex] = padConfig;
+                }
+
+                // Save scene config to localStorage
+                this.sceneEditor.saveScenesToStorage();
+
+                // Re-render the scene
+                if (scene.render) scene.render();
+            }
         } else {
-            // Valid pad config
-            if (!this.config.pads) this.config.pads = [];
-            this.config.pads[this.editingPadIndex] = padConfig;
+            // Save to global config (built-in pads scene)
+            // Check if we have at least a message type (cc, note, or mmc)
+            // If not, treat as empty pad
+            if (!hasMessage) {
+                if (!this.config.pads) this.config.pads = [];
+                this.config.pads[this.editingPadIndex] = null;
+            } else {
+                // Valid pad config
+                if (!this.config.pads) this.config.pads = [];
+                this.config.pads[this.editingPadIndex] = padConfig;
+            }
+
+            this.saveConfig();
+            this.createPads();
         }
 
-        this.saveConfig();
-        this.createPads();
         this.closePadEditor();
     }
 
     clearPad() {
         if (this.editingPadIndex === null) return;
 
-        if (!this.config.pads) this.config.pads = [];
-        this.config.pads[this.editingPadIndex] = null;
+        // Check if we're editing a custom scene's pads or the default pads
+        const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
-        this.saveConfig();
-        this.createPads();
+        if (isCustomScene) {
+            // Clear from scene's pads array
+            const scene = this.sceneManager.scenes.get(this.currentPadSceneId);
+            if (scene) {
+                if (!scene.pads) scene.pads = [];
+                scene.pads[this.editingPadIndex] = null;
+
+                // Save scene config to localStorage
+                this.sceneEditor.saveScenesToStorage();
+
+                // Re-render the scene
+                if (scene.render) scene.render();
+            }
+        } else {
+            // Clear from global config (built-in pads scene)
+            if (!this.config.pads) this.config.pads = [];
+            this.config.pads[this.editingPadIndex] = null;
+
+            this.saveConfig();
+            this.createPads();
+        }
+
         this.closePadEditor();
     }
 
@@ -766,6 +813,147 @@ class MeisterController {
         this.createPads();
     }
 
+    /**
+     * Create a single pad element with the given configuration
+     * @param {number} index - The pad index
+     * @param {Object} padConfig - The pad configuration
+     * @returns {HTMLElement} The created pad element
+     */
+    createSinglePad(index, padConfig) {
+        const padElement = document.createElement('regroove-pad');
+
+        if (padConfig) {
+            // Store original label for later replacement
+            padElement._originalLabel = padConfig.label;
+            padElement._originalSublabel = padConfig.sublabel;
+
+            if (padConfig.label) padElement.setAttribute('label', this.replacePlaceholders(padConfig.label));
+
+            // Build sublabel with device indicator if non-default device is bound
+            let sublabel = padConfig.sublabel ? this.replacePlaceholders(padConfig.sublabel) : '';
+            if (padConfig.deviceBinding) {
+                if (this.deviceManager) {
+                    const device = this.deviceManager.getDevice(padConfig.deviceBinding);
+                    if (device) {
+                        // Add device name as a note
+                        const deviceNote = `[${device.name}]`;
+                        sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
+                        console.log(`[Pad ${index}] Added device label: ${device.name}`);
+                    } else {
+                        console.warn(`[Pad ${index}] Device binding "${padConfig.deviceBinding}" not found`);
+                    }
+                } else {
+                    console.warn(`[Pad ${index}] DeviceManager not initialized yet`);
+                }
+            }
+            if (sublabel) padElement.setAttribute('sublabel', sublabel);
+
+            if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
+            if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
+            if (padConfig.mmc !== undefined) {
+                padElement.setAttribute('mmc', padConfig.mmc);
+                // Store MMC parameters in dataset
+                if (padConfig.mmcParams) {
+                    padElement.dataset.mmcParams = JSON.stringify(padConfig.mmcParams);
+                }
+            }
+            if (padConfig.sysex !== undefined) {
+                padElement.setAttribute('sysex', padConfig.sysex);
+                // Store SysEx parameters in dataset
+                if (padConfig.sysexParams) {
+                    padElement.dataset.sysexParams = JSON.stringify(padConfig.sysexParams);
+                }
+            }
+
+            // Set secondary actions
+            if (padConfig.secondaryCC !== undefined) padElement.setAttribute('secondary-cc', padConfig.secondaryCC);
+            if (padConfig.secondaryNote !== undefined) padElement.setAttribute('secondary-note', padConfig.secondaryNote);
+            if (padConfig.secondaryMMC !== undefined) padElement.setAttribute('secondary-mmc', padConfig.secondaryMMC);
+
+            // Store device binding on the element
+            if (padConfig.deviceBinding) {
+                padElement.dataset.deviceBinding = padConfig.deviceBinding;
+            }
+
+            padElement.addEventListener('pad-press', (e) => {
+                this.handlePadPress(e.detail, padElement, index);
+            });
+        }
+
+        // Store pad index
+        padElement.dataset.padIndex = index;
+
+        // Right-click to edit
+        padElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.openPadEditor(index);
+        });
+
+        // Drag and drop with Ctrl + left mouse button
+        padElement.setAttribute('draggable', 'false');
+
+        padElement.addEventListener('mousedown', (e) => {
+            // Ctrl + Left click = drag mode
+            if (e.button === 0 && e.ctrlKey) {
+                e.preventDefault();
+                padElement.setAttribute('draggable', 'true');
+                padElement.style.cursor = 'move';
+            }
+        });
+
+        padElement.addEventListener('dragstart', (e) => {
+            if (padElement.getAttribute('draggable') === 'true') {
+                this.draggingPadIndex = index;
+                padElement.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', index);
+            }
+        });
+
+        padElement.addEventListener('dragend', (e) => {
+            padElement.style.opacity = '';
+            padElement.setAttribute('draggable', 'false');
+            padElement.style.cursor = '';
+            this.draggingPadIndex = null;
+        });
+
+        // Make pad a drop target
+        padElement.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (this.draggingPadIndex !== null && this.draggingPadIndex !== index) {
+                padElement.style.opacity = '0.5';
+            }
+        });
+
+        padElement.addEventListener('dragleave', (e) => {
+            padElement.style.opacity = '';
+        });
+
+        padElement.addEventListener('drop', (e) => {
+            e.preventDefault();
+            padElement.style.opacity = '';
+            if (this.draggingPadIndex !== null && this.draggingPadIndex !== index) {
+                this.swapPads(this.draggingPadIndex, index);
+            }
+        });
+
+        let longPressTimer;
+        padElement.addEventListener('touchstart', (e) => {
+            longPressTimer = setTimeout(() => {
+                e.preventDefault();
+                this.openPadEditor(index);
+            }, 500);
+        });
+        padElement.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        });
+        padElement.addEventListener('touchmove', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        return padElement;
+    }
+
     createPads() {
         const container = document.getElementById('pads-grid');
         container.innerHTML = '';
@@ -776,137 +964,7 @@ class MeisterController {
 
         for (let i = 0; i < totalPads; i++) {
             const padConfig = this.config.pads[i];
-            const padElement = document.createElement('regroove-pad');
-
-            if (padConfig) {
-                // Store original label for later replacement
-                padElement._originalLabel = padConfig.label;
-                padElement._originalSublabel = padConfig.sublabel;
-
-                if (padConfig.label) padElement.setAttribute('label', this.replacePlaceholders(padConfig.label));
-
-                // Build sublabel with device indicator if non-default device is bound
-                let sublabel = padConfig.sublabel ? this.replacePlaceholders(padConfig.sublabel) : '';
-                if (padConfig.deviceBinding) {
-                    if (this.deviceManager) {
-                        const device = this.deviceManager.getDevice(padConfig.deviceBinding);
-                        if (device) {
-                            // Add device name as a note
-                            const deviceNote = `[${device.name}]`;
-                            sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
-                            console.log(`[Pad ${i}] Added device label: ${device.name}`);
-                        } else {
-                            console.warn(`[Pad ${i}] Device binding "${padConfig.deviceBinding}" not found`);
-                        }
-                    } else {
-                        console.warn(`[Pad ${i}] DeviceManager not initialized yet`);
-                    }
-                }
-                if (sublabel) padElement.setAttribute('sublabel', sublabel);
-
-                if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
-                if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
-                if (padConfig.mmc !== undefined) {
-                    padElement.setAttribute('mmc', padConfig.mmc);
-                    // Store MMC parameters in dataset
-                    if (padConfig.mmcParams) {
-                        padElement.dataset.mmcParams = JSON.stringify(padConfig.mmcParams);
-                    }
-                }
-                if (padConfig.sysex !== undefined) {
-                    padElement.setAttribute('sysex', padConfig.sysex);
-                    // Store SysEx parameters in dataset
-                    if (padConfig.sysexParams) {
-                        padElement.dataset.sysexParams = JSON.stringify(padConfig.sysexParams);
-                    }
-                }
-
-                // Set secondary actions
-                if (padConfig.secondaryCC !== undefined) padElement.setAttribute('secondary-cc', padConfig.secondaryCC);
-                if (padConfig.secondaryNote !== undefined) padElement.setAttribute('secondary-note', padConfig.secondaryNote);
-                if (padConfig.secondaryMMC !== undefined) padElement.setAttribute('secondary-mmc', padConfig.secondaryMMC);
-
-                // Store device binding on the element
-                if (padConfig.deviceBinding) {
-                    padElement.dataset.deviceBinding = padConfig.deviceBinding;
-                }
-
-                padElement.addEventListener('pad-press', (e) => {
-                    this.handlePadPress(e.detail, padElement, i);
-                });
-            }
-
-            // Store pad index
-            padElement.dataset.padIndex = i;
-
-            // Right-click to edit
-            padElement.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                this.openPadEditor(i);
-            });
-
-            // Drag and drop with Ctrl + left mouse button
-            padElement.setAttribute('draggable', 'false');
-
-            padElement.addEventListener('mousedown', (e) => {
-                // Ctrl + Left click = drag mode
-                if (e.button === 0 && e.ctrlKey) {
-                    e.preventDefault();
-                    padElement.setAttribute('draggable', 'true');
-                    padElement.style.cursor = 'move';
-                }
-            });
-
-            padElement.addEventListener('dragstart', (e) => {
-                if (padElement.getAttribute('draggable') === 'true') {
-                    this.draggingPadIndex = i;
-                    padElement.style.opacity = '0.4';
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', i);
-                }
-            });
-
-            padElement.addEventListener('dragend', (e) => {
-                padElement.style.opacity = '';
-                padElement.setAttribute('draggable', 'false');
-                padElement.style.cursor = '';
-                this.draggingPadIndex = null;
-            });
-
-            // Make pad a drop target
-            padElement.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                if (this.draggingPadIndex !== null && this.draggingPadIndex !== i) {
-                    padElement.style.opacity = '0.5';
-                }
-            });
-
-            padElement.addEventListener('dragleave', (e) => {
-                padElement.style.opacity = '';
-            });
-
-            padElement.addEventListener('drop', (e) => {
-                e.preventDefault();
-                padElement.style.opacity = '';
-                if (this.draggingPadIndex !== null && this.draggingPadIndex !== i) {
-                    this.swapPads(this.draggingPadIndex, i);
-                }
-            });
-
-            let longPressTimer;
-            padElement.addEventListener('touchstart', (e) => {
-                longPressTimer = setTimeout(() => {
-                    e.preventDefault();
-                    this.openPadEditor(i);
-                }, 500);
-            });
-            padElement.addEventListener('touchend', () => {
-                clearTimeout(longPressTimer);
-            });
-            padElement.addEventListener('touchmove', () => {
-                clearTimeout(longPressTimer);
-            });
-
+            const padElement = this.createSinglePad(i, padConfig);
             container.appendChild(padElement);
             this.pads.push(padElement);
         }

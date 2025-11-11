@@ -73,6 +73,10 @@ export class SceneEditor {
             this.openPianoSceneEditor();
         });
 
+        document.getElementById('new-split-scene-btn')?.addEventListener('click', () => {
+            this.openSplitSceneEditor();
+        });
+
         // Close scene editor
         document.getElementById('close-scene-editor')?.addEventListener('click', () => {
             this.closeSceneEditor();
@@ -506,7 +510,9 @@ export class SceneEditor {
             if (scene && scene.type === 'grid') {
                 this.currentSceneId = sceneId;
                 this.padSceneConfig.name = scene.name;
-                this.padSceneConfig.layout = scene.layout || '4x4';
+                // For built-in pads scene, get layout from controller config
+                const isBuiltInPads = sceneId === 'pads';
+                this.padSceneConfig.layout = scene.layout || (isBuiltInPads ? this.sceneManager.controller.config.gridLayout : '4x4');
                 this.padSceneConfig.pollInterval = scene.pollInterval || 250;
                 this.padSceneConfig.pollDevices = scene.pollDevices || [];
 
@@ -729,6 +735,12 @@ export class SceneEditor {
         // Add scene to scene manager
         this.sceneManager.addScene(this.currentSceneId, sceneConfig);
 
+        // For built-in pads scene, also update controller config so createPads() uses correct layout
+        if (this.currentSceneId === 'pads') {
+            this.sceneManager.controller.config.gridLayout = layout;
+            this.sceneManager.controller.saveConfig();
+        }
+
         // Save to localStorage
         this.saveScenesToStorage();
 
@@ -826,6 +838,43 @@ export class SceneEditor {
                 programSelect.appendChild(option);
             }
         }
+    }
+
+    /**
+     * Open split scene editor (pads + sliders)
+     */
+    openSplitSceneEditor(sceneId = null) {
+        const name = prompt('Split Scene Name:', sceneId ? this.sceneManager.scenes.get(sceneId)?.name : 'Split Scene');
+        if (!name) return;
+
+        const finalSceneId = sceneId || 'custom-split-' + Date.now();
+
+        // Create a default split scene with 2x4 pads on left, 4 faders on right
+        this.sceneManager.addScene(finalSceneId, {
+            name: name,
+            type: 'split',
+            padLayout: '2x4', // 2 columns, 4 rows = 8 pads
+            padSide: 'left',
+            pads: [], // Empty pads to start
+            slots: [
+                { type: 'CHANNEL', channel: 0, deviceBinding: null },
+                { type: 'CHANNEL', channel: 1, deviceBinding: null },
+                { type: 'CHANNEL', channel: 2, deviceBinding: null },
+                { type: 'CHANNEL', channel: 3, deviceBinding: null },
+                { type: 'MIX', label: 'Master', deviceBinding: null }
+            ],
+            pollDevices: [0],
+            pollInterval: 250
+        });
+
+        this.saveScenesToStorage();
+        this.sceneManager.switchScene(finalSceneId);
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
+
+        // Close settings
+        document.getElementById('settings-overlay')?.classList.remove('active');
     }
 
     closePianoSceneEditor() {

@@ -82,6 +82,7 @@ export class SettingsUI {
             if (scene.type === 'grid') typeLabel = 'Grid';
             else if (scene.type === 'effects') typeLabel = 'Effects';
             else if (scene.type === 'piano') typeLabel = 'Piano';
+            else if (scene.type === 'split') typeLabel = 'Split';
 
             return `
                 <div class="scene-item ${isActive ? 'active' : ''}" data-scene-id="${scene.id}" style="opacity: ${isEnabled ? '1' : '0.5'};">
@@ -93,7 +94,7 @@ export class SettingsUI {
                             ${!isEnabled ? ' (Disabled)' : ''}
                         </div>
                     </div>
-                    <button class="scene-switch-btn" data-scene-id="${scene.id}">
+                    <button class="scene-switch-btn" data-scene-id="${scene.id}" style="flex: 1; margin: 0 10px;">
                         ${isActive ? 'Active' : 'Switch'}
                     </button>
                     <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0; margin-left: 8px;">
@@ -129,6 +130,8 @@ export class SettingsUI {
                     this.controller.sceneEditor.openEffectsSceneEditor(sceneId);
                 } else if (scene.type === 'piano') {
                     this.controller.sceneEditor.openPianoSceneEditor(sceneId);
+                } else if (scene.type === 'split') {
+                    this.controller.sceneEditor.openSplitSceneEditor(sceneId);
                 } else {
                     this.controller.sceneEditor.openSceneEditor(sceneId);
                 }

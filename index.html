@@ -638,6 +638,7 @@
                         <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
                         <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
                         <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO</button>
+                        <button id="new-split-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SPLIT (Pads+Faders)</button>
                     </div>
                 </div>
 
@@ -1377,10 +1378,11 @@
                 <div class="setting-group">
                     <label class="setting-label">GRID LAYOUT</label>
                     <select id="pad-scene-layout">
-                        <option value="4x4">4×4 Grid (16 pads)</option>
-                        <option value="4x2">4×2 Grid (8 pads)</option>
                         <option value="2x2">2×2 Grid (4 pads)</option>
+                        <option value="4x2">4×2 Grid (8 pads)</option>
+                        <option value="4x4">4×4 Grid (16 pads)</option>
                         <option value="8x2">8×2 Grid (16 pads)</option>
+                        <option value="8x4">8×4 Grid (32 pads)</option>
                         <option value="10x5">10×5 Grid (50 pads)</option>
                     </select>
                 </div>
@@ -1411,6 +1413,75 @@
                 <div class="button-group">
                     <button id="save-pad-scene">💾 SAVE SCENE</button>
                     <button id="delete-pad-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPLIT SCENE EDITOR OVERLAY -->
+    <div class="settings-overlay" id="split-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="split-scene-editor-title">NEW SPLIT SCENE</div>
+                <button class="close-settings" id="close-split-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="split-scene-name" placeholder="Split Scene" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PAD LAYOUT</label>
+                    <select id="split-scene-pad-layout" style="width: 100%;">
+                        <option value="2x2">2×2 (4 pads)</option>
+                        <option value="2x4" selected>2×4 (8 pads)</option>
+                        <option value="4x2">4×2 (8 pads)</option>
+                        <option value="4x4">4×4 (16 pads)</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Grid size for pads (columns × rows)
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">PAD POSITION</label>
+                    <select id="split-scene-pad-side" style="width: 100%;">
+                        <option value="left" selected>Left Side</option>
+                        <option value="right">Right Side</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Which side to show the pads on
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">NUMBER OF FADERS</label>
+                    <select id="split-scene-fader-count" style="width: 100%;">
+                        <option value="2">2 Faders</option>
+                        <option value="3">3 Faders</option>
+                        <option value="4">4 Faders</option>
+                        <option value="5" selected>5 Faders (CH1-4 + Master)</option>
+                        <option value="6">6 Faders</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Number of faders/sliders on the other side
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-split-scene">💾 SAVE SCENE</button>
+                    <button id="delete-split-scene">🗑️ DELETE SCENE</button>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 4px; border-left: 3px solid #cc4444;">
+                    <div style="color: #ccc; font-size: 0.85em; margin-bottom: 8px; font-weight: bold;">💡 How to Configure</div>
+                    <div style="color: #888; font-size: 0.75em; line-height: 1.4;">
+                        After saving the scene, switch to it and:<br>
+                        • Right-click pads to configure MIDI messages<br>
+                        • Faders will use default settings - to customize faders, create a mixer scene instead
+                    </div>
                 </div>
             </div>
         </div>
