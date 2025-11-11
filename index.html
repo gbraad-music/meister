@@ -1435,10 +1435,12 @@
                 <div class="setting-group">
                     <label class="setting-label">PAD LAYOUT</label>
                     <select id="split-scene-pad-layout" style="width: 100%;">
-                        <option value="2x2">2×2 (4 pads)</option>
-                        <option value="2x4" selected>2×4 (8 pads)</option>
-                        <option value="4x2">4×2 (8 pads)</option>
-                        <option value="4x4">4×4 (16 pads)</option>
+                        <option value="2x3">2×3 (6 pads)</option>
+                        <option value="3x2">3×2 (6 pads)</option>
+                        <option value="3x3">3×3 (9 pads)</option>
+                        <option value="3x4">3×4 (12 pads)</option>
+                        <option value="4x3">4×3 (12 pads)</option>
+                        <option value="4x4" selected>4×4 (16 pads)</option>
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
                         Grid size for pads (columns × rows)
@@ -1448,26 +1450,24 @@
                 <div class="setting-group">
                     <label class="setting-label">PAD POSITION</label>
                     <select id="split-scene-pad-side" style="width: 100%;">
-                        <option value="left" selected>Left Side</option>
-                        <option value="right">Right Side</option>
+                        <option value="left" selected>Left Side (landscape)</option>
+                        <option value="right">Right Side (landscape)</option>
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
-                        Which side to show the pads on
+                        In portrait mode, pads always appear at top
                     </div>
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">NUMBER OF FADERS</label>
-                    <select id="split-scene-fader-count" style="width: 100%;">
-                        <option value="2">2 Faders</option>
-                        <option value="3">3 Faders</option>
-                        <option value="4">4 Faders</option>
-                        <option value="5" selected>5 Faders (CH1-4 + Master)</option>
-                        <option value="6">6 Faders</option>
-                    </select>
-                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
-                        Number of faders/sliders on the other side
+                    <label class="setting-label">FADER SLOTS</label>
+                    <div style="color: #888; font-size: 0.75em; margin-bottom: 8px;">
+                        Click slots to configure faders
                     </div>
+                    <div id="split-fader-grid" style="
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    "></div>
                 </div>
 
                 <div class="button-group">
@@ -1478,9 +1478,7 @@
                 <div style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 4px; border-left: 3px solid #cc4444;">
                     <div style="color: #ccc; font-size: 0.85em; margin-bottom: 8px; font-weight: bold;">💡 How to Configure</div>
                     <div style="color: #888; font-size: 0.75em; line-height: 1.4;">
-                        After saving the scene, switch to it and:<br>
-                        • Right-click pads to configure MIDI messages<br>
-                        • Faders will use default settings - to customize faders, create a mixer scene instead
+                        After saving the scene, switch to it and right-click pads to configure MIDI messages
                     </div>
                 </div>
             </div>

@@ -388,6 +388,7 @@ export class SceneManager {
 
     /**
      * Render split scene (pads on one side, sliders on the other)
+     * Responsive: side-by-side in landscape, stacked in portrait
      */
     renderSplitScene(sceneId) {
         const container = document.getElementById('pads-grid');
@@ -396,16 +397,19 @@ export class SceneManager {
         const scene = this.scenes.get(sceneId);
         if (!scene) return;
 
+        // Detect orientation: portrait (taller) vs landscape (wider)
+        const isPortrait = window.innerHeight > window.innerWidth;
+
         // Clear and setup container for split layout
         container.style.display = 'flex';
-        container.style.flexDirection = 'row';
+        container.style.flexDirection = isPortrait ? 'column' : 'row';
         container.style.gap = '10px';
         container.style.padding = '10px';
         container.style.height = 'calc(100vh - 60px)';
         container.innerHTML = '';
 
         // Get pad layout dimensions
-        const [cols, rows] = (scene.padLayout || '2x4').split('x').map(Number);
+        const [cols, rows] = (scene.padLayout || '4x4').split('x').map(Number);
         const totalPads = cols * rows;
 
         // Create pads container
@@ -414,8 +418,16 @@ export class SceneManager {
         padsContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
         padsContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
         padsContainer.style.gap = '10px';
-        padsContainer.style.flex = '0 0 50%'; // 50/50 split with faders
+
+        // In portrait mode: pads take up proportional space based on grid size
+        // In landscape mode: 50/50 split
+        if (isPortrait) {
+            padsContainer.style.flex = '1'; // Let pads take natural space
+        } else {
+            padsContainer.style.flex = '0 0 50%'; // 50/50 split with faders
+        }
         padsContainer.style.minWidth = '0';
+        padsContainer.style.minHeight = '0';
 
         // Store current scene ID so pad editor knows which scene to save to
         this.controller.currentPadSceneId = sceneId;
@@ -423,12 +435,15 @@ export class SceneManager {
         // Create pads
         const scenePads = scene.pads || [];
         for (let i = 0; i < totalPads; i++) {
-            const padConfig = scenePads[i] || { label: '', cc: null, note: null, mmc: null, sysex: null };
+            const padConfig = scenePads[i] || null; // Use null for truly empty pads
             const pad = this.controller.createSinglePad(i, padConfig);
             padsContainer.appendChild(pad);
         }
 
-        // Store reference to scene pads
+        // Store reference to scene pads array (expand to full size with nulls)
+        while (scenePads.length < totalPads) {
+            scenePads.push(null);
+        }
         this.controller.pads = scenePads;
 
         // Create faders container
@@ -440,6 +455,7 @@ export class SceneManager {
         fadersContainer.style.alignItems = 'stretch';
         fadersContainer.style.flex = '1';
         fadersContainer.style.minWidth = '0';
+        fadersContainer.style.minHeight = '0';
 
         // Create faders (4-5 typically)
         const slots = scene.slots || [];
@@ -448,13 +464,20 @@ export class SceneManager {
             if (fader) fadersContainer.appendChild(fader);
         });
 
-        // Add containers in correct order based on padSide
-        if (scene.padSide === 'right') {
-            container.appendChild(fadersContainer);
+        // In portrait mode: always pads at top, faders at bottom
+        // In landscape mode: use padSide setting (left/right)
+        if (isPortrait) {
             container.appendChild(padsContainer);
+            container.appendChild(fadersContainer);
         } else {
-            container.appendChild(padsContainer);
-            container.appendChild(fadersContainer);
+            // Landscape: respect padSide setting
+            if (scene.padSide === 'right') {
+                container.appendChild(fadersContainer);
+                container.appendChild(padsContainer);
+            } else {
+                container.appendChild(padsContainer);
+                container.appendChild(fadersContainer);
+            }
         }
 
         // Apply current device state to faders after rendering

@@ -19,6 +19,7 @@ export class SceneEditor {
             pollDevices: [],
             pollInterval: 250
         };
+        this.splitFaderSlots = []; // For split scene fader configuration
 
         this.setupUI();
     }
@@ -75,6 +76,21 @@ export class SceneEditor {
 
         document.getElementById('new-split-scene-btn')?.addEventListener('click', () => {
             this.openSplitSceneEditor();
+        });
+
+        // Close split scene editor
+        document.getElementById('close-split-scene-editor')?.addEventListener('click', () => {
+            this.closeSplitSceneEditor();
+        });
+
+        // Save split scene
+        document.getElementById('save-split-scene')?.addEventListener('click', () => {
+            this.saveSplitScene();
+        });
+
+        // Delete split scene
+        document.getElementById('delete-split-scene')?.addEventListener('click', () => {
+            this.deleteSplitScene();
         });
 
         // Close scene editor
@@ -844,37 +860,187 @@ export class SceneEditor {
      * Open split scene editor (pads + sliders)
      */
     openSplitSceneEditor(sceneId = null) {
-        const name = prompt('Split Scene Name:', sceneId ? this.sceneManager.scenes.get(sceneId)?.name : 'Split Scene');
-        if (!name) return;
+        this.currentSceneId = sceneId;
 
-        const finalSceneId = sceneId || 'custom-split-' + Date.now();
+        if (sceneId) {
+            // Edit existing split scene
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'split') {
+                document.getElementById('split-scene-name').value = scene.name;
+                document.getElementById('split-scene-pad-layout').value = scene.padLayout || '4x4';
+                document.getElementById('split-scene-pad-side').value = scene.padSide || 'left';
 
-        // Create a default split scene with 2x4 pads on left, 4 faders on right
-        this.sceneManager.addScene(finalSceneId, {
-            name: name,
-            type: 'split',
-            padLayout: '2x4', // 2 columns, 4 rows = 8 pads
-            padSide: 'left',
-            pads: [], // Empty pads to start
-            slots: [
-                { type: 'CHANNEL', channel: 0, deviceBinding: null },
-                { type: 'CHANNEL', channel: 1, deviceBinding: null },
-                { type: 'CHANNEL', channel: 2, deviceBinding: null },
-                { type: 'CHANNEL', channel: 3, deviceBinding: null },
-                { type: 'MIX', label: 'Master', deviceBinding: null }
-            ],
-            pollDevices: [0],
-            pollInterval: 250
+                // Load existing fader slots
+                this.splitFaderSlots = scene.slots || this.getDefaultSplitFaders(5);
+
+                document.getElementById('split-scene-editor-title').textContent = 'EDIT SPLIT SCENE';
+            }
+        } else {
+            // New split scene - default 5 faders
+            this.currentSceneId = 'custom-split-' + Date.now();
+
+            document.getElementById('split-scene-name').value = 'Split Scene';
+            document.getElementById('split-scene-pad-layout').value = '4x4';
+            document.getElementById('split-scene-pad-side').value = 'left';
+
+            // Initialize with default faders
+            this.splitFaderSlots = this.getDefaultSplitFaders(5);
+
+            document.getElementById('split-scene-editor-title').textContent = 'NEW SPLIT SCENE';
+        }
+
+        // Render fader configuration grid
+        this.renderSplitFaderGrid();
+
+        document.getElementById('split-scene-editor-overlay').classList.add('active');
+    }
+
+    getDefaultSplitFaders(count) {
+        const slots = [];
+        for (let i = 0; i < count - 1; i++) {
+            slots.push({ type: 'CHANNEL', channel: i, deviceBinding: null });
+        }
+        // Last fader is Master
+        slots.push({ type: 'MIX', label: 'Master', deviceBinding: null });
+        return slots;
+    }
+
+    renderSplitFaderGrid() {
+        const grid = document.getElementById('split-fader-grid');
+        if (!grid) return;
+
+        grid.innerHTML = this.splitFaderSlots.map((fader, index) => {
+            const label = this.getFaderLabel(fader);
+            return `
+                <div class="fader-slot" data-slot="${index}" style="
+                    background: ${fader ? '#2a2a2a' : '#1a1a1a'};
+                    border: 2px solid ${fader ? '#cc4444' : '#333'};
+                    padding: 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    text-align: center;
+                    font-size: 0.75em;
+                    color: ${fader ? '#ccc' : '#555'};
+                    min-width: 80px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 50px;
+                ">
+                    ${label}
+                </div>
+            `;
+        }).join('') + `
+            <div class="fader-slot-add" style="
+                background: #1a3a1a;
+                border: 2px dashed #3a5a3a;
+                padding: 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                text-align: center;
+                font-size: 0.75em;
+                color: #5a9a5a;
+                min-width: 80px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 50px;
+            ">
+                + ADD
+            </div>
+        `;
+
+        // Add click handlers
+        grid.querySelectorAll('.fader-slot').forEach(slot => {
+            slot.addEventListener('click', () => {
+                const slotIndex = parseInt(slot.getAttribute('data-slot'));
+                this.openFaderEditor(slotIndex);
+            });
         });
 
+        // Add handler for add button
+        grid.querySelector('.fader-slot-add')?.addEventListener('click', () => {
+            this.splitFaderSlots.push({ type: 'EMPTY' });
+            this.renderSplitFaderGrid();
+        });
+    }
+
+    closeSplitSceneEditor() {
+        document.getElementById('split-scene-editor-overlay').classList.remove('active');
+    }
+
+    saveSplitScene() {
+        const name = document.getElementById('split-scene-name').value.trim();
+        if (!name) {
+            alert('Please enter a scene name');
+            return;
+        }
+
+        const padLayout = document.getElementById('split-scene-pad-layout').value;
+        const padSide = document.getElementById('split-scene-pad-side').value;
+
+        // Get existing scene to preserve pads
+        const existingScene = this.sceneManager.scenes.get(this.currentSceneId);
+        const existingPads = existingScene?.pads || [];
+
+        // Filter out EMPTY fader slots
+        const slots = this.splitFaderSlots.filter(slot => slot && slot.type !== 'EMPTY');
+
+        if (slots.length === 0) {
+            alert('Please configure at least one fader');
+            return;
+        }
+
+        // Capture sceneId in closure for render function
+        const sceneId = this.currentSceneId;
+
+        // Create scene config
+        const sceneConfig = {
+            name: name,
+            type: 'split',
+            padLayout: padLayout,
+            padSide: padSide,
+            pads: existingPads, // Preserve existing pad configurations
+            slots: slots, // Use configured faders
+            pollDevices: [0],
+            pollInterval: 250,
+            render: () => this.sceneManager.renderSplitScene(sceneId)
+        };
+
+        // Add scene to scene manager
+        this.sceneManager.addScene(sceneId, sceneConfig);
+
+        // Save to localStorage
         this.saveScenesToStorage();
-        this.sceneManager.switchScene(finalSceneId);
+
+        // Refresh scenes list
+        this.refreshScenesList();
         if (this.sceneManager.controller.settingsUI) {
             this.sceneManager.controller.settingsUI.refreshScenesList();
         }
 
-        // Close settings
-        document.getElementById('settings-overlay')?.classList.remove('active');
+        // Close editor and switch to scene
+        this.closeSplitSceneEditor();
+        this.sceneManager.switchScene(this.currentSceneId);
+
+        alert(`Split scene "${name}" saved!`);
+    }
+
+    deleteSplitScene() {
+        if (!this.currentSceneId) return;
+
+        const scene = this.sceneManager.scenes.get(this.currentSceneId);
+        if (!scene) return;
+
+        if (confirm(`Delete split scene "${scene.name}"?`)) {
+            this.sceneManager.scenes.delete(this.currentSceneId);
+            this.saveScenesToStorage();
+            this.refreshScenesList();
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
+            this.closeSplitSceneEditor();
+        }
     }
 
     closePianoSceneEditor() {
@@ -951,7 +1117,10 @@ export class SceneEditor {
                 midiChannel: scene.midiChannel, // For piano scenes
                 program: scene.program, // For piano scenes
                 deviceBinding: scene.deviceBinding, // For effects and piano scenes
-                programId: scene.programId // For effects scenes
+                programId: scene.programId, // For effects scenes
+                padLayout: scene.padLayout, // For split scenes
+                padSide: scene.padSide, // For split scenes
+                pads: scene.pads // For split scenes (and custom pad scenes)
             };
         });
 
@@ -1005,7 +1174,10 @@ export class SceneEditor {
                 midiChannel: scene.midiChannel, // For piano scenes
                 program: scene.program, // For piano scenes
                 deviceBinding: scene.deviceBinding, // For effects and piano scenes
-                programId: scene.programId // For effects scenes
+                programId: scene.programId, // For effects scenes
+                padLayout: scene.padLayout, // For split scenes
+                padSide: scene.padSide, // For split scenes
+                pads: scene.pads // For split scenes (and custom pad scenes)
             };
         });
         return scenes;
@@ -1045,6 +1217,7 @@ export class SceneEditor {
             if (scene.type === 'grid') typeLabel = 'Pad Grid';
             else if (scene.type === 'effects') typeLabel = 'Effects';
             else if (scene.type === 'piano') typeLabel = 'Piano Keyboard';
+            else if (scene.type === 'split') typeLabel = 'Split Scene (Pads + Faders)';
 
             return `
                 <div class="scene-list-item" data-scene-id="${scene.id}" style="
@@ -1091,6 +1264,8 @@ export class SceneEditor {
                         this.openEffectsSceneEditor(sceneId);
                     } else if (scene && scene.type === 'piano') {
                         this.openPianoSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'split') {
+                        this.openSplitSceneEditor(sceneId);
                     } else {
                         this.openSceneEditor(sceneId);
                     }
@@ -1109,6 +1284,8 @@ export class SceneEditor {
                         this.openEffectsSceneEditor(sceneId);
                     } else if (scene && scene.type === 'piano') {
                         this.openPianoSceneEditor(sceneId);
+                    } else if (scene && scene.type === 'split') {
+                        this.openSplitSceneEditor(sceneId);
                     } else {
                         this.openSceneEditor(sceneId);
                     }
