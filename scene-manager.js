@@ -19,6 +19,25 @@ export class SceneManager {
         // Setup gesture controls and quick selector
         this.setupGestureControls();
         this.setupQuickSelector();
+
+        // Setup orientation change listener for responsive split scenes
+        this.setupOrientationListener();
+    }
+
+    setupOrientationListener() {
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            // Debounce resize events
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const scene = this.scenes.get(this.currentScene);
+                // Only re-render if current scene is a split scene
+                if (scene && scene.type === 'split' && scene.render) {
+                    console.log('[SceneManager] Orientation changed, re-rendering split scene');
+                    scene.render();
+                }
+            }, 100);
+        });
     }
 
     /**
