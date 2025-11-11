@@ -975,15 +975,36 @@ class MeisterController {
 
         console.log(`Swapping pad ${fromIndex} with pad ${toIndex}`);
 
-        // Swap configs in array
-        if (!this.config.pads) this.config.pads = [];
-        const temp = this.config.pads[fromIndex];
-        this.config.pads[fromIndex] = this.config.pads[toIndex];
-        this.config.pads[toIndex] = temp;
+        // Check if we're in a custom scene (like split scene)
+        const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
-        // Save and re-render
-        this.saveConfig();
-        this.createPads();
+        if (isCustomScene) {
+            // Swap in the scene's pads array
+            const scene = this.sceneManager.scenes.get(this.currentPadSceneId);
+            if (scene && scene.pads) {
+                const temp = scene.pads[fromIndex];
+                scene.pads[fromIndex] = scene.pads[toIndex];
+                scene.pads[toIndex] = temp;
+
+                // Save scene config
+                this.sceneEditor.saveScenesToStorage();
+
+                // Re-render the scene
+                if (scene.render) {
+                    scene.render();
+                }
+            }
+        } else {
+            // Swap in global config (built-in pads scene)
+            if (!this.config.pads) this.config.pads = [];
+            const temp = this.config.pads[fromIndex];
+            this.config.pads[fromIndex] = this.config.pads[toIndex];
+            this.config.pads[toIndex] = temp;
+
+            // Save and re-render
+            this.saveConfig();
+            this.createPads();
+        }
     }
 
     handlePadPress(detail, padElement, padIndex) {
