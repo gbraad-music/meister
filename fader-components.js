@@ -185,9 +185,23 @@ class MixFader extends BaseFader {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-            this.render();
+        if (oldValue === newValue) return;
+
+        // ALWAYS just update sliders directly, never re-render for volume/pan changes
+        if (name === 'volume') {
+            const slider = this.shadowRoot?.getElementById('volume-slider');
+            if (slider) slider.setAttribute('value', newValue);
+            return;
         }
+
+        if (name === 'pan') {
+            const slider = this.shadowRoot?.getElementById('pan-slider');
+            if (slider) slider.value = newValue;
+            return;
+        }
+
+        // For other attributes (fx, muted, label), re-render
+        this.render();
     }
 
     render() {
@@ -278,9 +292,23 @@ class ChannelFader extends BaseFader {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-            this.render();
+        if (oldValue === newValue) return;
+
+        // ALWAYS just update sliders directly, never re-render for volume/pan changes
+        if (name === 'volume') {
+            const slider = this.shadowRoot?.getElementById('volume-slider');
+            if (slider) slider.setAttribute('value', newValue);
+            return;
         }
+
+        if (name === 'pan') {
+            const slider = this.shadowRoot?.getElementById('pan-slider');
+            if (slider) slider.value = newValue;
+            return;
+        }
+
+        // For other attributes (channel, solo, muted), re-render
+        this.render();
     }
 
     render() {
@@ -374,9 +402,16 @@ class TempoFader extends BaseFader {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-            this.render();
+        if (oldValue === newValue) return;
+
+        // ALWAYS just update slider directly, never re-render for BPM changes
+        if (name === 'bpm') {
+            const slider = this.shadowRoot?.getElementById('tempo-slider');
+            if (slider) slider.setAttribute('value', newValue);
+            return;
         }
+
+        this.render();
     }
 
     render() {
@@ -440,9 +475,16 @@ class StereoFader extends BaseFader {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-            this.render();
+        if (oldValue === newValue) return;
+
+        // ALWAYS just update slider directly, never re-render for separation changes
+        if (name === 'separation') {
+            const slider = this.shadowRoot?.getElementById('stereo-slider');
+            if (slider) slider.setAttribute('value', newValue);
+            return;
         }
+
+        this.render();
     }
 
     render() {
@@ -507,6 +549,21 @@ class ProgramFader extends BaseFader {
 
     attributeChangedCallback(name, oldValue, newValue) {
         if (oldValue === newValue) return;
+
+        // ALWAYS just update sliders directly, never re-render for volume/pan changes
+        if (name === 'volume') {
+            const slider = this.shadowRoot?.getElementById('volume-slider');
+            if (slider) slider.setAttribute('value', newValue);
+            return;
+        }
+
+        if (name === 'pan') {
+            const slider = this.shadowRoot?.getElementById('pan-slider');
+            if (slider) slider.value = newValue;
+            return;
+        }
+
+        // For other attributes (program, label, fx, muted), re-render
         this.render();
     }
 

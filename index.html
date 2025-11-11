@@ -604,9 +604,9 @@
                     <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
                         Regroove Meister v2.0 (Device System)<br>
                         WebMIDI Controller Interface<br>
+                        Cache: <span id="cache-version" style="color: #888;">Loading...</span><br>
                         <br>
                         Right-click pads to edit.<br>
-                        Swipe to change scenes.<br>
                         Configure devices in the Devices tab.
                     </div>
                 </div>
@@ -1579,9 +1579,31 @@
                 navigator.serviceWorker.register('./service-worker.js')
                     .then((registration) => {
                         console.log('Service Worker registered:', registration.scope);
+
+                        // Display cache version in About section
+                        if ('caches' in window) {
+                            caches.keys().then(cacheNames => {
+                                const meisterCache = cacheNames.find(name => name.startsWith('meister-'));
+                                const versionSpan = document.getElementById('cache-version');
+                                if (versionSpan) {
+                                    if (meisterCache) {
+                                        versionSpan.textContent = meisterCache;
+                                        versionSpan.style.color = '#4a4';
+                                    } else {
+                                        versionSpan.textContent = 'Not cached';
+                                        versionSpan.style.color = '#a44';
+                                    }
+                                }
+                            });
+                        }
                     })
                     .catch((error) => {
                         console.log('Service Worker registration failed:', error);
+                        const versionSpan = document.getElementById('cache-version');
+                        if (versionSpan) {
+                            versionSpan.textContent = 'Not available (SW failed)';
+                            versionSpan.style.color = '#a44';
+                        }
                     });
             });
         }

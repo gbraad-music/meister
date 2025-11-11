@@ -143,6 +143,19 @@ class SvgSlider extends HTMLElement {
         // Update cached rect at start of drag to get fresh position
         this.updateCachedRect();
 
+        // Clear any existing interval (safety check)
+        if (this.rectRefreshInterval) {
+            clearInterval(this.rectRefreshInterval);
+        }
+
+        // For multi-touch: refresh cached rect periodically during drag
+        // This prevents snapping if other faders cause layout shifts
+        this.rectRefreshInterval = setInterval(() => {
+            if (this.isDragging) {
+                this.updateCachedRect();
+            }
+        }, 100); // Refresh every 100ms during drag
+
         this.isDragging = true;
         this.thumb.classList.add('dragging');
         this.onDrag(e);
@@ -161,6 +174,12 @@ class SvgSlider extends HTMLElement {
                 }
             }
             if (!isOurTouch) return; // Not our touch, ignore
+        }
+
+        // Clear the rect refresh interval
+        if (this.rectRefreshInterval) {
+            clearInterval(this.rectRefreshInterval);
+            this.rectRefreshInterval = null;
         }
 
         this.isDragging = false;
