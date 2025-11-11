@@ -1357,6 +1357,11 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x31, [channel & 0x7F, solo ? 1 : 0]);
     }
 
+    // SysEx: CHANNEL_FX_ENABLE (0x38) - Samplecrate per-program FX enable
+    sendSysExChannelFxEnable(deviceId, program, enable) {
+        this.sendSysEx(deviceId, 0x38, [program & 0x7F, enable ? 1 : 0]);
+    }
+
     // SysEx: SET_LOOP_CURRENT (0x43)
     sendSysExSetLoopCurrent(deviceId, enable) {
         this.sendSysEx(deviceId, 0x43, [enable ? 1 : 0]);

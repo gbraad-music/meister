@@ -198,14 +198,17 @@ export class SceneManager {
         // Render the scene
         scene.render();
 
+        // Resolve device IDs from bindings at runtime (so they update when device IDs change)
+        const resolvedDeviceIds = this.resolveSceneDeviceIds(scene);
+
         // Start polling if this scene has devices to poll
-        if (scene.pollDevices && scene.pollDevices.length > 0 && scene.pollInterval) {
+        if (resolvedDeviceIds.length > 0 && scene.pollInterval) {
             // Stop global polling to avoid duplicate requests
             // console.log(`[Scene] Using scene-specific polling (${scene.pollInterval}ms), stopping global polling`);
             if (this.controller.regrooveState) {
                 this.controller.regrooveState.stopPolling();
             }
-            this.startDevicePolling(scene.pollDevices, scene.pollInterval);
+            this.startDevicePolling(resolvedDeviceIds, scene.pollInterval);
         } else {
             // No scene-specific polling - restart global polling
             // console.log(`[Scene] No scene-specific polling, using global polling (${this.controller.regrooveState?.pollingIntervalMs || 500}ms)`);
@@ -219,21 +222,59 @@ export class SceneManager {
     }
 
     /**
+     * Resolve device IDs from scene configuration at runtime
+     * This ensures device IDs update when reassigned in device manager
+     */
+    resolveSceneDeviceIds(scene) {
+        const deviceIds = [];
+
+        if (!this.controller.deviceManager) {
+            return deviceIds;
+        }
+
+        // For effects/piano scenes with deviceBinding
+        if (scene.deviceBinding) {
+            const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
+            if (device) {
+                deviceIds.push(device.deviceId);
+            }
+        }
+
+        // For slider scenes with slots containing device bindings
+        if (scene.slots) {
+            const uniqueDeviceIds = new Set();
+            scene.slots.forEach(slot => {
+                if (slot && slot.deviceBinding) {
+                    const device = this.controller.deviceManager.getDevice(slot.deviceBinding);
+                    if (device) {
+                        uniqueDeviceIds.add(device.deviceId);
+                    }
+                }
+            });
+            deviceIds.push(...Array.from(uniqueDeviceIds));
+        }
+
+        // Fallback to pollDevices if no bindings resolved (backward compat)
+        if (deviceIds.length === 0 && scene.pollDevices) {
+            return scene.pollDevices;
+        }
+
+        return deviceIds;
+    }
+
+    /**
      * Render pads scene (existing grid)
      */
     renderPadsScene(sceneId = 'pads') {
         const container = document.getElementById('pads-grid');
         if (!container) return;
 
-        // Get layout from scene if custom, otherwise use default config
-        let layout;
-        if (sceneId !== 'pads') {
-            const scene = this.scenes.get(sceneId);
-            layout = scene?.layout || '4x4';
-        } else {
-            layout = this.controller.config.gridLayout || '4x4';
-        }
+        // Get scene config
+        const scene = this.scenes.get(sceneId);
+        const isBuiltIn = sceneId === 'pads';
 
+        // Get layout from scene, fallback to config
+        const layout = scene?.layout || this.controller.config.gridLayout || '4x4';
         const [cols, rows] = layout.split('x').map(Number);
 
         container.style.display = 'grid';
@@ -245,9 +286,30 @@ export class SceneManager {
         container.style.justifyContent = '';
         container.style.alignItems = '';
 
-        // Clear and re-render pads
+        // Clear container
         container.innerHTML = '';
-        this.controller.createPads();
+
+        // For built-in 'pads' scene, use global config pads
+        // For custom scenes, use scene's own pads array (or empty if not set)
+        if (isBuiltIn) {
+            this.controller.createPads();
+        } else {
+            // Custom pad scene - create empty pads or use scene's pads
+            const totalPads = cols * rows;
+            const scenePads = scene?.pads || [];
+
+            // Store current scene ID so pad editor knows which scene to save to
+            this.controller.currentPadSceneId = sceneId;
+
+            for (let i = 0; i < totalPads; i++) {
+                const padConfig = scenePads[i] || { label: '', cc: null, note: null, mmc: null, sysex: null };
+                const pad = this.controller.createSinglePad(i, padConfig);
+                container.appendChild(pad);
+            }
+
+            // Store reference to scene pads
+            this.controller.pads = scenePads;
+        }
     }
 
     /**
@@ -597,7 +659,8 @@ export class SceneManager {
         // Get current parameter values from UI
         const params = this.getEffectParams(effectId);
 
-        console.log(`[Dev${deviceId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
+        console.log(`[Dev${deviceId} Prog${programId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
+        console.log(`[Dev${deviceId}] Sending SysEx 0x71: F0 7D ${deviceId.toString(16).padStart(2, '0')} 71 ${programId.toString(16).padStart(2, '0')} ${effectId.toString(16).padStart(2, '0')} ${enabled ? '01' : '00'} ${params.map(p => p.toString(16).padStart(2, '0')).join(' ')} F7`);
 
         // Send SysEx command
         this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
@@ -920,6 +983,45 @@ export class SceneManager {
                     // console.log(`[Dev${deviceId} Stereo] Reset to 64 (100%)`);
                     this.handleStereoChange(deviceId, 64);
                 });
+
+            } else if (column.type === 'PROGRAM') {
+                // Samplecrate program fader
+                fader = document.createElement('program-fader');
+                fader.setAttribute('program', column.program || '0');
+                fader.setAttribute('label', column.label || `PROG ${column.program || 0}`);
+                fader.setAttribute('volume', '100');
+                fader.setAttribute('pan', '0');
+                fader.setAttribute('fx', 'false');
+                fader.setAttribute('muted', 'false');
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
+
+                // Event listeners for program fader
+                fader.addEventListener('fx-toggle', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // console.log(`[Dev${deviceId} PROG${e.detail.program}] FX Toggle:`, e.detail.enabled);
+                    this.handleProgramFxEnable(deviceId, e.detail.program, e.detail.enabled);
+                });
+
+                fader.addEventListener('pan-change', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // Convert from -100..100 to 0..127 (64 = center)
+                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    // console.log(`[Dev${deviceId} PROG${e.detail.program}] Pan: ${e.detail.value} -> ${panValue}`);
+                    this.handleProgramPan(deviceId, e.detail.program, panValue);
+                });
+
+                fader.addEventListener('volume-change', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // console.log(`[Dev${deviceId} PROG${e.detail.program}] Volume:`, e.detail.value);
+                    this.handleProgramVolume(deviceId, e.detail.program, e.detail.value);
+                });
+
+                fader.addEventListener('mute-toggle', (e) => {
+                    const deviceId = parseInt(fader.dataset.deviceId || 0);
+                    // console.log(`[Dev${deviceId} PROG${e.detail.program}] Mute:`, e.detail.muted);
+                    this.handleProgramMute(deviceId, e.detail.program, e.detail.muted);
+                });
         }
 
         return fader;
@@ -1122,6 +1224,61 @@ export class SceneManager {
     }
 
     /**
+     * Handle program volume (Samplecrate)
+     */
+    handleProgramVolume(deviceId, program, volume) {
+        // Send SysEx CHANNEL_VOLUME (0x32) command
+        // For Samplecrate: program = program_id (0-31), volume = 0-127
+        // console.log(`[Dev${deviceId}] Sending PROG${program} volume=${volume} via SysEx 0x32`);
+        if (this.controller.sendSysExChannelVolume) {
+            this.controller.sendSysExChannelVolume(deviceId, program, volume);
+        } else {
+            console.warn(`[Dev${deviceId}] Program volume SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle program panning (Samplecrate)
+     */
+    handleProgramPan(deviceId, program, pan) {
+        // Send SysEx CHANNEL_PANNING (0x58) command
+        // For Samplecrate: program = program_id (0-31), pan = 0-127
+        // console.log(`[Dev${deviceId}] Sending PROG${program} pan=${pan} via SysEx 0x58`);
+        if (this.controller.sendSysExChannelPanning) {
+            this.controller.sendSysExChannelPanning(deviceId, program, pan);
+        } else {
+            console.warn(`[Dev${deviceId}] Program panning SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle program mute (Samplecrate)
+     */
+    handleProgramMute(deviceId, program, muted) {
+        // Send SysEx CHANNEL_MUTE (0x30) command
+        // For Samplecrate: program = program_id (0-31), muted = 0/1
+        if (this.controller.sendSysExChannelMute) {
+            this.controller.sendSysExChannelMute(deviceId, program, muted ? 1 : 0);
+        } else {
+            console.warn(`[Dev${deviceId}] Program mute SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle program FX enable (Samplecrate)
+     */
+    handleProgramFxEnable(deviceId, program, enabled) {
+        // Send SysEx CHANNEL_FX_ENABLE (0x38) command
+        // For Samplecrate: program = program_id (0-31), enabled = 0/1
+        // console.log(`[Dev${deviceId}] Sending PROG${program} FX=${enabled ? 'ON' : 'OFF'} via SysEx 0x38`);
+        if (this.controller.sendSysExChannelFxEnable) {
+            this.controller.sendSysExChannelFxEnable(deviceId, program, enabled ? 1 : 0);
+        } else {
+            console.warn(`[Dev${deviceId}] Program FX enable SysEx command not available`);
+        }
+    }
+
+    /**
      * Update scene selector UI
      */
     updateSceneSelector() {
@@ -1288,6 +1445,43 @@ export class SceneManager {
             // Update stereo separation from device state
             if (deviceState.stereoSeparation !== undefined) {
                 fader.setAttribute('separation', deviceState.stereoSeparation.toString());
+            }
+        });
+
+        // Update PROGRAM faders for this device (Samplecrate)
+        const programFaders = container.querySelectorAll('program-fader');
+        programFaders.forEach(fader => {
+            const faderDeviceId = parseInt(fader.dataset.deviceId || 0);
+            if (faderDeviceId !== deviceId) return; // Skip faders for other devices
+
+            // Check if user is currently changing the volume
+            if (fader.dataset.volumeChanging === 'true') {
+                return; // Skip update while user is adjusting volume
+            }
+
+            const program = parseInt(fader.getAttribute('program'));
+
+            // Update mute state (Samplecrate stores program mutes similar to channel mutes)
+            if (deviceState.mutedChannels) {
+                const isMuted = deviceState.mutedChannels.includes(program);
+                fader.setAttribute('muted', isMuted.toString());
+            }
+
+            // Update FX enable state (Samplecrate per-program FX)
+            if (deviceState.programFxEnabled && deviceState.programFxEnabled[program] !== undefined) {
+                fader.setAttribute('fx', deviceState.programFxEnabled[program] ? 'true' : 'false');
+            }
+
+            // Update volume if available
+            if (deviceState.channelVolumes && deviceState.channelVolumes[program] !== undefined) {
+                fader.setAttribute('volume', deviceState.channelVolumes[program].toString());
+            }
+
+            // Update pan if available
+            if (deviceState.channelPans && deviceState.channelPans[program] !== undefined) {
+                // Convert from 0..127 to -100..100 (64 = center = 0)
+                const panValue = Math.round(((deviceState.channelPans[program] / 127) * 200) - 100);
+                fader.setAttribute('pan', panValue.toString());
             }
         });
     }

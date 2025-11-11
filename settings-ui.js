@@ -70,25 +70,44 @@ export class SettingsUI {
             return;
         }
 
-        const scenes = this.controller.sceneManager.getScenes();
+        const scenes = this.controller.sceneManager.getScenes(true); // Include disabled scenes
         const currentScene = this.controller.sceneManager.currentScene;
 
-        container.innerHTML = scenes.map(scene => `
-            <div class="scene-item ${scene.id === currentScene ? 'active' : ''}"
-                 data-scene-id="${scene.id}">
-                <div class="scene-info">
-                    <div class="scene-name">${scene.name}</div>
-                    <div class="scene-type" style="color: #666; font-size: 0.85em;">
-                        ${scene.type === 'grid' ? 'Grid Layout' : 'Slider Layout'}
+        container.innerHTML = scenes.map((scene, index) => {
+            const isBuiltIn = ['pads', 'mixer', 'effects', 'piano'].includes(scene.id);
+            const isEnabled = scene.enabled !== false;
+            const isActive = scene.id === currentScene;
+
+            let typeLabel = 'Mixer';
+            if (scene.type === 'grid') typeLabel = 'Grid';
+            else if (scene.type === 'effects') typeLabel = 'Effects';
+            else if (scene.type === 'piano') typeLabel = 'Piano';
+
+            return `
+                <div class="scene-item ${isActive ? 'active' : ''}" data-scene-id="${scene.id}" style="opacity: ${isEnabled ? '1' : '0.5'};">
+                    <div class="scene-info" style="min-width: 150px; flex: 0 0 auto;">
+                        <div class="scene-name" style="color: ${isEnabled ? '#ccc' : '#666'};">${scene.name}</div>
+                        <div class="scene-type" style="color: #666; font-size: 0.85em;">
+                            ${typeLabel}
+                            ${isBuiltIn ? ' (Built-in)' : ''}
+                            ${!isEnabled ? ' (Disabled)' : ''}
+                        </div>
+                    </div>
+                    <button class="scene-switch-btn" data-scene-id="${scene.id}">
+                        ${isActive ? 'Active' : 'Switch'}
+                    </button>
+                    <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0; margin-left: 8px;">
+                        <button class="scene-move-up" data-scene-id="${scene.id}" style="padding: 3px 7px; background: #333; border: 1px solid #444; color: ${index > 0 ? '#888' : '#333'}; cursor: ${index > 0 ? 'pointer' : 'default'}; border-radius: 2px; font-size: 0.75em;" ${index === 0 ? 'disabled' : ''}>▲</button>
+                        <button class="scene-move-down" data-scene-id="${scene.id}" style="padding: 3px 7px; background: #333; border: 1px solid #444; color: ${index < scenes.length - 1 ? '#888' : '#333'}; cursor: ${index < scenes.length - 1 ? 'pointer' : 'default'}; border-radius: 2px; font-size: 0.75em;" ${index === scenes.length - 1 ? 'disabled' : ''}>▼</button>
+                        <button class="scene-toggle" data-scene-id="${scene.id}" style="padding: 3px 10px; background: ${isEnabled ? '#4a2a2a' : '#2a4a2a'}; border: 1px solid ${isEnabled ? '#5a3a3a' : '#3a5a3a'}; color: ${isEnabled ? '#9e4a4a' : '#4a9e4a'}; cursor: pointer; border-radius: 2px; font-size: 0.75em; white-space: nowrap;">${isEnabled ? 'DISABLE' : 'ENABLE'}</button>
+                        <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-edit" data-scene-id="${scene.id}">✏️</div>
+                        <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-delete" data-scene-id="${scene.id}">🗑️</div>
                     </div>
                 </div>
-                <button class="scene-switch-btn" data-scene-id="${scene.id}">
-                    ${scene.id === currentScene ? 'Active' : 'Switch'}
-                </button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
-        // Add click handlers
+        // Add switch handlers
         container.querySelectorAll('.scene-switch-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sceneId = btn.getAttribute('data-scene-id');
@@ -96,6 +115,90 @@ export class SettingsUI {
                 this.refreshScenesList();
             });
         });
+
+        // Add edit handlers
+        container.querySelectorAll('.scene-edit').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                const scene = this.controller.sceneManager.scenes.get(sceneId);
+                if (!scene) return;
+
+                if (scene.type === 'grid') {
+                    this.controller.sceneEditor.openPadSceneEditor(sceneId);
+                } else if (scene.type === 'effects') {
+                    this.controller.sceneEditor.openEffectsSceneEditor(sceneId);
+                } else if (scene.type === 'piano') {
+                    this.controller.sceneEditor.openPianoSceneEditor(sceneId);
+                } else {
+                    this.controller.sceneEditor.openSceneEditor(sceneId);
+                }
+            });
+        });
+
+        // Add move up handlers
+        container.querySelectorAll('.scene-move-up').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                this.moveScene(sceneId, -1);
+            });
+        });
+
+        // Add move down handlers
+        container.querySelectorAll('.scene-move-down').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                this.moveScene(sceneId, 1);
+            });
+        });
+
+        // Add toggle handlers
+        container.querySelectorAll('.scene-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                const scene = this.controller.sceneManager.scenes.get(sceneId);
+                if (scene) {
+                    scene.enabled = !scene.enabled;
+                    this.controller.sceneEditor?.saveScenesToStorage();
+                    this.refreshScenesList();
+                }
+            });
+        });
+
+        // Add delete handlers
+        container.querySelectorAll('.scene-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                const scene = this.controller.sceneManager.scenes.get(sceneId);
+                if (scene && confirm(`Delete scene "${scene.name}"?\n\nThis action cannot be undone.`)) {
+                    this.controller.sceneManager.scenes.delete(sceneId);
+                    this.controller.sceneEditor?.saveScenesToStorage();
+                    this.refreshScenesList();
+                }
+            });
+        });
+    }
+
+    moveScene(sceneId, direction) {
+        const scenesArray = Array.from(this.controller.sceneManager.scenes.entries());
+        const currentIndex = scenesArray.findIndex(([id]) => id === sceneId);
+
+        if (currentIndex === -1) return;
+
+        const newIndex = currentIndex + direction;
+        if (newIndex < 0 || newIndex >= scenesArray.length) return;
+
+        // Swap scenes
+        [scenesArray[currentIndex], scenesArray[newIndex]] = [scenesArray[newIndex], scenesArray[currentIndex]];
+
+        // Rebuild scenes map in new order
+        this.controller.sceneManager.scenes.clear();
+        scenesArray.forEach(([id, scene]) => {
+            this.controller.sceneManager.scenes.set(id, scene);
+        });
+
+        // Save and refresh
+        this.controller.sceneEditor?.saveScenesToStorage();
+        this.refreshScenesList();
     }
 
     /**

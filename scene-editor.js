@@ -301,6 +301,8 @@ export class SceneEditor {
                 return `MIX<br>${fader.label || 'Master'}<br>${deviceName}`;
             case 'INPUT':
                 return `INPUT<br>${fader.label || 'Input'}<br>${deviceName}`;
+            case 'PROGRAM':
+                return `PROG ${fader.program}<br>${fader.label || ''}<br>${deviceName}`;
             case 'CHANNEL':
                 return `CH ${fader.channel + 1}<br>${deviceName}`;
             case 'TEMPO':
@@ -367,10 +369,13 @@ export class SceneEditor {
     updateFaderEditorFields(type) {
         const labelField = document.getElementById('fader-label-field');
         const channelField = document.getElementById('fader-channel-field');
+        const programField = document.getElementById('fader-program-field');
         const deviceField = document.getElementById('fader-device-field');
 
-        labelField.style.display = (type === 'MIX' || type === 'INPUT') ? 'block' : 'none';
+        labelField.style.display = (type === 'MIX' || type === 'INPUT' || type === 'PROGRAM') ? 'block' : 'none';
         channelField.style.display = type === 'CHANNEL' ? 'block' : 'none';
+        programField.style.display = type === 'PROGRAM' ? 'block' : 'none';
+        programField.style.display = type === 'PROGRAM' ? 'block' : 'none';
         deviceField.style.display = (type !== 'EMPTY') ? 'block' : 'none';
     }
 
@@ -393,6 +398,9 @@ export class SceneEditor {
             } else if (type === 'INPUT') {
                 fader.label = document.getElementById('fader-label').value || 'Input';
             } else if (type === 'CHANNEL') {
+            } else if (type === 'PROGRAM') {
+                fader.program = parseInt(document.getElementById('fader-program').value) || 0;
+                fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
                 fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
             }
             // TEMPO and STEREO don't need additional fields
@@ -461,8 +469,11 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list
+        // Refresh scenes list in both editor and settings panel
         this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
 
         // If we're currently viewing this scene, re-render it
         if (this.sceneManager.currentScene === this.currentSceneId) {
@@ -648,8 +659,11 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list
+        // Refresh scenes list in both editor and settings panel
         this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
 
         // Close editor
         this.closeEffectsSceneEditor();
@@ -718,8 +732,11 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list
+        // Refresh scenes list in both editor and settings panel
         this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
 
         // If we're currently viewing this scene, re-render it
         if (this.sceneManager.currentScene === this.currentSceneId) {

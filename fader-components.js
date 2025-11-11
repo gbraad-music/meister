@@ -385,9 +385,9 @@ class TempoFader extends BaseFader {
         this.shadowRoot.innerHTML = `
             <style>${this.getBaseStyles()}</style>
             <div class="fader-label">TEMPO</div>
-            <button class="fader-button" style="visibility: hidden;">S</button>
-            <div class="pan-container">
-                <input type="range" class="pan-slider" style="visibility: hidden;"
+            <button class="fader-button" style="display: none;">S</button>
+            <div class="pan-container" style="display: none;">
+                <input type="range" class="pan-slider"
                        min="-100" max="100" value="0" step="1">
             </div>
             <div class="slider-container">
@@ -451,9 +451,9 @@ class StereoFader extends BaseFader {
         this.shadowRoot.innerHTML = `
             <style>${this.getBaseStyles()}</style>
             <div class="fader-label">STEREO</div>
-            <button class="fader-button" style="visibility: hidden;">S</button>
-            <div class="pan-container">
-                <input type="range" class="pan-slider" style="visibility: hidden;"
+            <button class="fader-button" style="display: none;">S</button>
+            <div class="pan-container" style="display: none;">
+                <input type="range" class="pan-slider"
                        min="-100" max="100" value="0" step="1">
             </div>
             <div class="slider-container">
@@ -490,10 +490,113 @@ class StereoFader extends BaseFader {
     }
 }
 
+/**
+ * Program Fader Component (for Samplecrate)
+ * Format: Label, FX Enable, Pan, Volume, Mute
+ * Similar to CHANNEL but with FX button instead of SOLO
+ */
+class ProgramFader extends BaseFader {
+    constructor() {
+        super();
+        this.render();
+    }
+
+    static get observedAttributes() {
+        return ['program', 'label', 'volume', 'pan', 'fx', 'muted'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue) return;
+        this.render();
+    }
+
+    render() {
+        const program = parseInt(this.getAttribute('program') || '0');
+        const label = this.getAttribute('label') || `PROG ${program}`;
+        const volume = parseInt(this.getAttribute('volume') || '100');
+        const pan = parseInt(this.getAttribute('pan') || '0');
+        const fx = this.getAttribute('fx') === 'true';
+        const muted = this.getAttribute('muted') === 'true';
+
+        this.shadowRoot.innerHTML = `
+            <style>${this.getBaseStyles()}</style>
+            <div class="fader-label">${label}</div>
+            <button class="fader-button ${fx ? 'active' : ''}" id="fx-btn">FX</button>
+            <div class="pan-container">
+                <input type="range" class="pan-slider" id="pan-slider"
+                       min="-100" max="100" value="${pan}" step="1">
+            </div>
+            <div class="slider-container">
+                <svg-slider id="volume-slider" min="0" max="127" value="${volume}" width="60"></svg-slider>
+            </div>
+            <button class="fader-button ${muted ? 'active' : ''}" id="mute-btn">M</button>
+        `;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const program = parseInt(this.getAttribute('program') || '0');
+        const fxBtn = this.shadowRoot.getElementById('fx-btn');
+        const panSlider = this.shadowRoot.getElementById('pan-slider');
+        const volumeSlider = this.shadowRoot.getElementById('volume-slider');
+        const muteBtn = this.shadowRoot.getElementById('mute-btn');
+
+        fxBtn?.addEventListener('click', () => {
+            const newState = !fxBtn.classList.contains('active');
+            this.setAttribute('fx', newState);
+            this.dispatchEvent(new CustomEvent('fx-toggle', {
+                detail: { program, enabled: newState },
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        panSlider?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            this.setAttribute('pan', value);
+            this.dispatchEvent(new CustomEvent('pan-change', {
+                detail: { program, value },
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        volumeSlider?.addEventListener('input', (e) => {
+            const value = e.detail?.value ?? e.target?.value;
+            this.setAttribute('volume', value);
+
+            // Mark that we're actively changing the volume
+            this.dataset.volumeChanging = 'true';
+            clearTimeout(this._volumeChangeTimeout);
+            this._volumeChangeTimeout = setTimeout(() => {
+                delete this.dataset.volumeChanging;
+            }, 300); // 300ms debounce
+
+            this.dispatchEvent(new CustomEvent('volume-change', {
+                detail: { program, value: parseInt(value) },
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        muteBtn?.addEventListener('click', () => {
+            const newState = !muteBtn.classList.contains('active');
+            this.setAttribute('muted', newState);
+            this.dispatchEvent(new CustomEvent('mute-toggle', {
+                detail: { program, muted: newState },
+                bubbles: true,
+                composed: true
+            }));
+        });
+    }
+}
+
 // Register custom elements
 customElements.define('mix-fader', MixFader);
 customElements.define('channel-fader', ChannelFader);
 customElements.define('tempo-fader', TempoFader);
 customElements.define('stereo-fader', StereoFader);
+customElements.define('program-fader', ProgramFader);
 
 export { MixFader, ChannelFader, TempoFader };

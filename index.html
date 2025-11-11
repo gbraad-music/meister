@@ -634,8 +634,8 @@
                 <div class="setting-group">
                     <label class="setting-label">CUSTOM SCENES</label>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
                         <button id="new-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
+                        <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
                         <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
                         <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO</button>
                     </div>
@@ -1179,6 +1179,7 @@
                         <option value="MIX">Mix / Master</option>
                         <option value="INPUT">Input</option>
                         <option value="CHANNEL">Channel</option>
+                        <option value="PROGRAM">Program (Samplecrate)</option>
                         <option value="TEMPO">Tempo</option>
                         <option value="STEREO">Stereo Separation</option>
                     </select>
@@ -1192,6 +1193,16 @@
                 <div class="setting-group" id="fader-channel-field" style="display: none;">
                     <label class="setting-label">CHANNEL NUMBER (0-7)</label>
                     <input type="number" id="fader-channel" min="0" max="7" value="0" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-program-field" style="display: none;">
+                    <label class="setting-label">PROGRAM NUMBER (0-31)</label>
+                    <input type="number" id="fader-program" min="0" max="31" value="0" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-program-field" style="display: none;">
+                    <label class="setting-label">PROGRAM NUMBER (0-31)</label>
+                    <input type="number" id="fader-program" min="0" max="31" value="0" style="width: 100%;">
                 </div>
 
                 <div class="setting-group" id="fader-device-field" style="display: none;">
