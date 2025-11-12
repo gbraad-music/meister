@@ -102,6 +102,11 @@
             display: flex;
         }
 
+        /* Fader editor should appear on top of other overlays (like split scene editor) */
+        #fader-editor-overlay {
+            z-index: 1100;
+        }
+
         .settings-panel {
             background: #000000;
             width: 100%;
@@ -628,15 +633,6 @@
 
             <!-- Devices Tab (Regroove Instances) -->
             <div class="tab-content" id="tab-devices">
-                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
-                    Manage Regroove device instances. Each instance can target a different MIDI channel and SysEx device ID.
-                    Assign pads and faders to device instances instead of hardcoding IDs.
-                </div>
-
-                <div style="margin-bottom: 15px;">
-                    <button id="add-device-btn">➕ ADD DEVICE INSTANCE</button>
-                </div>
-
                 <table class="settings-table" id="devices-table">
                     <thead>
                         <tr>
@@ -653,6 +649,10 @@
                         </tr>
                     </tbody>
                 </table>
+
+                <div style="margin-bottom: 15px;">
+                    <button id="add-device-btn">➕ ADD DEVICE INSTANCE</button>
+                </div>
 
                 <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #333; font-size: 0.8em; color: #666;">
                     <strong>Default Device:</strong> Pads and faders without explicit device binding will use the default device instance.
@@ -765,14 +765,6 @@
 
             <!-- Keyboard Shortcuts Tab -->
             <div class="tab-content" id="tab-keyboard">
-                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
-                    Default keyboard shortcuts are active. Add custom shortcuts below.
-                </div>
-
-                <div style="margin-bottom: 15px;">
-                    <button id="add-keyboard-shortcut-btn">⌨️ ADD SHORTCUT</button>
-                </div>
-
                 <table class="settings-table" id="keyboard-shortcuts-table">
                     <thead>
                         <tr>
@@ -788,6 +780,10 @@
                         </tr>
                     </tbody>
                 </table>
+
+                <div style="margin-bottom: 15px;">
+                    <button id="add-keyboard-shortcut-btn">⌨️ ADD SHORTCUT</button>
+                </div>
 
                 <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #333; font-size: 0.8em; color: #666;">
                     <strong>Default Shortcuts:</strong><br>
