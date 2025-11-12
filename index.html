@@ -604,51 +604,25 @@
                     <div style="color: #555; font-size: 0.8em; line-height: 1.5;">
                         Regroove Meister v2.0 (Device System)<br>
                         WebMIDI Controller Interface<br>
-                        Cache: <span id="cache-version" style="color: #888;">Loading...</span><br>
-                        <br>
-                        Right-click pads to edit.<br>
-                        Configure devices in the Devices tab.
+                        Cache: <span id="cache-version" style="color: #888;">Loading...</span>
                     </div>
                 </div>
             </div>
 
             <!-- Scenes Tab -->
             <div class="tab-content" id="tab-scenes">
-                <div style="margin-bottom: 15px; color: #666; font-size: 0.85em;">
-                    Manage all scene layouts - pads, mixers, and custom views. Click a scene to edit or create new ones.
-                </div>
-
                 <div class="setting-group">
-                    <label class="setting-label">BUILT-IN SCENES</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                        <button id="edit-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT PAD SCENE</button>
-                        <button id="edit-mixer-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT MIXER SCENE</button>
-                        <button id="edit-effects-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT EFFECTS</button>
-                        <button id="edit-piano-btn" style="padding: 12px; font-size: 0.95em;">✏️ EDIT PIANO</button>
-                    </div>
-                    <div style="color: #666; font-size: 0.75em;">
-                        Configure octave, channel, layout, polling interval, device binding, and other settings for built-in scenes.
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">CUSTOM SCENES</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <button id="new-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
-                        <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
-                        <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS</button>
-                        <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO</button>
-                        <button id="new-split-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SPLIT (Pads+Faders)</button>
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">ALL SCENES</label>
                     <div id="scenes-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
                 </div>
 
-                <div style="margin-top: 20px; color: #666; font-size: 0.8em;">
-                    💡 Swipe left/right to switch scenes, or swipe up/down for quick selector.
+                <div class="setting-group">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button id="new-pad-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PAD SCENE</button>
+                        <button id="new-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW MIXER SCENE</button>
+                        <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS SCENE</button>
+                        <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO SCENE</button>
+                        <button id="new-split-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SPLIT SCENE</button>
+                    </div>
                 </div>
             </div>
 
