@@ -1372,8 +1372,9 @@ class MeisterController {
             0xF7   // SysEx end
         ];
 
-        // Only log non-state polling commands to reduce console spam
-        if (command !== 0x60) {
+        // Only log non-polling commands to reduce console spam
+        // 0x60 = GET_PLAYER_STATE, 0x7E = FX_GET_ALL_STATE
+        if (command !== 0x60 && command !== 0x7E) {
             console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         }
         this.midiOutput.send(message);

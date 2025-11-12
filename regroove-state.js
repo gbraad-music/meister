@@ -403,7 +403,7 @@ class RegrooveStateManager {
             }
         };
 
-        console.log(`[RegrooveState] Device ${deviceId} FX state (prog ${programId}): routing=${fxRouting}, enabled=${enableFlags.toString(2)}`);
+        // console.log(`[RegrooveState] Device ${deviceId} FX state (prog ${programId}): routing=${fxRouting}, enabled=${enableFlags.toString(2)}`);
 
         // Get or create state for this device
         let deviceState = this.deviceStates.get(deviceId);

@@ -1220,10 +1220,25 @@
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">PROGRAM ID</label>
-                    <input type="number" id="effects-scene-program" min="0" max="31" value="0" style="width: 100px;">
-                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
-                        0 = Regroove effects, 1-31 = Samplecrate pad effects
+                    <label class="setting-label">EFFECTS TARGET</label>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
+                            <input type="radio" name="effects-target" id="effects-target-regroove" value="regroove" checked style="width: auto; margin: 0;">
+                            <span style="color: #888;">Regroove</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
+                            <input type="radio" name="effects-target" id="effects-target-samplecrate" value="samplecrate" style="width: auto; margin: 0;">
+                            <span style="color: #888;">Samplecrate</span>
+                        </label>
+                    </div>
+                    <div id="samplecrate-program-selector" style="display: none;">
+                        <label class="setting-label">SAMPLECRATE PROGRAM</label>
+                        <select id="effects-scene-program-select" style="width: 100%;">
+                            <!-- Programs 1-31 (wire: 0-30) -->
+                        </select>
+                        <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                            Select which Samplecrate program's effects to control
+                        </div>
                     </div>
                 </div>
 

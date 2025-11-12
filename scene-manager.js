@@ -47,10 +47,14 @@ export class SceneManager {
     registerDefaultScenes(loadSaved = false) {
         // Only register default pads scene if not loading a saved one
         if (!loadSaved || !this.scenes.has('pads')) {
+            // Preserve custom name if scene was already loaded from storage
+            const existingPads = this.scenes.get('pads');
+            const customName = existingPads?.name;
+
             // Pads scene (always available - grid layout)
             // Use controller's gridLayout to match what createPads() uses
             this.scenes.set('pads', {
-                name: 'Pads',
+                name: customName || 'Pads',
                 type: 'grid',
                 layout: this.controller.config.gridLayout || '4x4',
                 enabled: true, // Can be disabled by user
@@ -62,9 +66,13 @@ export class SceneManager {
 
         // Only register default mixer if we're not loading a saved one
         if (!loadSaved || !this.scenes.has('mixer')) {
+            // Preserve custom name if scene was already loaded from storage
+            const existingMixer = this.scenes.get('mixer');
+            const customName = existingMixer?.name;
+
             // Mixer scene - customizable layout with 2 rows
             this.scenes.set('mixer', {
-                name: 'Mixer',
+                name: customName || 'Mixer',
                 type: 'slider',
                 enabled: true, // Can be disabled by user
                 rows: 2,
@@ -98,9 +106,13 @@ export class SceneManager {
             });
         }
 
+        // Preserve custom name if scene was already loaded from storage
+        const existingEffects = this.scenes.get('effects');
+        const effectsName = existingEffects?.name;
+
         // Effects scene (default - always available)
         this.scenes.set('effects', {
-            name: 'Effects',
+            name: effectsName || 'Effects',
             type: 'effects',
             enabled: true, // Can be disabled by user
             pollDevices: [0], // Poll device 0 for effects state (default)
@@ -110,9 +122,13 @@ export class SceneManager {
             render: () => this.renderEffectsScene('effects')
         });
 
+        // Preserve custom name if scene was already loaded from storage
+        const existingPiano = this.scenes.get('piano');
+        const pianoName = existingPiano?.name;
+
         // Piano scene (default - always available)
         this.scenes.set('piano', {
-            name: 'Piano',
+            name: pianoName || 'Piano',
             type: 'piano',
             enabled: true, // Can be disabled by user
             octave: 3, // Start at octave 3 (C3 = MIDI note 48)
@@ -581,7 +597,9 @@ export class SceneManager {
         programLabel.style.padding = '8px 16px';
         programLabel.style.background = '#0a0a0a';
         programLabel.style.borderRadius = '4px';
-        programLabel.textContent = `PROGRAM: ${scene.programId || 0}`;
+        // Display: 0 = "Regroove", 1-30 (wire) = "Program 2-31" (user-facing)
+        const programId = scene.programId || 0;
+        programLabel.textContent = programId === 0 ? 'REGROOVE' : `PROGRAM ${programId + 1}`;
 
         header.appendChild(deviceLabel);
         header.appendChild(programLabel);

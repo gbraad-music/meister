@@ -595,6 +595,34 @@ export class SceneEditor {
         // Populate device dropdown
         this.populateEffectsDeviceDropdown();
 
+        // Populate Samplecrate program dropdown (1-31, wire: 0-30)
+        const programSelect = document.getElementById('effects-scene-program-select');
+        if (programSelect) {
+            programSelect.innerHTML = '';
+            for (let i = 1; i <= 31; i++) {
+                const option = document.createElement('option');
+                option.value = i - 1; // Wire value (0-30)
+                option.textContent = `Program ${i}`; // Display value (1-31)
+                programSelect.appendChild(option);
+            }
+        }
+
+        // Setup radio button listeners
+        const regrooveRadio = document.getElementById('effects-target-regroove');
+        const samplecrateRadio = document.getElementById('effects-target-samplecrate');
+        const samplecrateSelector = document.getElementById('samplecrate-program-selector');
+
+        const toggleProgramSelector = () => {
+            if (samplecrateRadio.checked) {
+                samplecrateSelector.style.display = 'block';
+            } else {
+                samplecrateSelector.style.display = 'none';
+            }
+        };
+
+        regrooveRadio.addEventListener('change', toggleProgramSelector);
+        samplecrateRadio.addEventListener('change', toggleProgramSelector);
+
         if (sceneId) {
             // Edit existing effects scene
             const scene = this.sceneManager.scenes.get(sceneId);
@@ -603,7 +631,16 @@ export class SceneEditor {
 
                 document.getElementById('effects-scene-name').value = scene.name;
                 document.getElementById('effects-scene-device').value = scene.deviceBinding || '';
-                document.getElementById('effects-scene-program').value = scene.programId || 0;
+
+                // Set radio button based on programId
+                const programId = scene.programId || 0;
+                if (programId === 0) {
+                    regrooveRadio.checked = true;
+                } else {
+                    samplecrateRadio.checked = true;
+                    programSelect.value = programId;
+                }
+                toggleProgramSelector();
 
                 // Set polling interval
                 const pollingSlider = document.getElementById('effects-scene-polling-interval');
@@ -620,7 +657,8 @@ export class SceneEditor {
 
             document.getElementById('effects-scene-name').value = 'Custom Effects';
             document.getElementById('effects-scene-device').value = '';
-            document.getElementById('effects-scene-program').value = 0;
+            regrooveRadio.checked = true;
+            toggleProgramSelector();
 
             // Set default polling interval
             const pollingSlider = document.getElementById('effects-scene-polling-interval');
@@ -659,8 +697,15 @@ export class SceneEditor {
     saveEffectsScene() {
         const name = document.getElementById('effects-scene-name').value.trim();
         const deviceBinding = document.getElementById('effects-scene-device').value;
-        const programId = parseInt(document.getElementById('effects-scene-program').value) || 0;
         const pollingInterval = parseInt(document.getElementById('effects-scene-polling-interval').value) || 250;
+
+        // Determine programId from radio buttons
+        const isRegroove = document.getElementById('effects-target-regroove').checked;
+        let programId = 0;
+        if (!isRegroove) {
+            // Samplecrate: read from dropdown (already 0-based)
+            programId = parseInt(document.getElementById('effects-scene-program-select').value) || 0;
+        }
 
         if (!name) {
             alert('Please enter a scene name');
