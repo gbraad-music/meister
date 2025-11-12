@@ -1435,6 +1435,32 @@ export class SceneManager {
     }
 
     /**
+     * Get the first enabled scene ID
+     */
+    getFirstEnabledScene() {
+        const enabledScenes = this.getScenes(false); // Only enabled scenes
+        return enabledScenes.length > 0 ? enabledScenes[0].id : null;
+    }
+
+    /**
+     * Switch to first enabled scene if current scene is disabled
+     */
+    switchToFirstEnabledIfNeeded() {
+        const currentScene = this.scenes.get(this.currentScene);
+
+        // If current scene is disabled or doesn't exist, switch to first enabled
+        if (!currentScene || currentScene.enabled === false) {
+            const firstEnabled = this.getFirstEnabledScene();
+            if (firstEnabled) {
+                console.log(`[SceneManager] Current scene disabled, switching to ${firstEnabled}`);
+                this.switchScene(firstEnabled);
+            } else {
+                console.warn('[SceneManager] No enabled scenes found!');
+            }
+        }
+    }
+
+    /**
      * Update mixer faders from device state
      */
     updateMixerFromDeviceState(deviceId, deviceState) {

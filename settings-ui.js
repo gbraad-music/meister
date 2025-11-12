@@ -162,6 +162,12 @@ export class SettingsUI {
                 if (scene) {
                     scene.enabled = !scene.enabled;
                     this.controller.sceneEditor?.saveScenesToStorage();
+
+                    // If we just disabled the current scene, switch to first enabled
+                    if (!scene.enabled && sceneId === this.controller.sceneManager.currentScene) {
+                        this.controller.sceneManager.switchToFirstEnabledIfNeeded();
+                    }
+
                     this.refreshScenesList();
                 }
             });

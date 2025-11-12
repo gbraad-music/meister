@@ -142,7 +142,12 @@ export class SceneEditor {
 
         // Save fader
         document.getElementById('save-fader')?.addEventListener('click', () => {
-            this.saveFader();
+            // Check if we're editing a split scene fader or mixer scene fader
+            if (this.editingSplitSlotIndex !== null && this.editingSplitSlotIndex !== undefined) {
+                this.saveSplitFader();
+            } else {
+                this.saveFader();
+            }
         });
 
         // Clear fader
@@ -384,6 +389,7 @@ export class SceneEditor {
     closeFaderEditor() {
         document.getElementById('fader-editor-overlay').classList.remove('active');
         this.editingSlotIndex = null;
+        this.editingSplitSlotIndex = null;
     }
 
     updateFaderEditorFields(type) {
@@ -433,6 +439,15 @@ export class SceneEditor {
     }
 
     clearFader() {
+        // Handle split scene faders
+        if (this.editingSplitSlotIndex !== null && this.editingSplitSlotIndex !== undefined) {
+            this.splitFaderSlots[this.editingSplitSlotIndex] = { type: 'EMPTY' };
+            this.renderSplitFaderGrid();
+            this.closeFaderEditor();
+            return;
+        }
+
+        // Handle mixer scene faders
         if (this.editingSlotIndex === null) return;
         this.sceneConfig.faders[this.editingSlotIndex] = null;
         this.renderFaderGrid();
@@ -926,6 +941,8 @@ export class SceneEditor {
                     align-items: center;
                     justify-content: center;
                     min-height: 50px;
+                    user-select: none;
+                    -webkit-user-select: none;
                 ">
                     ${label}
                 </div>
@@ -945,6 +962,8 @@ export class SceneEditor {
                 align-items: center;
                 justify-content: center;
                 min-height: 50px;
+                user-select: none;
+                -webkit-user-select: none;
             ">
                 + ADD
             </div>
@@ -954,7 +973,7 @@ export class SceneEditor {
         grid.querySelectorAll('.fader-slot').forEach(slot => {
             slot.addEventListener('click', () => {
                 const slotIndex = parseInt(slot.getAttribute('data-slot'));
-                this.openFaderEditor(slotIndex);
+                this.openSplitFaderEditor(slotIndex);
             });
         });
 
@@ -963,6 +982,67 @@ export class SceneEditor {
             this.splitFaderSlots.push({ type: 'EMPTY' });
             this.renderSplitFaderGrid();
         });
+    }
+
+    openSplitFaderEditor(slotIndex) {
+        this.editingSplitSlotIndex = slotIndex;
+        const fader = this.splitFaderSlots[slotIndex];
+
+        // Set title
+        document.getElementById('fader-editor-title').textContent = `EDIT FADER ${slotIndex + 1}`;
+
+        // Populate device binding dropdown
+        this.populateDeviceBindings();
+
+        // Load fader config
+        if (fader) {
+            document.getElementById('fader-type').value = fader.type;
+            document.getElementById('fader-label').value = fader.label || '';
+            document.getElementById('fader-channel').value = fader.channel ?? 0;
+            document.getElementById('fader-program').value = fader.program ?? 0;
+            document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
+        } else {
+            document.getElementById('fader-type').value = 'EMPTY';
+            document.getElementById('fader-label').value = '';
+            document.getElementById('fader-channel').value = 0;
+            document.getElementById('fader-program').value = 0;
+            document.getElementById('fader-device-binding').value = '';
+        }
+
+        this.updateFaderEditorFields(fader?.type || 'EMPTY');
+        document.getElementById('fader-editor-overlay').classList.add('active');
+    }
+
+    saveSplitFader() {
+        if (this.editingSplitSlotIndex === null) return;
+
+        const type = document.getElementById('fader-type').value;
+
+        if (type === 'EMPTY') {
+            this.splitFaderSlots[this.editingSplitSlotIndex] = { type: 'EMPTY' };
+        } else {
+            const deviceBinding = document.getElementById('fader-device-binding').value;
+            const fader = {
+                type: type,
+                deviceBinding: deviceBinding || null
+            };
+
+            if (type === 'MIX') {
+                fader.label = document.getElementById('fader-label').value || 'Master';
+            } else if (type === 'INPUT') {
+                fader.label = document.getElementById('fader-label').value || 'Input';
+            } else if (type === 'CHANNEL') {
+                fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
+            } else if (type === 'PROGRAM') {
+                fader.program = parseInt(document.getElementById('fader-program').value) || 0;
+                fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
+            }
+
+            this.splitFaderSlots[this.editingSplitSlotIndex] = fader;
+        }
+
+        this.renderSplitFaderGrid();
+        this.closeFaderEditor();
     }
 
     closeSplitSceneEditor() {
