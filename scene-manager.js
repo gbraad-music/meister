@@ -858,7 +858,7 @@ export class SceneManager {
         const enableBtn = document.querySelector(`.fx-enable-btn[data-effect-id="${effectId}"]`);
         const enabled = enableBtn ? enableBtn.classList.contains('active') : false;
 
-        console.log(`[Dev${deviceId} Effects] Setting effect ${effectId} param ${paramIndex} = ${value}, enabled=${enabled}, params:`, params);
+        // console.log(`[Dev${deviceId} Effects] Setting effect ${effectId} param ${paramIndex} = ${value}, enabled=${enabled}, params:`, params);
 
         // Send SysEx command
         this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);

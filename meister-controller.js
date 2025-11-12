@@ -170,8 +170,8 @@ class MeisterController {
         //     console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
         // }
 
-        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
-        if (command !== 0x60 && command !== 0x61 && command !== 0x7E && command !== 0x7F) {
+        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
+        if (command !== 0x60 && command !== 0x61 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
@@ -1373,8 +1373,8 @@ class MeisterController {
         ];
 
         // Only log non-polling commands to reduce console spam
-        // 0x60 = GET_PLAYER_STATE, 0x7E = FX_GET_ALL_STATE
-        if (command !== 0x60 && command !== 0x7E) {
+        // 0x60 = GET_PLAYER_STATE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE
+        if (command !== 0x60 && command !== 0x71 && command !== 0x7E) {
             console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         }
         this.midiOutput.send(message);
