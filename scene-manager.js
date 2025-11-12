@@ -1494,7 +1494,7 @@ export class SceneManager {
      */
     updateMixerFromDeviceState(deviceId, deviceState) {
         const scene = this.scenes.get(this.currentScene);
-        if (!scene || scene.type !== 'slider') return;
+        if (!scene || !['slider', 'split'].includes(scene.type)) return;
 
         const container = document.getElementById('pads-grid');
         if (!container) return;
