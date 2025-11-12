@@ -1331,12 +1331,14 @@ export class SceneEditor {
 
         const scenes = this.sceneManager.getScenes(true); // Include disabled scenes
         const sceneArray = Array.from(this.sceneManager.scenes.entries());
+        const currentSceneId = this.sceneManager.currentScene;
 
         container.innerHTML = scenes.map((scene, index) => {
             // Only pads scene is truly non-editable built-in
             const isNonEditable = (scene.id === 'pads');
             const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer' || scene.id === 'effects' || scene.id === 'piano');
             const isEnabled = scene.enabled !== false;
+            const isActive = scene.id === currentSceneId;
 
             let typeLabel = 'Mixer Layout';
             if (scene.type === 'grid') typeLabel = 'Pad Grid';
@@ -1346,8 +1348,8 @@ export class SceneEditor {
 
             return `
                 <div class="scene-list-item" data-scene-id="${scene.id}" style="
-                    background: ${isEnabled ? '#2a2a2a' : '#1a1a1a'};
-                    border: 2px solid ${isEnabled ? '#444' : '#333'};
+                    background: ${isActive ? '#3a4a3a' : (isEnabled ? '#2a2a2a' : '#1a1a1a')};
+                    border: 2px solid ${isActive ? '#4a9e4a' : (isEnabled ? '#444' : '#333')};
                     border-radius: 4px;
                     padding: 12px;
                     display: flex;
@@ -1356,11 +1358,12 @@ export class SceneEditor {
                     opacity: ${isEnabled ? '1' : '0.5'};
                 ">
                     <div style="flex: 1; cursor: ${isNonEditable ? 'default' : 'pointer'};" class="scene-name-area">
-                        <div style="font-weight: bold; color: ${isEnabled ? '#ccc' : '#666'};">${scene.name}</div>
+                        <div style="font-weight: bold; color: ${isEnabled ? '#ccc' : '#666'};">${scene.name}${isActive ? ' ⬤' : ''}</div>
                         <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
                             ${typeLabel}
                             ${isBuiltIn ? '(Built-in)' : ''}
                             ${!isEnabled ? '(Disabled)' : ''}
+                            ${isActive ? '(Active)' : ''}
                         </div>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">

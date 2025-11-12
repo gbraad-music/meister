@@ -260,6 +260,17 @@ export class SceneManager {
 
         // Update scene selector if it exists
         this.updateSceneSelector();
+
+        // Update quick selector to reflect current scene
+        this.refreshQuickSelector();
+
+        // Update settings scenes list if settings UI exists
+        if (this.controller.sceneEditor) {
+            this.controller.sceneEditor.refreshScenesList();
+        }
+        if (this.controller.settingsUI) {
+            this.controller.settingsUI.refreshScenesList();
+        }
     }
 
     /**
