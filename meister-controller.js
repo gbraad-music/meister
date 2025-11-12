@@ -1199,7 +1199,8 @@ class MeisterController {
     updatePadColors() {
         // Update all pads based on player state
         this.pads.forEach((pad, index) => {
-            const padConfig = this.config.pads[index];
+            // Get padConfig from scene or from config (for built-in pads)
+            const padConfig = this.scenePadsConfig ? this.scenePadsConfig[index] : this.config.pads[index];
             if (!padConfig) return;
 
             // Resolve device state for this pad

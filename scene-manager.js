@@ -346,14 +346,18 @@ export class SceneManager {
             // Store current scene ID so pad editor knows which scene to save to
             this.controller.currentPadSceneId = sceneId;
 
+            // Reset pads array to hold elements
+            this.controller.pads = [];
+
             for (let i = 0; i < totalPads; i++) {
                 const padConfig = scenePads[i] || { label: '', cc: null, note: null, mmc: null, sysex: null };
                 const pad = this.controller.createSinglePad(i, padConfig);
                 container.appendChild(pad);
+                this.controller.pads.push(pad);
             }
 
-            // Store reference to scene pads
-            this.controller.pads = scenePads;
+            // Store scene pads config separately for saving
+            this.controller.scenePadsConfig = scenePads;
         }
     }
 
@@ -469,17 +473,24 @@ export class SceneManager {
 
         // Create pads
         const scenePads = scene.pads || [];
+
+        // Reset pads array to hold elements
+        this.controller.pads = [];
+
         for (let i = 0; i < totalPads; i++) {
             const padConfig = scenePads[i] || null; // Use null for truly empty pads
             const pad = this.controller.createSinglePad(i, padConfig);
             padsContainer.appendChild(pad);
+            this.controller.pads.push(pad);
         }
 
-        // Store reference to scene pads array (expand to full size with nulls)
+        // Expand scene pads config array to full size with nulls
         while (scenePads.length < totalPads) {
             scenePads.push(null);
         }
-        this.controller.pads = scenePads;
+
+        // Store scene pads config separately for saving
+        this.controller.scenePadsConfig = scenePads;
 
         // Create faders container
         const fadersContainer = document.createElement('div');
@@ -1776,6 +1787,8 @@ export class SceneManager {
             let typeLabel = 'Slider';
             if (scene.type === 'grid') typeLabel = 'Grid';
             else if (scene.type === 'effects') typeLabel = 'Effects';
+            else if (scene.type === 'piano') typeLabel = 'Piano';
+            else if (scene.type === 'split') typeLabel = 'Split';
 
             return `
                 <div class="scene-quick-item ${scene.id === currentScene ? 'active' : ''}"
