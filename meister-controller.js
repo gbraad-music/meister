@@ -1359,8 +1359,11 @@ class MeisterController {
 
     // SysEx Helper Functions for Regroove
     sendSysEx(deviceId, command, data = []) {
-        if (!this.midiOutput) {
-            console.warn('[Meister] Cannot send SysEx - No MIDI output selected');
+        // Get MIDI output for this device (uses device-specific output if configured)
+        const midiOutput = this.getMidiOutputForDeviceId(deviceId);
+
+        if (!midiOutput) {
+            console.warn('[Meister] Cannot send SysEx - No MIDI output available for device', deviceId);
             return;
         }
 
@@ -1378,7 +1381,25 @@ class MeisterController {
         if (command !== 0x60 && command !== 0x71 && command !== 0x7E) {
             console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         }
-        this.midiOutput.send(message);
+        midiOutput.send(message);
+    }
+
+    /**
+     * Get MIDI output for a device based on its SysEx device ID
+     */
+    getMidiOutputForDeviceId(sysexDeviceId) {
+        // Find device by SysEx device ID
+        if (this.deviceManager) {
+            const devices = this.deviceManager.getAllDevices();
+            const device = devices.find(d => d.deviceId === sysexDeviceId);
+            if (device) {
+                // Get device-specific MIDI output
+                return this.deviceManager.getMidiOutput(device.id);
+            }
+        }
+
+        // Fallback to default MIDI output
+        return this.midiOutput;
     }
 
     // SysEx: NEXT_ORDER (0x24) - Queue next order (beat-synced)
