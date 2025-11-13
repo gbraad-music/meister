@@ -364,7 +364,8 @@ export class SceneManager {
             this.controller.pads = [];
 
             for (let i = 0; i < totalPads; i++) {
-                const padConfig = scenePads[i] || { label: '', cc: null, note: null, mmc: null, sysex: null };
+                // Use null instead of empty object for truly empty pads
+                const padConfig = scenePads[i] || null;
                 const pad = this.controller.createSinglePad(i, padConfig);
                 container.appendChild(pad);
                 this.controller.pads.push(pad);
