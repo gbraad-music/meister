@@ -1815,7 +1815,25 @@ class MeisterController {
 
             // Click to send SPP to this position
             button.addEventListener('click', () => {
-                this.sendSPP(i * 4); // Each button = 4 16th notes (1 beat)
+                // Only send SPP if ANY sequencer is playing with sendSPP enabled
+                let shouldSendSPP = false;
+
+                if (this.sceneManager) {
+                    // Check all scenes for a playing sequencer with sendSPP enabled
+                    for (const [sceneId, scene] of this.sceneManager.scenes.entries()) {
+                        if (scene.type === 'sequencer' &&
+                            scene.sequencerInstance &&
+                            scene.sequencerInstance.engine.playing &&
+                            scene.sequencerInstance.engine.sendSPP) {
+                            shouldSendSPP = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (shouldSendSPP) {
+                    this.sendSPP(i * 4); // Each button = 4 16th notes (1 beat)
+                }
             });
 
             container.appendChild(button);
@@ -1844,7 +1862,7 @@ class MeisterController {
 
     sendSPP(position) {
         if (!this.midiOutput) {
-            console.warn('No MIDI output selected');
+            console.warn('[SPP] No MIDI output selected');
             return;
         }
 
@@ -1859,7 +1877,7 @@ class MeisterController {
         // Send SPP message: 0xF2 + LSB + MSB
         this.midiOutput.send([0xF2, lsb, msb]);
 
-        console.log(`Sent SPP: position ${position} (beat ${Math.floor(position / 4)})`);
+        console.log(`[SPP] Sent SPP: position ${position} (beat ${Math.floor(position / 4)})`);
 
         // Update local position for visual feedback
         this.currentPosition = position;

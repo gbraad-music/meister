@@ -582,6 +582,10 @@ export class SequencerEngine {
     sendSPPPosition(position) {
         if (!this.controller.midiOutput) return;
 
+        // Only send SPP if sequencer is actually playing AND sendSPP is enabled
+        if (!this.playing) return;
+        if (!this.sendSPP) return;
+
         // SPP position is in MIDI beats (16th notes)
         // Split into LSB and MSB (14-bit value)
         const lsb = position & 0x7F;
@@ -662,18 +666,11 @@ export class SequencerEngine {
         // Increment pulse counter
         this.clockPulseCounter++;
 
-        // DEBUG: Log every pulse to verify pulsesPerRow
-        if (this.tickCount < 20) {
-            console.log(`[Sequencer] PULSE: counter=${this.clockPulseCounter}/${this.pulsesPerRow} row=${this.currentRow}`);
-        }
-
         // Advance row every 12 pulses (24 ppqn / 2 rows per beat = 12 pulses per row)
         if (this.clockPulseCounter >= this.pulsesPerRow) {
             this.clockPulseCounter = 0;
             this.lastTickTime = now;
             this.tickCount++;
-
-            console.log(`[Sequencer] *** ROW ADVANCE #${this.tickCount}: Row ${this.currentRow} (MIDI Clock) delta=${delta.toFixed(1)}ms`);
 
             // Play current row
             this.playRow(this.currentRow);
