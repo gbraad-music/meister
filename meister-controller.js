@@ -374,6 +374,36 @@ class MeisterController {
             channelParams.style.display = (e.target.value === 'channel_mute' || e.target.value === 'channel_solo') ? 'block' : 'none';
         });
 
+        // Regroove action selector - show/hide routing parameter fields
+        document.getElementById('pad-regroove-action').addEventListener('change', (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const actionId = selectedOption.getAttribute('data-action');
+            const routingParams = document.getElementById('pad-routing-input-params');
+
+            // Show routing params for ACTION_SWITCH_INPUT_ROUTE (602)
+            if (actionId === '602') {
+                routingParams.style.display = 'block';
+                this.populateRoutingInputs();
+            } else {
+                routingParams.style.display = 'none';
+            }
+        });
+
+        // Action selector (MIDI, Routing) - show/hide routing parameter fields
+        document.getElementById('pad-action-select').addEventListener('change', (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const actionId = selectedOption.getAttribute('data-action');
+            const routingParams = document.getElementById('pad-routing-input-params');
+
+            // Show routing params for ACTION_SWITCH_INPUT_ROUTE (602)
+            if (actionId === '602') {
+                routingParams.style.display = 'block';
+                this.populateRoutingInputs();
+            } else {
+                routingParams.style.display = 'none';
+            }
+        });
+
         // MIDI Clock Master
         document.getElementById('clock-master').addEventListener('change', (e) => {
             this.clockMaster = e.target.checked;
@@ -481,7 +511,49 @@ class MeisterController {
             document.getElementById('pad-device-binding').value = pad.deviceBinding || '';
 
             // Determine message type
-            if (pad.mmc !== undefined) {
+            if (pad.action !== undefined) {
+                // New action system - determine if Regroove or Action System
+                // Action IDs: 100-199 = Regroove, 200-299 = MIDI Clock, 600-699 = Routing
+                const isActionSystem = (pad.action >= 200 && pad.action < 300) || (pad.action >= 600);
+                const messageType = isActionSystem ? 'action' : 'regroove';
+                const selectId = isActionSystem ? 'pad-action-select' : 'pad-regroove-action';
+
+                document.getElementById('pad-message-type').value = messageType;
+
+                // Find the option with matching data-action attribute
+                const select = document.getElementById(selectId);
+                let foundOption = false;
+
+                for (let i = 0; i < select.options.length; i++) {
+                    const option = select.options[i];
+                    const actionId = option.getAttribute('data-action');
+
+                    if (actionId === pad.action.toString()) {
+                        select.selectedIndex = i;
+                        foundOption = true;
+
+                        // If this is a routing action with a custom parameter, show and populate the input selector
+                        if (pad.action === 602 && pad.parameter !== undefined) {
+                            this.populateRoutingInputs();
+                            const routingParams = document.getElementById('pad-routing-input-params');
+                            routingParams.style.display = 'block';
+
+                            const routingSelect = document.getElementById('pad-routing-input-select');
+                            if (routingSelect) {
+                                routingSelect.value = pad.parameter || '';
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                if (!foundOption) {
+                    console.warn(`[Pad Editor] Action ${pad.action} not found in ${messageType} dropdown`);
+                }
+
+                // Update visible fields
+                this.updatePadEditorFields(messageType);
+            } else if (pad.mmc !== undefined) {
                 document.getElementById('pad-message-type').value = 'mmc';
                 document.getElementById('pad-mmc-command').value = pad.mmc || 'stop';
             } else if (pad.cc !== undefined && pad.cc !== null) {
@@ -585,6 +657,42 @@ class MeisterController {
             ).join('');
     }
 
+    populateRoutingInputs() {
+        const select = document.getElementById('pad-routing-input-select');
+        if (!select) return;
+
+        // Start with "All Inputs" option
+        let options = '<option value="">All Inputs</option>';
+
+        // Get configured routes from inputRouter
+        if (this.inputRouter) {
+            const routes = this.inputRouter.getAllRoutes();
+            if (routes && routes.length > 0) {
+                routes.forEach(route => {
+                    if (route.targets && route.targets.length > 1) {
+                        // Only show inputs that have multiple targets to switch between
+                        options += `<option value="${route.inputId}">${route.inputId} (${route.targets.length} targets)</option>`;
+                    }
+                });
+            }
+        }
+
+        // Also add all available MIDI inputs (even if not configured yet)
+        if (this.midiAccess) {
+            for (let input of this.midiAccess.inputs.values()) {
+                // Check if not already in routes
+                const alreadyListed = this.inputRouter &&
+                    this.inputRouter.getAllRoutes().some(r => r.inputId === input.id);
+
+                if (!alreadyListed) {
+                    options += `<option value="${input.id}">${input.name}</option>`;
+                }
+            }
+        }
+
+        select.innerHTML = options;
+    }
+
     isRegrooveActionCC(cc) {
         // List of all Regroove action CCs
         const regrooveCCs = [
@@ -605,6 +713,7 @@ class MeisterController {
 
     updatePadEditorFields(messageType) {
         const regrooveField = document.getElementById('pad-regroove-field');
+        const actionField = document.getElementById('pad-action-field');
         const sysexField = document.getElementById('pad-sysex-field');
         const ccField = document.getElementById('pad-cc-field');
         const noteField = document.getElementById('pad-note-field');
@@ -612,13 +721,14 @@ class MeisterController {
         const deviceField = document.getElementById('pad-device-field');
 
         regrooveField.style.display = messageType === 'regroove' ? 'block' : 'none';
+        actionField.style.display = messageType === 'action' ? 'block' : 'none';
         sysexField.style.display = messageType === 'sysex' ? 'block' : 'none';
         ccField.style.display = messageType === 'cc' ? 'block' : 'none';
         noteField.style.display = messageType === 'note' ? 'block' : 'none';
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
 
-        // Show device binding for all message types
-        deviceField.style.display = 'block';
+        // Hide device binding for Action System (MIDI, Routing) - those are Meister actions, not device-specific
+        deviceField.style.display = messageType === 'action' ? 'none' : 'block';
     }
 
     updateSecondaryPadEditorFields(messageType) {
@@ -651,11 +761,61 @@ class MeisterController {
         let hasMessage = false;
 
         if (messageType === 'regroove') {
-            // Regroove action - store as CC
-            const cc = parseInt(document.getElementById('pad-regroove-action').value);
-            if (!isNaN(cc) && cc >= 0 && cc <= 127) {
-                padConfig.cc = cc;
+            // Regroove action - check if using new action system or legacy CC
+            const select = document.getElementById('pad-regroove-action');
+            const selectedOption = select.options[select.selectedIndex];
+            const actionId = selectedOption.getAttribute('data-action');
+            const actionParam = selectedOption.getAttribute('data-param');
+
+            if (actionId) {
+                // New action system - save action ID and parameter
+                padConfig.action = parseInt(actionId);
                 hasMessage = true;
+
+                // Handle parameter
+                if (actionParam === 'custom') {
+                    // Custom parameter from input field (for routing actions)
+                    const inputId = document.getElementById('pad-routing-input-select')?.value;
+                    padConfig.parameter = inputId || ''; // Empty string means "all inputs"
+                } else if (actionParam && actionParam !== '0') {
+                    // Fixed parameter from data-param attribute
+                    padConfig.parameter = parseInt(actionParam) || 0;
+                } else {
+                    // No parameter or parameter is 0
+                    padConfig.parameter = 0;
+                }
+            } else {
+                // Legacy CC fallback
+                const cc = parseInt(select.value);
+                if (!isNaN(cc) && cc >= 0 && cc <= 127) {
+                    padConfig.cc = cc;
+                    hasMessage = true;
+                }
+            }
+        } else if (messageType === 'action') {
+            // Action system (MIDI, Routing)
+            const select = document.getElementById('pad-action-select');
+            const selectedOption = select.options[select.selectedIndex];
+            const actionId = selectedOption.getAttribute('data-action');
+            const actionParam = selectedOption.getAttribute('data-param');
+
+            if (actionId) {
+                // Save action ID and parameter
+                padConfig.action = parseInt(actionId);
+                hasMessage = true;
+
+                // Handle parameter
+                if (actionParam === 'custom') {
+                    // Custom parameter from input field (for routing actions)
+                    const inputId = document.getElementById('pad-routing-input-select')?.value;
+                    padConfig.parameter = inputId || ''; // Empty string means "all inputs"
+                } else if (actionParam && actionParam !== '0') {
+                    // Fixed parameter from data-param attribute
+                    padConfig.parameter = parseInt(actionParam) || 0;
+                } else {
+                    // No parameter or parameter is 0
+                    padConfig.parameter = 0;
+                }
             }
         } else if (messageType === 'cc') {
             const cc = parseInt(document.getElementById('pad-cc').value);
@@ -878,8 +1038,38 @@ class MeisterController {
                     console.warn(`[Pad ${index}] DeviceManager not initialized yet`);
                 }
             }
+
+            // Action system (new)
+            if (padConfig.action !== undefined) {
+                padElement.setAttribute('action', padConfig.action);
+                // Store action parameter in dataset
+                if (padConfig.parameter !== undefined) {
+                    padElement.dataset.actionParameter = padConfig.parameter;
+                }
+
+                // For routing actions (602), add active target info to sublabel and set color
+                if (padConfig.action === 602 && this.inputRouter) {
+                    const inputId = padConfig.parameter || '';
+                    const routingInfo = this.getRoutingDisplayInfo(inputId);
+                    if (routingInfo) {
+                        sublabel = sublabel ? `${sublabel}\n${routingInfo}` : routingInfo;
+                    }
+
+                    // Set color based on active target index
+                    const route = this.inputRouter.getRoute(inputId);
+                    if (route && route.targets && route.targets.length > 0) {
+                        const colors = ['red', 'blue', 'green', 'yellow'];
+                        const activeIndex = route.activeTargetIndex || 0;
+                        const color = colors[activeIndex % colors.length];
+                        padElement.setAttribute('color', color);
+                    }
+                }
+            }
+
+            // Set sublabel after all modifications
             if (sublabel) padElement.setAttribute('sublabel', sublabel);
 
+            // Legacy message types
             if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
             if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
             if (padConfig.mmc !== undefined) {
@@ -1069,7 +1259,58 @@ class MeisterController {
         const padConfig = this.config.pads[padIndex];
 
         // Send the message
-        if (detail.sysex) {
+        if (detail.action !== undefined && detail.action !== null) {
+            // Handle action system (new)
+            const actionId = parseInt(detail.action);
+            let parameter = 0;
+
+            // Get parameter from pad element's dataset
+            if (padElement.dataset.actionParameter !== undefined) {
+                const paramValue = padElement.dataset.actionParameter;
+                // Parameter can be string (MIDI input ID) or number
+                parameter = isNaN(paramValue) ? paramValue : parseInt(paramValue);
+            }
+
+            console.log(`[Pad] Action ${actionId} with parameter:`, parameter);
+
+            // Execute action through action system (added by meister-actions-integration.js)
+            if (this.executeAction) {
+                this.executeAction(actionId, parameter, deviceId);
+
+                // For routing actions (602), update the pad's sublabel to show new active target
+                if (actionId === 602) {
+                    setTimeout(() => {
+                        const routingInfo = this.getRoutingDisplayInfo(parameter);
+                        console.log(`[Pad] Routing info after switch:`, routingInfo);
+
+                        if (routingInfo) {
+                            // Get device binding info if it exists (non-routing related sublabel)
+                            let deviceBindingInfo = '';
+                            const currentSublabel = padElement.getAttribute('sublabel') || '';
+
+                            // Extract device binding line (marked with [...])
+                            const lines = currentSublabel.split('\n');
+                            for (const line of lines) {
+                                if (line.match(/^\[.*\]$/)) {
+                                    deviceBindingInfo = line;
+                                    break;
+                                }
+                            }
+
+                            // Build new sublabel: device binding (if any) + routing info
+                            const newSublabel = deviceBindingInfo
+                                ? `${deviceBindingInfo}\n${routingInfo}`
+                                : routingInfo;
+
+                            console.log(`[Pad] Updating sublabel to:`, newSublabel);
+                            padElement.setAttribute('sublabel', newSublabel);
+                        }
+                    }, 100); // Increased delay to ensure route switch completes
+                }
+            } else {
+                console.warn('[Pad] Action system not initialized - executeAction() not found');
+            }
+        } else if (detail.sysex) {
             // Handle SysEx actions
             const sysexAction = detail.sysex;
             let params = null;
@@ -1234,6 +1475,62 @@ class MeisterController {
             .replace(/\{order\}/gi, state.order)
             .replace(/\{pattern\}/gi, state.pattern)
             .replace(/\{row\}/gi, state.row);
+    }
+
+    /**
+     * Get display info for routing action pads (action 602)
+     * Shows the MIDI input name and currently active target
+     */
+    getRoutingDisplayInfo(inputId) {
+        if (!this.inputRouter) return null;
+
+        // Handle "all inputs" case
+        if (inputId === '') {
+            const allRoutes = this.inputRouter.getAllRoutes();
+            if (allRoutes.length === 0) return 'No routes configured';
+            return `All Routes (${allRoutes.length})`;
+        }
+
+        // Get input name
+        let inputName = 'Unknown Input';
+        if (this.midiAccess) {
+            const input = this.midiAccess.inputs.get(inputId);
+            if (input) {
+                inputName = input.name;
+            }
+        }
+
+        // Get active target
+        const activeTarget = this.inputRouter.getActiveTarget(inputId);
+        if (!activeTarget) {
+            return `${inputName}\nNo active route`;
+        }
+
+        // Format target name
+        let targetName = 'Unknown';
+        if (activeTarget.deviceId !== undefined) {
+            // Device mode
+            if (this.deviceManager) {
+                const device = this.deviceManager.getDevice(activeTarget.deviceId);
+                if (device) {
+                    targetName = device.name;
+                } else {
+                    targetName = `Device ${activeTarget.deviceId}`;
+                }
+            }
+        } else if (activeTarget.outputId !== undefined) {
+            // Pass-through mode
+            if (this.midiAccess) {
+                const output = this.midiAccess.outputs.get(activeTarget.outputId);
+                if (output) {
+                    targetName = output.name;
+                } else {
+                    targetName = 'Unknown Output';
+                }
+            }
+        }
+
+        return `${inputName}\n→ ${targetName}`;
     }
 
     updatePadColors() {

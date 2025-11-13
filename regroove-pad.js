@@ -8,7 +8,7 @@ class RegroovePad extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'active', 'state', 'color'];
+        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'sysex', 'action', 'active', 'state', 'color'];
     }
 
     connectedCallback() {
@@ -58,7 +58,8 @@ class RegroovePad extends HTMLElement {
         const hasNote = this.getAttribute('note') !== null;
         const hasMMC = this.getAttribute('mmc') !== null;
         const hasSysEx = this.getAttribute('sysex') !== null;
-        const isEmpty = !hasCC && !hasNote && !hasMMC && !hasSysEx;
+        const hasAction = this.getAttribute('action') !== null;
+        const isEmpty = !hasCC && !hasNote && !hasMMC && !hasSysEx && !hasAction;
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -110,6 +111,11 @@ class RegroovePad extends HTMLElement {
                     border-color: #4a3a0a;
                 }
 
+                .pad.color-blue {
+                    background: #1A6BB3;
+                    border-color: #0a2a4a;
+                }
+
                 .pad.active.color-green {
                     background: #2ec02e !important;
                     border-color: #000000 !important;
@@ -122,6 +128,11 @@ class RegroovePad extends HTMLElement {
 
                 .pad.active.color-yellow {
                     background: #d99820 !important;
+                    border-color: #000000 !important;
+                }
+
+                .pad.active.color-blue {
+                    background: #2e90d9 !important;
                     border-color: #000000 !important;
                 }
 
@@ -178,7 +189,7 @@ class RegroovePad extends HTMLElement {
         const pad = this.shadowRoot.querySelector('.pad');
         if (!pad) return;
 
-        pad.classList.remove('active', 'state-on', 'color-green', 'color-red', 'color-yellow');
+        pad.classList.remove('active', 'state-on', 'color-green', 'color-red', 'color-yellow', 'color-blue');
 
         // Apply color if set
         const color = this.getAttribute('color');
@@ -217,11 +228,12 @@ class RegroovePad extends HTMLElement {
         const hasNote = this.getAttribute('note') !== null;
         const hasMMC = this.getAttribute('mmc') !== null;
         const hasSysEx = this.getAttribute('sysex') !== null;
+        const hasAction = this.getAttribute('action') !== null;
         const hasSecondaryCC = this.getAttribute('secondary-cc') !== null;
         const hasSecondaryNote = this.getAttribute('secondary-note') !== null;
         const hasSecondaryMMC = this.getAttribute('secondary-mmc') !== null;
 
-        if (!hasCC && !hasNote && !hasMMC && !hasSysEx) return; // Empty pad
+        if (!hasCC && !hasNote && !hasMMC && !hasSysEx && !hasAction) return; // Empty pad
 
         this.trigger();
 
@@ -236,6 +248,7 @@ class RegroovePad extends HTMLElement {
                 note: useSecondary ? this.getAttribute('secondary-note') : this.getAttribute('note'),
                 mmc: useSecondary ? this.getAttribute('secondary-mmc') : this.getAttribute('mmc'),
                 sysex: this.getAttribute('sysex'),
+                action: this.getAttribute('action'),
                 label: this.getAttribute('label') || '',
                 isSecondary: useSecondary
             }

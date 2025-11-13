@@ -824,6 +824,7 @@
                 <label class="setting-label">MESSAGE TYPE</label>
                 <select id="pad-message-type">
                     <option value="regroove">Regroove Action (CC)</option>
+                    <option value="action">Action System (MIDI, Routing)</option>
                     <option value="sysex">Regroove SysEx</option>
                     <option value="cc">Control Change (CC)</option>
                     <option value="note">Note On/Off</option>
@@ -832,7 +833,7 @@
             </div>
 
             <div class="setting-group" id="pad-regroove-field">
-                <label class="setting-label">ACTION (supports both legacy CC and new action IDs)</label>
+                <label class="setting-label">REGROOVE ACTION (supports both legacy CC and new action IDs)</label>
                 <select id="pad-regroove-action">
                     <optgroup label="Transport">
                         <option value="41" data-action="102">Play/Pause</option>
@@ -856,13 +857,6 @@
                         <option value="75">Send SPP Toggle</option>
                         <option value="76">SPP Sync Mode Toggle</option>
                         <option value="77">Sync Module Toggle</option>
-                    </optgroup>
-                    <optgroup label="MIDI Clock">
-                        <option value="" data-action="200">Clock Master Toggle</option>
-                        <option value="" data-action="201">Clock Start</option>
-                        <option value="" data-action="202">Clock Stop</option>
-                        <option value="" data-action="204">Clock BPM +1</option>
-                        <option value="" data-action="205">Clock BPM -1</option>
                     </optgroup>
                     <optgroup label="Channel Control">
                         <option value="48" data-action="130" data-param="0">Channel 1 Mute</option>
@@ -890,6 +884,23 @@
                 <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
                     Legacy CC values are still supported for backward compatibility
                 </div>
+            </div>
+
+            <div class="setting-group" id="pad-action-field" style="display: none;">
+                <label class="setting-label">ACTION</label>
+                <select id="pad-action-select">
+                    <optgroup label="MIDI Clock">
+                        <option value="" data-action="200">Clock Master Toggle</option>
+                        <option value="" data-action="201">Clock Start</option>
+                        <option value="" data-action="202">Clock Stop</option>
+                        <option value="" data-action="204">Clock BPM +1</option>
+                        <option value="" data-action="205">Clock BPM -1</option>
+                    </optgroup>
+                    <optgroup label="Input Routing">
+                        <option value="" data-action="602" data-param="0">Switch All Input Routes</option>
+                        <option value="" data-action="602" data-param="custom">Switch Specific Input...</option>
+                    </optgroup>
+                </select>
             </div>
 
             <div class="setting-group" id="pad-cc-field" style="display: none;">
@@ -989,6 +1000,16 @@
                 </div>
             </div>
 
+            <div class="setting-group" id="pad-routing-input-params" style="display: none;">
+                <label class="setting-label">MIDI INPUT TO SWITCH</label>
+                <select id="pad-routing-input-select" style="width: 100%;">
+                    <option value="">All Inputs</option>
+                </select>
+                <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                    Select which MIDI input's routing to switch, or "All Inputs" to switch all configured routes
+                </div>
+            </div>
+
             <div class="setting-group" id="pad-device-field">
                 <label class="setting-label">DEVICE BINDING</label>
                 <select id="pad-device-binding" style="width: 100%;">
@@ -1005,7 +1026,7 @@
                     <label class="setting-label">SECONDARY ACTION (SHIFT + CLICK)</label>
                     <select id="pad-secondary-message-type">
                         <option value="none">None</option>
-                        <option value="regroove">Regroove Action</option>
+                        <option value="regroove">Action System</option>
                         <option value="cc">Control Change (CC)</option>
                         <option value="note">Note On/Off</option>
                         <option value="mmc">MIDI Machine Control (MMC)</option>
@@ -1013,7 +1034,7 @@
                 </div>
 
                 <div class="setting-group" id="pad-secondary-regroove-field" style="display: none;">
-                    <label class="setting-label">SECONDARY ACTION</label>
+                    <label class="setting-label">ACTION</label>
                     <select id="pad-secondary-regroove-action">
                         <optgroup label="Transport">
                             <option value="41" data-action="102">Play/Pause</option>

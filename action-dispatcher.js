@@ -446,6 +446,9 @@ export class ActionDispatcher {
                         });
                         console.log(`[Action] Switched all input routing targets`);
                     }
+
+                    // Update all routing action pads to show new active targets
+                    this.updateRoutingPadLabels(inputId);
                 }
                 break;
 
@@ -498,5 +501,67 @@ export class ActionDispatcher {
             id,
             actions: actions.length,
         }));
+    }
+
+    /**
+     * Update pad labels for routing action pads (action 602)
+     * Shows the current active target after a route switch
+     * @param {string} inputId - The input ID that was switched (or empty for all)
+     */
+    updateRoutingPadLabels(inputId) {
+        if (!this.controller.pads || !this.controller.getRoutingDisplayInfo) return;
+
+        // Color cycling for routing targets: red, blue, green, yellow
+        const colors = ['red', 'blue', 'green', 'yellow'];
+
+        // Iterate through all pads to find routing action pads
+        this.controller.pads.forEach((padElement, index) => {
+            const padConfig = this.controller.config.pads[index];
+            if (!padConfig || padConfig.action !== 602) return; // Not a routing action pad
+
+            // Check if this pad's parameter matches the switched input (or update all if inputId is empty)
+            const padParameter = padConfig.parameter || '';
+            if (inputId && padParameter !== inputId) return; // Different input, skip
+
+            // Get updated routing info
+            const routingInfo = this.controller.getRoutingDisplayInfo(padParameter);
+            if (!routingInfo) return;
+
+            // Get active target index to determine color
+            let targetColor = null;
+            if (this.controller.inputRouter) {
+                const route = this.controller.inputRouter.getRoute(padParameter);
+                if (route && route.targets && route.targets.length > 0) {
+                    const activeIndex = route.activeTargetIndex || 0;
+                    targetColor = colors[activeIndex % colors.length];
+                }
+            }
+
+            // Preserve device binding info if it exists
+            let deviceBindingInfo = '';
+            const currentSublabel = padElement.getAttribute('sublabel') || '';
+            const lines = currentSublabel.split('\n');
+            for (const line of lines) {
+                if (line.match(/^\[.*\]$/)) {
+                    deviceBindingInfo = line;
+                    break;
+                }
+            }
+
+            // Build new sublabel
+            const newSublabel = deviceBindingInfo
+                ? `${deviceBindingInfo}\n${routingInfo}`
+                : routingInfo;
+
+            console.log(`[Action] Updating pad ${index} sublabel to:`, newSublabel, `color: ${targetColor}`);
+            padElement.setAttribute('sublabel', newSublabel);
+
+            // Set color based on active target
+            if (targetColor) {
+                padElement.setAttribute('color', targetColor);
+            } else {
+                padElement.removeAttribute('color');
+            }
+        });
     }
 }
