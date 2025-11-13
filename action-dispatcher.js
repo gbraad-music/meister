@@ -423,6 +423,32 @@ export class ActionDispatcher {
                 }
                 break;
 
+            case InputAction.ACTION_SWITCH_INPUT_ROUTE:
+                if (meetsThreshold && this.controller.inputRouter) {
+                    // Switch to next routing target for the specified input
+                    // parameter should contain the input ID or index
+                    // If parameter is 0 or not set, switch all inputs
+                    const inputId = event.parameter;
+
+                    if (inputId) {
+                        // Switch specific input
+                        const target = this.controller.inputRouter.switchTarget(inputId);
+                        if (target) {
+                            console.log(`[Action] Switched input routing target to:`, target);
+                        }
+                    } else {
+                        // Switch all configured inputs
+                        const routes = this.controller.inputRouter.getAllRoutes();
+                        routes.forEach(route => {
+                            if (route.targets && route.targets.length > 1) {
+                                this.controller.inputRouter.switchTarget(route.inputId);
+                            }
+                        });
+                        console.log(`[Action] Switched all input routing targets`);
+                    }
+                }
+                break;
+
             default:
                 console.warn(`Unhandled action: ${event.action}`);
                 break;

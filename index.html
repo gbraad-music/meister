@@ -709,24 +709,27 @@
                 </div>
 
                 <div style="border-top: 2px solid #1a1a1a; padding-top: 20px; margin-bottom: 20px;">
-                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI INPUT DEVICES</h3>
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI INPUT ROUTING</h3>
                     <div style="margin-bottom: 10px; color: #666; font-size: 0.85em;">
-                        Configure how MIDI input devices are handled:
-                        <span class="device-badge input">INPUT</span> = Parse into actions |
-                        <span class="device-badge routed">ROUTED</span> = Direct pass-through
+                        Configure MIDI input routing:<br>
+                        <strong>OFF</strong> = Parse into actions (default) |
+                        <strong>PASS-THROUGH</strong> = Forward to output unchanged |
+                        <strong>DEVICE</strong> = Route to device with channel mapping
                     </div>
 
-                    <table class="settings-table" id="midi-devices-table">
+                    <table class="settings-table" id="midi-input-routing-table">
                         <thead>
                             <tr>
-                                <th>Device</th>
-                                <th>Mode</th>
-                                <th style="width: 150px;">Route To</th>
+                                <th>Input Device</th>
+                                <th style="width: 120px;">Mode</th>
+                                <th>Targets</th>
+                                <th style="width: 100px;">Active</th>
+                                <th style="width: 80px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="midi-devices-list">
+                        <tbody id="midi-input-routing-list">
                             <tr>
-                                <td colspan="3" class="empty-state">No MIDI input devices detected</td>
+                                <td colspan="5" class="empty-state">No MIDI input devices detected</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1478,6 +1481,7 @@
         import { SceneManager } from './scene-manager.js';
         import { SceneEditor } from './scene-editor.js';
         import { DeviceManager } from './device-manager.js';
+        import { InputRouter } from './input-router.js';
 
         // Wait for controller to be initialized
         function waitForController() {
@@ -1489,6 +1493,10 @@
                 // Initialize device manager
                 window.meisterController.deviceManager = new DeviceManager(window.meisterController);
                 console.log('[Meister] Device manager initialized');
+
+                // Initialize input router
+                window.meisterController.inputRouter = new InputRouter(window.meisterController);
+                console.log('[Meister] Input router initialized');
 
                 // Restart state polling now that device manager is available
                 // This will pick up all device IDs from the device manager

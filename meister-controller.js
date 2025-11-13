@@ -112,6 +112,13 @@ class MeisterController {
         const data = event.data;
         const status = data[0];
 
+        // Route channel messages through InputRouter (if configured)
+        // System messages (>= 0xF0) are NOT routed - they're handled locally
+        const isSystemMessage = (status >= 0xF0);
+        if (!isSystemMessage && this.inputRouter) {
+            this.inputRouter.routeMessage(event.target.id, data);
+        }
+
         // Check for SysEx messages (0xF0)
         if (status === 0xF0) {
             this.handleSysExMessage(data);

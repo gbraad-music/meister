@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v243';
+const CACHE_NAME = 'meister-v244';
 const ASSETS = [
     './',
     './index.html',
@@ -21,7 +21,8 @@ const ASSETS = [
     './effects-fader.js',
     // Device management
     './regroove-state.js',
-    './device-manager.js'
+    './device-manager.js',
+    './input-router.js'
 ];
 
 // Install event - cache assets

@@ -88,6 +88,7 @@ export const InputAction = {
     // === EXTERNAL ROUTING ===
     ACTION_ROUTE_MIDI_NOTE: 600,          // Direct MIDI note routing to device
     ACTION_ROUTE_MIDI_CC: 601,            // Direct MIDI CC routing to device
+    ACTION_SWITCH_INPUT_ROUTE: 602,       // parameter = input_id (switch to next target)
 };
 
 /**
@@ -256,6 +257,7 @@ export function getActionName(action) {
         // Routing
         [InputAction.ACTION_ROUTE_MIDI_NOTE]: 'Route: MIDI Note',
         [InputAction.ACTION_ROUTE_MIDI_CC]: 'Route: MIDI CC',
+        [InputAction.ACTION_SWITCH_INPUT_ROUTE]: 'Route: Switch Input Target',
     };
 
     return names[action] || `Unknown Action (${action})`;
