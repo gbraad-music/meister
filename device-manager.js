@@ -57,6 +57,18 @@ export class DeviceManager {
     }
 
     /**
+     * Get device by SysEx device ID (0-15)
+     */
+    getDeviceByDeviceId(deviceId) {
+        for (let device of this.devices.values()) {
+            if (device.deviceId === deviceId) {
+                return device;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get default device
      */
     getDefaultDevice() {

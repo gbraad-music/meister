@@ -14,10 +14,10 @@ class MeisterController {
         this.clockInterval = null;
         this.clockStartTime = 0;
         this.clockTickCount = 0;
-        this.useWAAClock = false; // Use Web Audio API clock for better precision
-        this.waaClock = null;
-        this.waaContext = null;
-        this.waaClockEvent = null;
+
+        // Web Worker for clock timing (runs in separate thread!)
+        this.clockWorker = null;
+        this.initClockWorker();
 
         // SPP Position tracking
         this.receiveSPP = true;
@@ -111,11 +111,18 @@ class MeisterController {
     handleMIDIMessage(event) {
         const data = event.data;
         const status = data[0];
+        const messageType = status & 0xF0;
+
+        // Check if we're in sequencer note entry mode
+        const currentScene = this.sceneManager?.currentScene;
+        const scene = currentScene ? this.sceneManager.scenes.get(currentScene) : null;
+        const isSequencerNoteEntry = scene?.type === 'sequencer' && messageType === 0x90;
 
         // Route channel messages through InputRouter (if configured)
         // System messages (>= 0xF0) are NOT routed - they're handled locally
+        // Note On messages in sequencer mode are NOT routed - handled by sequencer
         const isSystemMessage = (status >= 0xF0);
-        if (!isSystemMessage && this.inputRouter) {
+        if (!isSystemMessage && !isSequencerNoteEntry && this.inputRouter) {
             this.inputRouter.routeMessage(event.target.id, data);
         }
 
@@ -139,12 +146,14 @@ class MeisterController {
 
             this.updatePositionBar();
             // console.log(`SPP Received: ${rawPosition} -> Position in pattern: ${this.currentPosition} (row ${this.currentPosition})`);
+
+            // Forward to sequencer if active
+            this.notifySequencerSPP(rawPosition);
         }
 
-        // MIDI Clock (0xF8) - could be used for position tracking
-        if (status === 0xF8 && this.receiveSPP) {
-            // Increment position on each clock tick (24 ppqn)
-            // This is optional - mainly use SPP for position
+        // MIDI Clock (0xF8) - forward to sequencer for stable timing
+        if (status === 0xF8) {
+            this.notifySequencerClock();
         }
 
         // Start (0xFA) - Reset position
@@ -152,6 +161,9 @@ class MeisterController {
             this.currentPosition = 0;
             this.updatePositionBar();
             console.log('MIDI Start received - position reset');
+
+            // Forward to sequencer if active
+            this.notifySequencerStart();
         }
 
         // Stop (0xFC) - Keep position
@@ -159,6 +171,9 @@ class MeisterController {
             // Position stays where it is
             this.updatePositionBar();
             console.log('MIDI Stop received');
+
+            // Forward to sequencer if active
+            this.notifySequencerStop();
         }
     }
 
@@ -376,18 +391,28 @@ class MeisterController {
                 this.stopClock();
                 this.startClock();
             }
+
+            // Sync sequencer BPM if active
+            if (this.sceneManager) {
+                const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+                if (currentScene && currentScene.type === 'sequencer' && currentScene.sequencerInstance) {
+                    currentScene.sequencerInstance.engine.bpm = this.clockBPM;
+                    currentScene.sequencerInstance.engine.msPerRow = currentScene.sequencerInstance.engine.calculateMsPerRow();
+
+                    // Update sequencer BPM display
+                    const seqBpmInput = document.getElementById('seq-bpm-input');
+                    if (seqBpmInput) {
+                        seqBpmInput.value = this.clockBPM;
+                    }
+
+                    console.log(`[Sequencer] BPM synced from global clock: ${this.clockBPM}`);
+                }
+            }
+
             this.saveConfig();
         });
 
-        // WAAClock option
-        document.getElementById('use-waaclock').addEventListener('change', (e) => {
-            this.useWAAClock = e.target.checked;
-            if (this.clockMaster) {
-                this.stopClock();
-                this.startClock();
-            }
-            this.saveConfig();
-        });
+        // WAAClock removed - using JS clock only
 
         // Receive SPP
         document.getElementById('receive-spp').addEventListener('change', (e) => {
@@ -1156,12 +1181,19 @@ class MeisterController {
     }
 
     startStatePolling() {
-        console.log('[Meister] Starting state polling...');
+        console.log('[Meister] State polling DISABLED for MIDI clock stability testing');
 
-        // Initialize regrooveState with MIDI send callback
+        // Initialize regrooveState with MIDI send callback (but don't start polling)
         this.regrooveState.init((deviceId, command, data) => {
             this.sendSysEx(deviceId, command, data);
         });
+
+        // TEMPORARILY DISABLED - State polling can block MIDI clock
+        // TODO: Re-enable with optimized async processing
+        return;
+
+        /* Original code commented out:
+        console.log('[Meister] Starting state polling...');
 
         // Collect all device IDs to poll
         const deviceIds = new Set();
@@ -1187,6 +1219,7 @@ class MeisterController {
         const deviceIdArray = Array.from(deviceIds);
         console.log(`[Meister] Starting polling for devices: [${deviceIdArray.join(', ')}]`);
         this.regrooveState.startPolling(deviceIdArray);
+        */
     }
 
     stopStatePolling() {
@@ -1586,19 +1619,74 @@ class MeisterController {
         this.sendSysEx(deviceId, 0x7E, [programId & 0x7F]);
     }
 
+    /**
+     * Initialize Web Worker for MIDI clock timing
+     * Worker runs in separate thread - won't be blocked by UI!
+     */
+    initClockWorker() {
+        try {
+            this.clockWorker = new Worker('midi-clock-worker.js');
+
+            this.clockWorker.onmessage = (e) => {
+                const { type, count, bpm, interval } = e.data;
+
+                if (type === 'pulse') {
+                    // Send MIDI clock
+                    if (this.midiOutput && this.clockMaster) {
+                        this.midiOutput.send([0xF8]);
+
+                        // Log every 96 pulses (4 beats)
+                        if (count % 96 === 0) {
+                            console.log(`[MIDI Clock] Worker sent pulse ${count} (beat ${count / 24})`);
+                        }
+                    }
+
+                    // ONLY notify sequencer if it wants MIDI clock sync
+                    // Check if current scene's sequencer has MIDI clock sync enabled
+                    if (this.sceneManager) {
+                        const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+                        if (currentScene && currentScene.type === 'sequencer' &&
+                            currentScene.sequencerInstance &&
+                            currentScene.sequencerInstance.engine.syncToMIDIClock) {
+                            this.notifySequencerClock();
+                        }
+                    }
+                } else if (type === 'started') {
+                    console.log(`[MIDI Clock] Worker started: BPM=${bpm}, interval=${interval}ms`);
+                } else if (type === 'stopped') {
+                    console.log(`[MIDI Clock] Worker stopped`);
+                } else if (type === 'error') {
+                    console.error(`[MIDI Clock] Worker error:`, e.data.message);
+                }
+            };
+
+            this.clockWorker.onerror = (error) => {
+                console.error('[MIDI Clock] Worker error:', error);
+            };
+
+            console.log('[MIDI Clock] Worker initialized successfully');
+        } catch (error) {
+            console.error('[MIDI Clock] Failed to initialize worker:', error);
+            this.clockWorker = null;
+        }
+    }
+
     // MIDI Clock Master functions
     startClock() {
         if (!this.midiOutput) {
-            console.warn('No MIDI output selected - cannot start clock');
-            return;
+            console.log('[MIDI Clock] No MIDI output selected - clock will run internally only (no MIDI output)');
         }
 
         // Note: We do NOT send MIDI Start (0xFA) here
         // Only send clock pulses, let the slave control its own transport
 
-        if (this.useWAAClock) {
-            this.startWAAClock();
+        // Use Web Worker if available (best performance - runs in separate thread!)
+        if (this.clockWorker) {
+            this.clockWorker.postMessage({ cmd: 'start', bpm: this.clockBPM });
+            this.clockInterval = true; // Mark as running
         } else {
+            // Fallback to JS clock
+            console.warn('[MIDI Clock] Worker not available, using fallback JS clock');
             this.startJSClock();
         }
     }
@@ -1609,12 +1697,40 @@ class MeisterController {
         const msPerBeat = 60000 / this.clockBPM;
         const interval = msPerBeat / PULSES_PER_QUARTER_NOTE;
 
-        // Use simple setInterval for consistent timing
-        this.clockInterval = setInterval(() => {
-            if (this.midiOutput) {
+        console.log(`[MIDI Clock] Starting High-Precision Clock: BPM=${this.clockBPM}, interval=${interval.toFixed(2)}ms`);
+
+        // Shared pulse counter for sequencer to read (decoupled!)
+        this.clockPulseCount = 0;
+        let nextPulseTime = performance.now();
+
+        // Use recursive setTimeout with drift compensation
+        const clockTick = () => {
+            if (!this.clockInterval) return; // Stopped
+
+            // Increment counter (sequencer reads this asynchronously)
+            this.clockPulseCount++;
+
+            // ONLY send MIDI clock - DO NOT call sequencer here!
+            // Sequencer polls clockPulseCount separately to avoid blocking
+            if (this.midiOutput && this.clockMaster) {
                 this.midiOutput.send([0xF8]);
+
+                // Log every 96 pulses (4 beats)
+                if (this.clockPulseCount % 96 === 0) {
+                    console.log(`[MIDI Clock] Sent pulse ${this.clockPulseCount} (beat ${this.clockPulseCount / 24})`);
+                }
             }
-        }, interval);
+
+            // Schedule next pulse with drift compensation
+            nextPulseTime += interval;
+            const delay = Math.max(0, nextPulseTime - performance.now());
+
+            // Continue loop with precise timing
+            this.clockInterval = setTimeout(clockTick, delay);
+        };
+
+        // Start the clock immediately
+        this.clockInterval = setTimeout(clockTick, 0);
     }
 
     startWAAClock() {
@@ -1659,9 +1775,16 @@ class MeisterController {
     }
 
     stopClock() {
-        // Stop JavaScript clock
+        // Stop Web Worker clock
+        if (this.clockWorker && this.clockInterval) {
+            this.clockWorker.postMessage({ cmd: 'stop' });
+            this.clockInterval = null;
+            return;
+        }
+
+        // Fallback: Stop JavaScript clock
         if (this.clockInterval) {
-            clearInterval(this.clockInterval);
+            clearTimeout(this.clockInterval);
             this.clockInterval = null;
         }
 
@@ -1780,7 +1903,7 @@ class MeisterController {
                 // Load clock and SPP settings
                 this.clockMaster = this.config.clockMaster || false;
                 this.clockBPM = this.config.clockBPM || 120;
-                this.receiveSPP = this.config.receiveSPP || false;
+                this.receiveSPP = this.config.receiveSPP !== undefined ? this.config.receiveSPP : true; // Default to true
                 this.useWAAClock = this.config.useWAAClock || false;
 
                 // Load polling interval
@@ -1791,7 +1914,7 @@ class MeisterController {
                 document.getElementById('clock-master').checked = this.clockMaster;
                 document.getElementById('clock-bpm').value = this.clockBPM;
                 document.getElementById('receive-spp').checked = this.receiveSPP;
-                document.getElementById('use-waaclock').checked = this.useWAAClock;
+                // WAAClock removed
 
                 // Update polling interval UI
                 const pollingSlider = document.getElementById('polling-interval');
@@ -1807,8 +1930,8 @@ class MeisterController {
                     this.createSequencerButtons();
                 }
 
-                // Auto-start clock if it was enabled
-                if (this.clockMaster && this.midiOutput) {
+                // Auto-start clock if it was enabled (runs even without MIDI output for internal sequencer sync)
+                if (this.clockMaster) {
                     this.startClock();
                 }
 
@@ -1965,6 +2088,60 @@ class MeisterController {
 
         // Update labels to show default placeholders (will show 0s)
         this.updatePadColors();
+    }
+
+    /**
+     * Notify active sequencer scene of SPP message
+     */
+    notifySequencerSPP(position) {
+        if (!this.sceneManager) return;
+
+        const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+        if (currentScene && currentScene.type === 'sequencer' && currentScene.sequencerInstance) {
+            currentScene.sequencerInstance.engine.handleSPP(position);
+        }
+    }
+
+    /**
+     * Notify active sequencer scene of MIDI Start
+     */
+    notifySequencerStart() {
+        if (!this.sceneManager) return;
+
+        const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+        if (currentScene && currentScene.type === 'sequencer' && currentScene.sequencerInstance) {
+            currentScene.sequencerInstance.engine.handleMIDIStart();
+        }
+    }
+
+    /**
+     * Notify active sequencer scene of MIDI Stop
+     */
+    notifySequencerStop() {
+        if (!this.sceneManager) return;
+
+        const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+        if (currentScene && currentScene.type === 'sequencer' && currentScene.sequencerInstance) {
+            currentScene.sequencerInstance.engine.handleMIDIStop();
+        }
+    }
+
+    /**
+     * Notify active sequencer scene of MIDI Clock pulse
+     */
+    notifySequencerClock() {
+        // Fast path - no logging to avoid blocking clock loop (called 52+ times per second!)
+        if (!this.sceneManager) return;
+
+        const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+        if (!currentScene) return;
+
+        if (currentScene.type !== 'sequencer') return;
+
+        if (!currentScene.sequencerInstance) return;
+
+        // Call sequencer directly (no deferring needed - console.log removal solved blocking)
+        currentScene.sequencerInstance.engine.handleMIDIClock();
     }
 }
 

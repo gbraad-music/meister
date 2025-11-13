@@ -78,6 +78,11 @@ export class SceneEditor {
             this.openSplitSceneEditor();
         });
 
+        // New sequencer scene button
+        document.getElementById('new-sequencer-scene-btn')?.addEventListener('click', () => {
+            this.createSequencerScene();
+        });
+
         // Close split scene editor
         document.getElementById('close-split-scene-editor')?.addEventListener('click', () => {
             this.closeSplitSceneEditor();
@@ -1245,7 +1250,8 @@ export class SceneEditor {
                 programId: scene.programId, // For effects scenes
                 padLayout: scene.padLayout, // For split scenes
                 padSide: scene.padSide, // For split scenes
-                pads: scene.pads // For split scenes (and custom pad scenes)
+                pads: scene.pads, // For split scenes (and custom pad scenes)
+                engine: scene.sequencerInstance ? scene.sequencerInstance.engine.toJSON() : scene.engine // For sequencer scenes
             };
         });
 
@@ -1345,6 +1351,7 @@ export class SceneEditor {
             else if (scene.type === 'effects') typeLabel = 'Effects';
             else if (scene.type === 'piano') typeLabel = 'Piano Keyboard';
             else if (scene.type === 'split') typeLabel = 'Split Scene (Pads + Faders)';
+            else if (scene.type === 'sequencer') typeLabel = 'Sequencer (Tracker)';
 
             return `
                 <div class="scene-list-item" data-scene-id="${scene.id}" style="
@@ -1547,5 +1554,34 @@ export class SceneEditor {
         this.renderFaderGrid();
 
         console.log(`[SceneEditor] Applied ${layout} template`);
+    }
+
+    /**
+     * Create a new sequencer scene
+     */
+    createSequencerScene() {
+        const name = prompt('Enter sequencer scene name:', 'Sequencer ' + (this.sceneManager.scenes.size + 1));
+        if (!name) return;
+
+        // Generate unique ID
+        const sceneId = 'sequencer-' + Date.now();
+
+        // Create and add scene
+        this.sceneManager.addScene(sceneId, {
+            name: name,
+            type: 'sequencer',
+            enabled: true
+        });
+
+        // Save to localStorage
+        this.saveScenesToStorage();
+
+        // Refresh scenes list
+        this.refreshScenesList();
+
+        // Switch to the new scene
+        this.sceneManager.switchScene(sceneId);
+
+        console.log(`[SceneEditor] Created sequencer scene: ${name}`);
     }
 }

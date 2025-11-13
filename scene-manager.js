@@ -206,6 +206,9 @@ export class SceneManager {
             scene.program = config.program !== undefined ? config.program : -1;
             scene.deviceBinding = config.deviceBinding || null;
             scene.render = () => this.renderPianoScene(id);
+        } else if (config.type === 'sequencer') {
+            scene.engine = config.engine || null;
+            scene.render = () => this.renderSequencerScene(id);
         }
 
         this.scenes.set(id, scene);
@@ -1800,6 +1803,7 @@ export class SceneManager {
             else if (scene.type === 'effects') typeLabel = 'Effects';
             else if (scene.type === 'piano') typeLabel = 'Piano';
             else if (scene.type === 'split') typeLabel = 'Split';
+            else if (scene.type === 'sequencer') typeLabel = 'Sequencer';
 
             return `
                 <div class="scene-quick-item ${scene.id === currentScene ? 'active' : ''}"
@@ -2554,5 +2558,36 @@ export class SceneManager {
         const statusByte = 0xC0 + channel;
         this.controller.midiOutput.send([statusByte, program]);
         console.log(`[Piano] Sent Program Change: CH ${channel + 1} -> Program ${program + 1} (wire: ${program})`);
+    }
+
+    /**
+     * Render sequencer scene
+     */
+    renderSequencerScene(sceneId) {
+        const scene = this.scenes.get(sceneId);
+        if (!scene) {
+            console.error(`[Sequencer] Scene "${sceneId}" not found`);
+            return;
+        }
+
+        // Create or reuse SequencerScene instance
+        if (!scene.sequencerInstance || scene.sequencerInstance.sceneId !== sceneId) {
+            // Destroy old instance if exists
+            if (scene.sequencerInstance) {
+                scene.sequencerInstance.destroy();
+            }
+
+            // Create new instance
+            if (window.SequencerScene) {
+                scene.sequencerInstance = new window.SequencerScene(this.controller, sceneId, scene);
+                console.log(`[Sequencer] Created new sequencer instance for scene: ${scene.name}`);
+            } else {
+                console.error('[Sequencer] SequencerScene class not available');
+                return;
+            }
+        } else {
+            // Re-render existing instance
+            scene.sequencerInstance.render();
+        }
     }
 }

@@ -528,7 +528,6 @@
             padding: 5px;
         }
     </style>
-    <script src="./WAAClock.js"></script>
     <script type="module" src="./regroove-pad.js"></script>
     <script src="./regroove-state.js"></script>
     <script type="module" src="./meister-controller.js"></script>
@@ -627,6 +626,7 @@
                         <button id="new-effects-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW EFFECTS SCENE</button>
                         <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO SCENE</button>
                         <button id="new-split-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SPLIT SCENE</button>
+                        <button id="new-sequencer-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SEQUENCER SCENE</button>
                     </div>
                 </div>
             </div>
@@ -700,10 +700,6 @@
                         <div style="color: #555; font-size: 0.8em; margin-top: 8px;">
                             Tempo (BPM): <input type="number" id="clock-bpm" min="20" max="300" value="120"
                                 style="width: 60px; padding: 5px; background: #0a0a0a; color: #888; border: 1px solid #333;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                            <input type="checkbox" id="use-waaclock" style="width: auto;">
-                            <label for="use-waaclock" style="margin: 0; color: #888;">Use WAAClock (Web Audio, more precise)</label>
                         </div>
                     </div>
                 </div>
@@ -1482,6 +1478,10 @@
         import { SceneEditor } from './scene-editor.js';
         import { DeviceManager } from './device-manager.js';
         import { InputRouter } from './input-router.js';
+        import { SequencerScene } from './sequencer-scene.js';
+
+        // Expose SequencerScene globally for scene manager
+        window.SequencerScene = SequencerScene;
 
         // Wait for controller to be initialized
         function waitForController() {

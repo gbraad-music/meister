@@ -1,10 +1,9 @@
-const CACHE_NAME = 'meister-v244';
+const CACHE_NAME = 'meister-v250';
 const ASSETS = [
     './',
     './index.html',
     './meister-controller.js',
     './regroove-pad.js',
-    './WAAClock.js',
     './manifest.json',
     './icon.svg',
     // Action system files (v2.0)
@@ -19,6 +18,8 @@ const ASSETS = [
     './svg-slider.js',
     './scene-editor.js',
     './effects-fader.js',
+    './sequencer-engine.js',
+    './sequencer-scene.js',
     // Device management
     './regroove-state.js',
     './device-manager.js',

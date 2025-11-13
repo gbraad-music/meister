@@ -86,6 +86,7 @@ export class SettingsUI {
             else if (scene.type === 'effects') typeLabel = 'Effects';
             else if (scene.type === 'piano') typeLabel = 'Piano';
             else if (scene.type === 'split') typeLabel = 'Split';
+            else if (scene.type === 'sequencer') typeLabel = 'Sequencer';
 
             return `
                 <div class="scene-item ${isActive ? 'active' : ''}" data-scene-id="${scene.id}" style="opacity: ${isEnabled ? '1' : '0.5'};">
@@ -135,6 +136,15 @@ export class SettingsUI {
                     this.controller.sceneEditor.openPianoSceneEditor(sceneId);
                 } else if (scene.type === 'split') {
                     this.controller.sceneEditor.openSplitSceneEditor(sceneId);
+                } else if (scene.type === 'sequencer') {
+                    // Just allow editing the name for sequencer scenes
+                    const newName = prompt('Enter new sequencer scene name:', scene.name);
+                    if (newName && newName !== scene.name) {
+                        scene.name = newName;
+                        this.controller.sceneEditor?.saveScenesToStorage();
+                        this.refreshScenesList();
+                        this.controller.sceneManager.updateSceneSelector();
+                    }
                 } else {
                     this.controller.sceneEditor.openSceneEditor(sceneId);
                 }
