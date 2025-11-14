@@ -452,6 +452,79 @@ export class ActionDispatcher {
                 }
                 break;
 
+            // === SEQUENCER CONTROL ===
+            case InputAction.ACTION_SEQUENCER_PLAY:
+                {
+                    const sceneId = event.parameter;
+                    const scene = this.controller.sceneManager.scenes.get(sceneId);
+                    if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                        scene.sequencerInstance.engine.startPlayback();
+                        console.log(`[Action] Sequencer ${sceneId} started`);
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_SEQUENCER_STOP:
+                {
+                    const sceneId = event.parameter;
+                    const scene = this.controller.sceneManager.scenes.get(sceneId);
+                    if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                        scene.sequencerInstance.engine.stopPlayback();
+                        console.log(`[Action] Sequencer ${sceneId} stopped`);
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_SEQUENCER_PLAY_STOP:
+                {
+                    const sceneId = event.parameter;
+                    const scene = this.controller.sceneManager.scenes.get(sceneId);
+                    if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                        if (scene.sequencerInstance.engine.playing) {
+                            scene.sequencerInstance.engine.stopPlayback();
+                            console.log(`[Action] Sequencer ${sceneId} stopped`);
+                        } else {
+                            scene.sequencerInstance.engine.startPlayback();
+                            console.log(`[Action] Sequencer ${sceneId} started`);
+                        }
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_SEQUENCER_TRACK_MUTE:
+                {
+                    const sceneIndex = (event.parameter >> 8) & 0xFF;
+                    const trackIndex = event.parameter & 0xFF;
+                    // Find sequencer by index (nth sequencer scene)
+                    const sequencers = Array.from(this.controller.sceneManager.scenes.entries())
+                        .filter(([id, scene]) => scene.type === 'sequencer');
+                    if (sceneIndex < sequencers.length) {
+                        const [sceneId, scene] = sequencers[sceneIndex];
+                        if (scene.sequencerInstance) {
+                            scene.sequencerInstance.engine.toggleMute(trackIndex);
+                            console.log(`[Action] Sequencer ${sceneId} track ${trackIndex} mute toggled`);
+                        }
+                    }
+                }
+                break;
+
+            case InputAction.ACTION_SEQUENCER_TRACK_SOLO:
+                {
+                    const sceneIndex = (event.parameter >> 8) & 0xFF;
+                    const trackIndex = event.parameter & 0xFF;
+                    // Find sequencer by index (nth sequencer scene)
+                    const sequencers = Array.from(this.controller.sceneManager.scenes.entries())
+                        .filter(([id, scene]) => scene.type === 'sequencer');
+                    if (sceneIndex < sequencers.length) {
+                        const [sceneId, scene] = sequencers[sceneIndex];
+                        if (scene.sequencerInstance) {
+                            scene.sequencerInstance.engine.toggleSolo(trackIndex);
+                            console.log(`[Action] Sequencer ${sceneId} track ${trackIndex} solo toggled`);
+                        }
+                    }
+                }
+                break;
+
             default:
                 console.warn(`Unhandled action: ${event.action}`);
                 break;

@@ -89,6 +89,13 @@ export const InputAction = {
     ACTION_ROUTE_MIDI_NOTE: 600,          // Direct MIDI note routing to device
     ACTION_ROUTE_MIDI_CC: 601,            // Direct MIDI CC routing to device
     ACTION_SWITCH_INPUT_ROUTE: 602,       // parameter = input_id (switch to next target)
+
+    // === SEQUENCER CONTROL ===
+    ACTION_SEQUENCER_PLAY: 700,           // parameter = sequencer scene ID
+    ACTION_SEQUENCER_STOP: 701,           // parameter = sequencer scene ID
+    ACTION_SEQUENCER_PLAY_STOP: 702,      // parameter = sequencer scene ID
+    ACTION_SEQUENCER_TRACK_MUTE: 710,     // parameter = (scene_index << 8) | track_index
+    ACTION_SEQUENCER_TRACK_SOLO: 711,     // parameter = (scene_index << 8) | track_index
 };
 
 /**
@@ -258,6 +265,13 @@ export function getActionName(action) {
         [InputAction.ACTION_ROUTE_MIDI_NOTE]: 'Route: MIDI Note',
         [InputAction.ACTION_ROUTE_MIDI_CC]: 'Route: MIDI CC',
         [InputAction.ACTION_SWITCH_INPUT_ROUTE]: 'Route: Switch Input Target',
+
+        // Sequencer
+        [InputAction.ACTION_SEQUENCER_PLAY]: 'Sequencer: Play',
+        [InputAction.ACTION_SEQUENCER_STOP]: 'Sequencer: Stop',
+        [InputAction.ACTION_SEQUENCER_PLAY_STOP]: 'Sequencer: Play/Stop Toggle',
+        [InputAction.ACTION_SEQUENCER_TRACK_MUTE]: 'Sequencer: Track Mute',
+        [InputAction.ACTION_SEQUENCER_TRACK_SOLO]: 'Sequencer: Track Solo',
     };
 
     return names[action] || `Unknown Action (${action})`;

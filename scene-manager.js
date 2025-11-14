@@ -1200,6 +1200,94 @@ export class SceneManager {
                     // console.log(`[Dev${deviceId} PROG${e.detail.program}] Mute:`, e.detail.muted);
                     this.handleProgramMute(deviceId, e.detail.program, e.detail.muted);
                 });
+        } else if (column.type === 'SEQUENCER_TRACK') {
+                // Sequencer track fader (volume/mute/solo for a specific track)
+                const seqScene = this.scenes.get(column.sequencerScene);
+                const seqName = seqScene ? seqScene.name : 'Unknown';
+
+                fader = document.createElement('channel-fader');
+                fader.setAttribute('channel', column.sequencerTrack - 1); // Display 1-4, internal 0-3
+                fader.dataset.sequencerScene = column.sequencerScene;
+                fader.dataset.sequencerTrack = column.sequencerTrack;
+                fader.dataset.deviceName = seqName;
+                fader.setAttribute('volume', '100');
+                fader.setAttribute('pan', '0');
+                fader.setAttribute('solo', 'false');
+                fader.setAttribute('muted', 'false');
+
+                // Get initial state from sequencer
+                if (seqScene && seqScene.sequencerInstance) {
+                    const engine = seqScene.sequencerInstance.engine;
+                    const trackIdx = column.sequencerTrack - 1;
+                    const volume = Math.round((engine.trackVolumes[trackIdx] / 127) * 100);
+                    fader.setAttribute('volume', volume.toString());
+                    fader.setAttribute('muted', engine.trackMutes[trackIdx].toString());
+                    fader.setAttribute('solo', engine.isTrackSoloed(trackIdx).toString());
+                }
+
+                // Event listeners for sequencer track fader
+                fader.addEventListener('solo-toggle', (e) => {
+                    const seqScene = this.scenes.get(column.sequencerScene);
+                    if (seqScene && seqScene.sequencerInstance) {
+                        const trackIdx = column.sequencerTrack - 1;
+                        seqScene.sequencerInstance.engine.toggleSolo(trackIdx);
+                    }
+                });
+
+                fader.addEventListener('mute-toggle', (e) => {
+                    const seqScene = this.scenes.get(column.sequencerScene);
+                    if (seqScene && seqScene.sequencerInstance) {
+                        const trackIdx = column.sequencerTrack - 1;
+                        seqScene.sequencerInstance.engine.toggleMute(trackIdx);
+                    }
+                });
+
+                fader.addEventListener('volume-change', (e) => {
+                    const seqScene = this.scenes.get(column.sequencerScene);
+                    if (seqScene && seqScene.sequencerInstance) {
+                        const trackIdx = column.sequencerTrack - 1;
+                        // Convert 0-100 to 0-127
+                        const volume = Math.round((e.detail.value / 100) * 127);
+                        seqScene.sequencerInstance.engine.setTrackVolume(trackIdx, volume);
+                    }
+                });
+        } else if (column.type === 'SEQUENCER_MASTER') {
+                // Sequencer master fader (overall volume for all tracks)
+                const seqScene = this.scenes.get(column.sequencerScene);
+                const seqName = seqScene ? seqScene.name : 'Unknown';
+
+                fader = document.createElement('mix-fader');
+                fader.setAttribute('label', `${seqName}\nMaster`);
+                fader.dataset.sequencerScene = column.sequencerScene;
+                fader.setAttribute('volume', '100');
+                fader.setAttribute('pan', '0');
+                fader.setAttribute('fx', 'false');
+                fader.setAttribute('muted', 'false');
+
+                // Event listeners for sequencer master fader
+                fader.addEventListener('volume-change', (e) => {
+                    const seqScene = this.scenes.get(column.sequencerScene);
+                    if (seqScene && seqScene.sequencerInstance) {
+                        // Apply volume to all tracks
+                        const volume = Math.round((e.detail.value / 100) * 127);
+                        for (let track = 0; track < 4; track++) {
+                            seqScene.sequencerInstance.engine.setTrackVolume(track, volume);
+                        }
+                    }
+                });
+
+                fader.addEventListener('mute-toggle', (e) => {
+                    const seqScene = this.scenes.get(column.sequencerScene);
+                    if (seqScene && seqScene.sequencerInstance) {
+                        // Mute/unmute all tracks
+                        for (let track = 0; track < 4; track++) {
+                            seqScene.sequencerInstance.engine.trackMutes[track] = e.detail.muted;
+                            if (e.detail.muted) {
+                                seqScene.sequencerInstance.engine.stopTrackNote(track);
+                            }
+                        }
+                    }
+                });
         }
 
         return fader;

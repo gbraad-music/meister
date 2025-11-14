@@ -348,6 +348,16 @@ export class SceneEditor {
                 return `TEMPO<br>${deviceName}`;
             case 'STEREO':
                 return `STEREO<br>${deviceName}`;
+            case 'SEQUENCER_TRACK': {
+                const seqScene = fader.sequencerScene ? this.sceneManager.scenes.get(fader.sequencerScene) : null;
+                const seqName = seqScene ? seqScene.name : 'Unknown';
+                return `SEQ TRACK ${fader.sequencerTrack || 1}<br>${seqName}`;
+            }
+            case 'SEQUENCER_MASTER': {
+                const seqScene = fader.sequencerScene ? this.sceneManager.scenes.get(fader.sequencerScene) : null;
+                const seqName = seqScene ? seqScene.name : 'Unknown';
+                return `SEQ MASTER<br>${seqName}`;
+            }
             case 'EMPTY':
                 return 'EMPTY';
             default:
@@ -365,17 +375,24 @@ export class SceneEditor {
         // Populate device binding dropdown
         this.populateDeviceBindings();
 
+        // Populate sequencer scenes dropdown
+        this.populateSequencerScenes();
+
         // Load fader config
         if (fader) {
             document.getElementById('fader-type').value = fader.type;
             document.getElementById('fader-label').value = fader.label || '';
             document.getElementById('fader-channel').value = fader.channel ?? 0;
             document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
+            document.getElementById('fader-sequencer-scene').value = fader.sequencerScene || '';
+            document.getElementById('fader-sequencer-track').value = fader.sequencerTrack || 1;
         } else {
             document.getElementById('fader-type').value = 'EMPTY';
             document.getElementById('fader-label').value = '';
             document.getElementById('fader-channel').value = 0;
             document.getElementById('fader-device-binding').value = '';
+            document.getElementById('fader-sequencer-scene').value = '';
+            document.getElementById('fader-sequencer-track').value = 1;
         }
 
         this.updateFaderEditorFields(document.getElementById('fader-type').value);
@@ -400,6 +417,29 @@ export class SceneEditor {
             ).join('');
     }
 
+    populateSequencerScenes() {
+        const select = document.getElementById('fader-sequencer-scene');
+        if (!select) return;
+
+        // Get all sequencer scenes
+        const sequencerScenes = [];
+        this.sceneManager.scenes.forEach((scene, id) => {
+            if (scene.type === 'sequencer') {
+                sequencerScenes.push({ id, name: scene.name });
+            }
+        });
+
+        if (sequencerScenes.length === 0) {
+            select.innerHTML = '<option value="">-- No Sequencers Found --</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Sequencer --</option>' +
+            sequencerScenes.map(seq =>
+                `<option value="${seq.id}">${seq.name}</option>`
+            ).join('');
+    }
+
     closeFaderEditor() {
         document.getElementById('fader-editor-overlay').classList.remove('active');
         this.editingSlotIndex = null;
@@ -411,12 +451,15 @@ export class SceneEditor {
         const channelField = document.getElementById('fader-channel-field');
         const programField = document.getElementById('fader-program-field');
         const deviceField = document.getElementById('fader-device-field');
+        const sequencerField = document.getElementById('fader-sequencer-field');
+        const sequencerTrackField = document.getElementById('fader-sequencer-track-field');
 
         labelField.style.display = (type === 'MIX' || type === 'INPUT' || type === 'PROGRAM') ? 'block' : 'none';
         channelField.style.display = type === 'CHANNEL' ? 'block' : 'none';
         programField.style.display = type === 'PROGRAM' ? 'block' : 'none';
-        programField.style.display = type === 'PROGRAM' ? 'block' : 'none';
-        deviceField.style.display = (type !== 'EMPTY') ? 'block' : 'none';
+        deviceField.style.display = (type !== 'EMPTY' && type !== 'SEQUENCER_TRACK' && type !== 'SEQUENCER_MASTER') ? 'block' : 'none';
+        sequencerField.style.display = (type === 'SEQUENCER_TRACK' || type === 'SEQUENCER_MASTER') ? 'block' : 'none';
+        sequencerTrackField.style.display = (type === 'SEQUENCER_TRACK') ? 'block' : 'none';
     }
 
     saveFader() {
@@ -442,6 +485,13 @@ export class SceneEditor {
                 fader.program = parseInt(document.getElementById('fader-program').value) || 0;
                 fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
                 fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
+            } else if (type === 'SEQUENCER_TRACK') {
+                fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
+                fader.sequencerTrack = parseInt(document.getElementById('fader-sequencer-track').value) || 1;
+                delete fader.deviceBinding; // Sequencers don't use device binding
+            } else if (type === 'SEQUENCER_MASTER') {
+                fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
+                delete fader.deviceBinding; // Sequencers don't use device binding
             }
             // TEMPO and STEREO don't need additional fields
 
@@ -1054,6 +1104,9 @@ export class SceneEditor {
         // Populate device binding dropdown
         this.populateDeviceBindings();
 
+        // Populate sequencer scenes dropdown
+        this.populateSequencerScenes();
+
         // Load fader config
         if (fader) {
             document.getElementById('fader-type').value = fader.type;
@@ -1061,12 +1114,16 @@ export class SceneEditor {
             document.getElementById('fader-channel').value = fader.channel ?? 0;
             document.getElementById('fader-program').value = fader.program ?? 0;
             document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
+            document.getElementById('fader-sequencer-scene').value = fader.sequencerScene || '';
+            document.getElementById('fader-sequencer-track').value = fader.sequencerTrack || 1;
         } else {
             document.getElementById('fader-type').value = 'EMPTY';
             document.getElementById('fader-label').value = '';
             document.getElementById('fader-channel').value = 0;
             document.getElementById('fader-program').value = 0;
             document.getElementById('fader-device-binding').value = '';
+            document.getElementById('fader-sequencer-scene').value = '';
+            document.getElementById('fader-sequencer-track').value = 1;
         }
 
         this.updateFaderEditorFields(fader?.type || 'EMPTY');
@@ -1096,6 +1153,13 @@ export class SceneEditor {
             } else if (type === 'PROGRAM') {
                 fader.program = parseInt(document.getElementById('fader-program').value) || 0;
                 fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
+            } else if (type === 'SEQUENCER_TRACK') {
+                fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
+                fader.sequencerTrack = parseInt(document.getElementById('fader-sequencer-track').value) || 1;
+                delete fader.deviceBinding;
+            } else if (type === 'SEQUENCER_MASTER') {
+                fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
+                delete fader.deviceBinding;
             }
 
             this.splitFaderSlots[this.editingSplitSlotIndex] = fader;

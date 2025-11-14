@@ -1175,6 +1175,8 @@
                         <option value="PROGRAM">Program (Samplecrate)</option>
                         <option value="TEMPO">Tempo</option>
                         <option value="STEREO">Stereo Separation</option>
+                        <option value="SEQUENCER_TRACK">Sequencer Track Volume</option>
+                        <option value="SEQUENCER_MASTER">Sequencer Master Volume</option>
                     </select>
                 </div>
 
@@ -1205,6 +1207,24 @@
                     </select>
                     <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
                         Select which device instance this fader controls
+                    </div>
+                </div>
+
+                <div class="setting-group" id="fader-sequencer-field" style="display: none;">
+                    <label class="setting-label">SEQUENCER SCENE</label>
+                    <select id="fader-sequencer-scene" style="width: 100%;">
+                        <option value="">-- Select Sequencer --</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
+                        Select which sequencer scene to control
+                    </div>
+                </div>
+
+                <div class="setting-group" id="fader-sequencer-track-field" style="display: none;">
+                    <label class="setting-label">TRACK NUMBER (1-4)</label>
+                    <input type="number" id="fader-sequencer-track" min="1" max="4" value="1" style="width: 100%;">
+                    <div style="color: #555; font-size: 0.7em; margin-top: 3px;">
+                        Which track to control (volume/mute/solo)
                     </div>
                 </div>
 
