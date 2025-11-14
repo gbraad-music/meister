@@ -215,7 +215,7 @@ export class SequencerScene {
         syncClock.style.cssText = 'display: flex; align-items: center; gap: 5px; color: #888; margin-left: 10px;';
         syncClock.innerHTML = `
             <input type="checkbox" id="seq-sync-clock" ${this.engine.syncToMIDIClock ? 'checked' : ''}>
-            <span>⏱ Sync MIDI Clock</span>
+            <span>Sync MIDI Clock</span>
         `;
         syncClock.querySelector('input').addEventListener('change', (e) => {
             this.engine.syncToMIDIClock = e.target.checked;
