@@ -229,6 +229,27 @@ export class SequencerScene {
         });
         bar.appendChild(syncClock);
 
+        // Sync Playback checkbox - syncs to global clock
+        const syncPlayback = document.createElement('label');
+        syncPlayback.style.cssText = 'display: flex; align-items: center; gap: 5px; color: #888; margin-left: 10px;';
+        syncPlayback.innerHTML = `
+            <input type="checkbox" id="seq-sync-playback" ${this.engine.syncToGlobalClock ? 'checked' : ''}>
+            <span>🔗 Sync Playback</span>
+        `;
+
+        syncPlayback.querySelector('input').addEventListener('change', (e) => {
+            this.engine.syncToGlobalClock = e.target.checked;
+            console.log(`[Sequencer] Sync Playback checkbox: ${e.target.checked} - engine.syncToGlobalClock is now: ${this.engine.syncToGlobalClock}`);
+
+            // If playing, restart to switch sync modes
+            if (this.engine.playing) {
+                console.log('[Sequencer] Already playing - restarting with new sync mode');
+                this.engine.stopPlayback();
+                this.engine.startPlayback();
+            }
+        });
+        bar.appendChild(syncPlayback);
+
         // Send SPP checkbox
         const sendSPP = document.createElement('label');
         sendSPP.style.cssText = 'display: flex; align-items: center; gap: 5px; color: #888; margin-left: 10px;';
@@ -755,7 +776,6 @@ export class SequencerScene {
                 // CRITICAL: Only handle MIDI input when this scene is active
                 // This prevents notes from other sequencers bleeding in via MIDI loopback
                 if (this.controller.sceneManager?.currentScene !== this.sceneId) {
-                    console.log(`[Sequencer] ${this.sceneId}: Ignoring MIDI note (not active scene, current=${this.controller.sceneManager?.currentScene})`);
                     return; // Not the active scene - ignore all MIDI input
                 }
 
@@ -770,7 +790,6 @@ export class SequencerScene {
                         if (sceneData.type === 'sequencer' &&
                             sceneData.sequencerInstance &&
                             sceneData.sequencerInstance.engine.playing) {
-                            console.log(`[Sequencer] ${this.sceneId}: Ignoring MIDI note (sequencer ${sceneId} is playing)`);
                             return; // A sequencer is playing - don't insert notes from MIDI input
                         }
                     }
@@ -778,7 +797,6 @@ export class SequencerScene {
 
                 // If we got here, accept the note
                 const midiNote = data1;
-                console.log(`[Sequencer] ${this.sceneId}: Accepting MIDI note ${midiNote} for insertion`);
                 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
                 const octave = Math.floor(midiNote / 12);
                 const noteName = noteNames[midiNote % 12];

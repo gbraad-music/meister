@@ -201,12 +201,14 @@ export class SequencerEngine {
         // Sync settings
         this.syncToSPP = false;          // Sync playback to incoming SPP
         this.syncToMIDIClock = false;    // Sync to MIDI clock (0xF8) - OFF by default, uses internal timing
+        this.syncToGlobalClock = false;  // NEW: Sync to global clock (shared across all sequencers)
         this.sendStartStop = false;      // Send MIDI start/stop messages
         this.receiveStartStop = false;   // Start/stop on incoming MIDI messages
         this.sendSPP = false;            // Send SPP (Song Position Pointer) messages
         this.sppInterval = 16;           // SPP send interval: 4, 8, 16, 32, or 64 rows
         this.clockPulseCounter = 0;      // Count MIDI clock pulses (24 ppqn)
         this.pulsesPerRow = 12;          // 24 ppqn / 2 rows per beat = 12 pulses per row (CORRECTED!)
+        this.lastGlobalRow = -1;         // NEW: Track last row from global clock to detect changes
 
         // Timing
         this.tickInterval = null;
@@ -219,6 +221,9 @@ export class SequencerEngine {
 
         // Active notes tracking (for note off)
         this.activeNotes = new Map(); // track -> {note, timestamp}
+
+        // Global clock master flag
+        this.isMasterClock = false;
     }
 
     /**
@@ -264,6 +269,8 @@ export class SequencerEngine {
 
         this.playing = true;
 
+        console.log(`[Sequencer] startPlayback - syncToGlobalClock=${this.syncToGlobalClock}, syncToMIDIClock=${this.syncToMIDIClock}, syncToSPP=${this.syncToSPP}`);
+
         // Send MIDI start if configured
         if (this.sendStartStop && this.controller.midiOutput) {
             this.controller.midiOutput.send([0xFA]); // MIDI Start
@@ -275,9 +282,24 @@ export class SequencerEngine {
         this.tickCount = 0;
         this.clockPulseCounter = 0;
 
-        // Choose sync method
-        if (this.syncToSPP) {
-            console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: SPP)`);
+        // Choose sync method (priority order: Global Clock > MIDI Clock > SPP > Internal)
+        if (this.syncToGlobalClock) {
+            console.log(`[Sequencer] ✓✓✓ Started with GLOBAL CLOCK SYNC ✓✓✓`);
+            this.currentRow = 0;
+            this.lastGlobalRow = -1;
+
+            // CRITICAL: Stop ANY existing timers - we sync to global clock, not internal timer!
+            if (this.rafHandle) {
+                clearTimeout(this.rafHandle);
+                this.rafHandle = null;
+            }
+            if (this.tickInterval) {
+                clearTimeout(this.tickInterval);
+                this.tickInterval = null;
+            }
+
+            // Start polling global clock position
+            this.startGlobalClockSync();
         } else if (this.syncToMIDIClock) {
             console.log(`[Sequencer] ✓✓✓ Started with MIDI CLOCK SYNC ✓✓✓ (BPM: ${this.bpm})`);
             this.currentRow = 0;
@@ -297,6 +319,9 @@ export class SequencerEngine {
             // Will advance ONLY on incoming MIDI clock pulses (handleMIDIClock)
             // Clock now uses Web Worker - stable timing even with UI visible!
             console.log(`[Sequencer] Will advance ONLY on MIDI clock pulses (not internal timer)`);
+        } else if (this.syncToSPP) {
+            console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: SPP - waiting for position)`);
+            // SPP sync - waits for incoming position messages, no internal timer
         } else {
             // Internal timing with high-precision setTimeout
             this.currentRow = 0;
@@ -313,8 +338,35 @@ export class SequencerEngine {
                 this.tickInterval = null;
             }
 
+            // Start global clock if not already running
+            if (!this.controller.globalClockRunning) {
+                console.log(`[Sequencer] ✓✓✓ STARTING GLOBAL CLOCK ✓✓✓ (BPM: ${this.bpm})`);
+                this.startGlobalClock();
+            }
+
             console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: Internal Timer)`);
             this.scheduleWithRAF();
+        }
+    }
+
+    /**
+     * Start global clock - marks this sequencer as the master
+     */
+    startGlobalClock() {
+        // Mark this sequencer as the global clock master
+        this.controller.globalClockRunning = true;
+        this.controller.globalClockRow = this.currentRow; // Start from current position
+        this.isMasterClock = true; // Flag to know we should update global clock
+
+        console.log('[Global Clock] Started - this sequencer is now the master clock');
+    }
+
+    /**
+     * Update global clock (called by master sequencer when it advances)
+     */
+    updateGlobalClock() {
+        if (this.isMasterClock && this.controller.globalClockRunning) {
+            this.controller.globalClockRow = this.currentRow;
         }
     }
 
@@ -384,6 +436,9 @@ export class SequencerEngine {
             // Play the row
             this.playRow(this.currentRow);
 
+            // Update global clock if this is the master (BEFORE incrementing row)
+            this.updateGlobalClock();
+
             // Send SPP at configured intervals
             if (this.sendSPP && this.controller.midiOutput) {
                 if (this.currentRow % this.sppInterval === 0) {
@@ -430,6 +485,9 @@ export class SequencerEngine {
         // }
 
         this.playRow(this.currentRow);
+
+        // Update global clock if this is the master (BEFORE incrementing row)
+        this.updateGlobalClock();
 
         // Send SPP at configured intervals
         if (this.sendSPP && this.controller.midiOutput) {
@@ -678,6 +736,9 @@ export class SequencerEngine {
             // Play current row
             this.playRow(this.currentRow);
 
+            // Update global clock if this is the master (BEFORE incrementing row)
+            this.updateGlobalClock();
+
             // Send SPP at configured intervals
             if (this.sendSPP && this.controller.midiOutput) {
                 if (this.currentRow % this.sppInterval === 0) {
@@ -688,6 +749,51 @@ export class SequencerEngine {
             // Advance to next row
             this.currentRow = (this.currentRow + 1) % this.pattern.rows;
         }
+    }
+
+    /**
+     * Start global clock sync - polls controller's global clock position
+     */
+    startGlobalClockSync() {
+        console.log(`[Sequencer] startGlobalClockSync called - controller.globalClockRunning=${this.controller.globalClockRunning}, globalClockRow=${this.controller.globalClockRow}`);
+
+        if (!this.syncToGlobalClock) {
+            console.warn('[Sequencer] Cannot start global clock sync: syncToGlobalClock=false');
+            return;
+        }
+
+        // Ensure global clock is running
+        if (!this.controller.globalClockRunning) {
+            console.warn('[Sequencer] Global clock not running! Starting it now...');
+            this.startGlobalClock();
+        }
+
+        // Poll global clock position every 5ms for tight sync
+        const pollGlobalClock = () => {
+            if (!this.playing || !this.syncToGlobalClock) {
+                console.log('[Sequencer] Stopping global clock sync polling');
+                return; // Stop polling if playback stopped or sync mode changed
+            }
+
+            // Get global clock row position
+            const globalRow = (this.controller.globalClockRow || 0) % 64; // Wrap to 64 rows
+
+            // Only advance when global clock advances
+            if (globalRow !== this.lastGlobalRow) {
+                this.lastGlobalRow = globalRow;
+                this.currentRow = globalRow;
+
+                // Play notes at this row
+                this.playRow(this.currentRow);
+            }
+
+            // Continue polling
+            this.rafHandle = setTimeout(pollGlobalClock, 5);
+        };
+
+        // Start polling loop
+        console.log('[Sequencer] Starting global clock sync polling (5ms interval)');
+        this.rafHandle = setTimeout(pollGlobalClock, 5);
     }
 
     /**
@@ -773,6 +879,7 @@ export class SequencerEngine {
             deviceId: this.deviceId,
             bpm: this.bpm,
             syncToSPP: this.syncToSPP,
+            syncToGlobalClock: this.syncToGlobalClock,
             sendStartStop: this.sendStartStop,
             receiveStartStop: this.receiveStartStop,
             sendSPP: this.sendSPP,
@@ -794,6 +901,7 @@ export class SequencerEngine {
             engine.deviceId = data.deviceId ?? null;
             engine.bpm = data.bpm ?? 120;
             engine.syncToSPP = data.syncToSPP ?? false;
+            engine.syncToGlobalClock = data.syncToGlobalClock ?? false;
             engine.sendStartStop = data.sendStartStop ?? false;
             engine.receiveStartStop = data.receiveStartStop ?? false;
             engine.sendSPP = data.sendSPP ?? false;
