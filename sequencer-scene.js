@@ -5,6 +5,7 @@
 
 import { SequencerEngine, SequencerEntry } from './sequencer-engine.js';
 import { showFillDialog } from './fill-dialog.js';
+import { uploadMidiFile, downloadMidiFile } from './midi-sequence-utils.js';
 
 export class SequencerScene {
     constructor(controller, sceneId, config = {}) {
@@ -156,6 +157,28 @@ export class SequencerScene {
         importBtn.addEventListener('click', () => this.importMIDI());
         bar.appendChild(importBtn);
 
+        // Upload to Device button
+        const uploadBtn = document.createElement('button');
+        uploadBtn.textContent = '📤 UPLOAD';
+        uploadBtn.style.cssText = buttonStyle + `
+            background: #4a2a4a;
+            color: #aa6aaa;
+            border-color: #5a3a5a;
+        `;
+        uploadBtn.addEventListener('click', () => this.uploadToDevice());
+        bar.appendChild(uploadBtn);
+
+        // Download from Device button
+        const downloadBtn = document.createElement('button');
+        downloadBtn.textContent = '📥 DOWNLOAD';
+        downloadBtn.style.cssText = buttonStyle + `
+            background: #2a2a4a;
+            color: #6a6aaa;
+            border-color: #3a3a5a;
+        `;
+        downloadBtn.addEventListener('click', () => this.downloadFromDevice());
+        bar.appendChild(downloadBtn);
+
         // BPM control
         const bpmLabel = document.createElement('span');
         bpmLabel.textContent = 'BPM:';
@@ -215,7 +238,7 @@ export class SequencerScene {
         syncClock.style.cssText = 'display: flex; align-items: center; gap: 5px; color: #888; margin-left: 10px;';
         syncClock.innerHTML = `
             <input type="checkbox" id="seq-sync-clock" ${this.engine.syncToMIDIClock ? 'checked' : ''}>
-            <span>Sync MIDI Clock</span>
+            <span>MIDI Clock</span>
         `;
         syncClock.querySelector('input').addEventListener('change', (e) => {
             this.engine.syncToMIDIClock = e.target.checked;
@@ -1230,7 +1253,7 @@ export class SequencerScene {
         });
     }
 
-    exportMIDI() {
+    exportMIDI(returnData = false) {
         // Create Standard MIDI File (Format 1)
         const tracks = [];
 
@@ -1356,6 +1379,11 @@ export class SequencerScene {
             midiFile.push((trackLength >> 24) & 0xFF, (trackLength >> 16) & 0xFF, (trackLength >> 8) & 0xFF, trackLength & 0xFF);
             midiFile.push(...track);
         });
+
+        // Return data if requested, otherwise download
+        if (returnData) {
+            return new Uint8Array(midiFile);
+        }
 
         // Download file
         const blob = new Blob([new Uint8Array(midiFile)], { type: 'audio/midi' });
@@ -1557,6 +1585,601 @@ export class SequencerScene {
 
         console.log(`[Sequencer] Imported ${noteEvents.length} notes to track ${targetTrack + 1}`);
     }
+
+    uploadToDevice() {
+        // Show device and slot selector dialog
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        // Get available devices
+        const devices = this.controller.deviceManager ? this.controller.deviceManager.getAllDevices() : [];
+        if (devices.length === 0) {
+            window.nbDialog.alert('No devices configured. Please add a device in Device Manager first.');
+            return;
+        }
+
+        const deviceOptions = devices.map(device =>
+            `<option value="${device.id}">${device.name} (ID: ${device.deviceId})</option>`
+        ).join('');
+
+        const selectorContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 350px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Upload to Samplecrate</h3>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Target Device:</label>
+                    <select id="upload-device-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        ${deviceOptions}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Target Slot (0-15):</label>
+                    <select id="upload-slot-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">Slot ${i}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="upload-slot-cancel" style="
+                        padding: 10px 20px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Cancel</button>
+                    <button id="upload-slot-ok" style="
+                        padding: 10px 20px;
+                        background: #4a9eff;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Upload</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(selectorContent);
+
+        // Wire up buttons
+        setTimeout(() => {
+            document.getElementById('upload-slot-cancel')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+
+            document.getElementById('upload-slot-ok')?.addEventListener('click', () => {
+                const deviceId = document.getElementById('upload-device-selector').value;
+                const slot = parseInt(document.getElementById('upload-slot-selector').value);
+                window.nbDialog.hide();
+
+                // Now proceed with upload
+                this.performUpload(deviceId, slot);
+            });
+        }, 100);
+    }
+
+    performUpload(deviceId, slot) {
+        // Get device configuration
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('Device not found.');
+            }
+            console.error('[Sequencer] Device not found:', deviceId);
+            return;
+        }
+
+        // Get MIDI output for this device
+        const midiOutput = this.controller.deviceManager.getMidiOutput(deviceId);
+        if (!midiOutput) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('MIDI output not available for this device.');
+            }
+            console.error('[Sequencer] MIDI output not available for device:', device.name);
+            return;
+        }
+
+        console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
+
+        // Get first available MIDI input (for receiving ACKs)
+        if (!this.controller.midiAccess) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('MIDI access not available.');
+            }
+            console.error('[Sequencer] MIDI access not available');
+            return;
+        }
+
+        const inputs = Array.from(this.controller.midiAccess.inputs.values());
+        if (inputs.length === 0) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('No MIDI input devices found (needed for ACK protocol).');
+            }
+            console.error('[Sequencer] No MIDI input devices');
+            return;
+        }
+
+        const midiInput = inputs[0]; // Use first input
+        console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
+
+        // Generate MIDI file
+        console.log('[Sequencer] Generating MIDI file for upload...');
+        const midiFileData = this.exportMIDI(true);
+        if (!midiFileData) {
+            console.error('[Sequencer] Failed to generate MIDI file');
+            return;
+        }
+
+        console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
+
+        // Create progress dialog
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        let uploadCancelled = false;
+
+        const progressContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Uploading to Samplecrate</h3>
+
+                <div style="margin-bottom: 10px;">
+                    <strong>Slot:</strong> ${slot}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Size:</strong> ${midiFileData.length} bytes
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <strong>Status:</strong> <span id="upload-status">Preparing...</span>
+                </div>
+
+                <div style="
+                    width: 100%;
+                    height: 20px;
+                    background: #0a0a0a;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 10px;
+                ">
+                    <div id="upload-progress-bar" style="
+                        width: 0%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #4a9eff, #aa6aaa);
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span id="upload-progress-text">0%</span>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="upload-cancel-btn" style="
+                        padding: 8px 20px;
+                        background: #4a2a2a;
+                        color: #ff6a6a;
+                        border: 1px solid #6a3a3a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(progressContent);
+
+        // Wire up cancel button
+        setTimeout(() => {
+            const cancelBtn = document.getElementById('upload-cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    uploadCancelled = true;
+                    window.nbDialog.hide();
+                    console.log('[Sequencer] Upload cancelled by user');
+                });
+            }
+        }, 100);
+
+        // Upload with progress callbacks
+        try {
+            const program = 0; // TODO: Add program selector
+            uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, program, midiFileData, {
+                onProgress: (currentChunk, totalChunks) => {
+                    if (uploadCancelled) return;
+
+                    const percent = Math.round((currentChunk / totalChunks) * 100);
+                    const progressBar = document.getElementById('upload-progress-bar');
+                    const progressText = document.getElementById('upload-progress-text');
+                    const statusText = document.getElementById('upload-status');
+
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (progressText) progressText.textContent = `${percent}%`;
+                    if (statusText) statusText.textContent = `Uploading chunk ${currentChunk}/${totalChunks}`;
+
+                    console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                },
+
+                onComplete: () => {
+                    if (uploadCancelled) return;
+
+                    console.log(`[Sequencer] Upload complete to slot ${slot}`);
+                    const statusText = document.getElementById('upload-status');
+                    if (statusText) statusText.textContent = 'Upload complete!';
+
+                    // Close dialog after 1 second
+                    setTimeout(() => {
+                        window.nbDialog.hide();
+                        if (window.nbDialog.alert) {
+                            window.nbDialog.alert(`Pattern uploaded successfully to slot ${slot}!`);
+                        }
+                    }, 1000);
+                },
+
+                onError: (error) => {
+                    if (uploadCancelled) return;
+
+                    console.error(`[Sequencer] Upload error:`, error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Upload failed: ${error}`);
+                    }
+                }
+            }).catch(error => {
+                if (!uploadCancelled) {
+                    console.error('[Sequencer] Upload promise rejected:', error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Upload failed: ${error}`);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('[Sequencer] Upload exception:', error);
+            window.nbDialog.hide();
+            if (window.nbDialog.alert) {
+                window.nbDialog.alert(`Upload failed: ${error.message}`);
+            }
+        }
+    }
+
+    downloadFromDevice() {
+        // Show device and slot selector dialog
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        // Get available devices
+        const devices = this.controller.deviceManager ? this.controller.deviceManager.getAllDevices() : [];
+        if (devices.length === 0) {
+            window.nbDialog.alert('No devices configured. Please add a device in Device Manager first.');
+            return;
+        }
+
+        const deviceOptions = devices.map(device =>
+            `<option value="${device.id}">${device.name} (ID: ${device.deviceId})</option>`
+        ).join('');
+
+        const selectorContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 350px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Download from Samplecrate</h3>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Source Device:</label>
+                    <select id="download-device-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        ${deviceOptions}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Source Slot (0-15):</label>
+                    <select id="download-slot-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">Slot ${i}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="download-slot-cancel" style="
+                        padding: 10px 20px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Cancel</button>
+                    <button id="download-slot-ok" style="
+                        padding: 10px 20px;
+                        background: #4a9eff;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Download</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(selectorContent);
+
+        // Wire up buttons
+        setTimeout(() => {
+            document.getElementById('download-slot-cancel')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+
+            document.getElementById('download-slot-ok')?.addEventListener('click', () => {
+                const deviceId = document.getElementById('download-device-selector').value;
+                const slot = parseInt(document.getElementById('download-slot-selector').value);
+                window.nbDialog.hide();
+
+                // Now proceed with download
+                this.performDownload(deviceId, slot);
+            });
+        }, 100);
+    }
+
+    performDownload(deviceId, slot) {
+        // Get device configuration
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('Device not found.');
+            }
+            console.error('[Sequencer] Device not found:', deviceId);
+            return;
+        }
+
+        // Get MIDI output for this device
+        const midiOutput = this.controller.deviceManager.getMidiOutput(deviceId);
+        if (!midiOutput) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('MIDI output not available for this device.');
+            }
+            console.error('[Sequencer] MIDI output not available for device:', device.name);
+            return;
+        }
+
+        console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
+
+        // Get first available MIDI input (for receiving responses)
+        if (!this.controller.midiAccess) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('MIDI access not available.');
+            }
+            console.error('[Sequencer] MIDI access not available');
+            return;
+        }
+
+        const inputs = Array.from(this.controller.midiAccess.inputs.values());
+        if (inputs.length === 0) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('No MIDI input devices found (needed for download protocol).');
+            }
+            console.error('[Sequencer] No MIDI input devices');
+            return;
+        }
+
+        const midiInput = inputs[0];
+        console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
+
+        // Create progress dialog with cancel button
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        let downloadCancelled = false;
+
+        const progressContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Downloading from Samplecrate</h3>
+
+                <div style="margin-bottom: 10px;">
+                    <strong>Slot:</strong> ${slot}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Status:</strong> <span id="download-status">Requesting...</span>
+                </div>
+
+                <div style="
+                    width: 100%;
+                    height: 20px;
+                    background: #0a0a0a;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 10px;
+                ">
+                    <div id="download-progress-bar" style="
+                        width: 0%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #4aff9e, #6a6aaa);
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span id="download-progress-text">0%</span>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="download-cancel-btn" style="
+                        padding: 8px 20px;
+                        background: #4a2a2a;
+                        color: #ff6a6a;
+                        border: 1px solid #6a3a3a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(progressContent);
+
+        // Wire up cancel button
+        setTimeout(() => {
+            const cancelBtn = document.getElementById('download-cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    downloadCancelled = true;
+                    window.nbDialog.hide();
+                    console.log('[Sequencer] Download cancelled by user');
+                });
+            }
+        }, 100);
+
+        // Download with progress callbacks
+        try {
+            downloadMidiFile(midiOutput, midiInput, device.deviceId, slot, {
+                onProgress: (currentChunk, totalChunks) => {
+                    if (downloadCancelled) return;
+
+                    const percent = Math.round((currentChunk / totalChunks) * 100);
+                    const progressBar = document.getElementById('download-progress-bar');
+                    const progressText = document.getElementById('download-progress-text');
+                    const statusText = document.getElementById('download-status');
+
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (progressText) progressText.textContent = `${percent}%`;
+                    if (statusText) statusText.textContent = `Downloading chunk ${currentChunk}/${totalChunks}`;
+
+                    console.log(`[Sequencer] Download progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                },
+
+                onComplete: (midiData) => {
+                    if (downloadCancelled) return;
+
+                    console.log(`[Sequencer] Download complete from slot ${slot}: ${midiData.length} bytes`);
+                    const statusText = document.getElementById('download-status');
+                    if (statusText) statusText.textContent = 'Download complete! Importing...';
+
+                    // Import the downloaded MIDI file into the sequencer
+                    setTimeout(() => {
+                        this.importMIDIFromData(midiData);
+                        window.nbDialog.hide();
+                        if (window.nbDialog.alert) {
+                            window.nbDialog.alert(`Pattern downloaded successfully from slot ${slot}!`);
+                        }
+                    }, 500);
+                },
+
+                onError: (error) => {
+                    if (downloadCancelled) return;
+
+                    console.error(`[Sequencer] Download error:`, error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Download failed: ${error}`);
+                    }
+                }
+            }).catch(error => {
+                if (!downloadCancelled) {
+                    console.error('[Sequencer] Download promise rejected:', error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Download failed: ${error}`);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('[Sequencer] Download exception:', error);
+            window.nbDialog.hide();
+            if (window.nbDialog.alert) {
+                window.nbDialog.alert(`Download failed: ${error.message}`);
+            }
+        }
+    }
+
+    importMIDIFromData(midiData) {
+        try {
+            // Reuse existing parseMIDIFile logic
+            this.parseMIDIFile(midiData);
+            console.log('[Sequencer] MIDI data imported successfully');
+        } catch (error) {
+            console.error('[Sequencer] Error importing MIDI data:', error);
+            if (window.nbDialog && window.nbDialog.alert) {
+                window.nbDialog.alert(`Error importing MIDI data: ${error.message}`);
+            }
+        }
+    }
+
 
     readVarLen(data, pos) {
         // Read variable-length quantity (MIDI standard)
