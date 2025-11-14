@@ -200,7 +200,7 @@ export class SequencerEngine {
 
         // Sync settings
         this.syncToSPP = false;          // Sync playback to incoming SPP
-        this.syncToMIDIClock = true;     // Sync to MIDI clock (0xF8) - ENABLED BY DEFAULT for stable timing!
+        this.syncToMIDIClock = false;    // Sync to MIDI clock (0xF8) - OFF by default, uses internal timing
         this.sendStartStop = false;      // Send MIDI start/stop messages
         this.receiveStartStop = false;   // Start/stop on incoming MIDI messages
         this.sendSPP = false;            // Send SPP (Song Position Pointer) messages

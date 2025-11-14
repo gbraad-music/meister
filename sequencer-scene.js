@@ -778,6 +778,9 @@ export class SequencerScene {
             }
         }
 
+        // Track last highlighted row for efficient updates
+        this.lastHighlightedRow = -1;
+
         // Update position indicator during playback (OPTIMIZED - no grid rebuild!)
         this.positionUpdateInterval = setInterval(() => {
             if (this.engine.playing) {
@@ -794,8 +797,27 @@ export class SequencerScene {
                     playBtn.style.color = '#9a9a4a';
                 }
 
-                // REMOVED: this.updateTrackerGrid() - was rebuilding 256+ DOM elements 10x/sec!
-                // Grid highlighting now handled by CSS or less frequent updates
+                // Update row highlighting efficiently (only 2 DOM updates per tick!)
+                if (this.engine.currentRow !== this.lastHighlightedRow) {
+                    const grid = document.getElementById('seq-tracker-grid');
+                    if (grid) {
+                        // Remove highlight from previous row
+                        if (this.lastHighlightedRow >= 0) {
+                            const prevRow = grid.children[this.lastHighlightedRow];
+                            if (prevRow) {
+                                prevRow.style.background = this.lastHighlightedRow % 4 === 0 ? '#0a0a0a' : '#000';
+                            }
+                        }
+
+                        // Add highlight to current row
+                        const currentRowDiv = grid.children[this.engine.currentRow];
+                        if (currentRowDiv) {
+                            currentRowDiv.style.background = '#1a2a1a';
+                        }
+
+                        this.lastHighlightedRow = this.engine.currentRow;
+                    }
+                }
             } else {
                 const playBtn = document.getElementById('seq-play-btn');
                 if (playBtn) {
