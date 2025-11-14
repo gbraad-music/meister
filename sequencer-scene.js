@@ -749,6 +749,9 @@ export class SequencerScene {
                 if (this.controller.sceneManager?.currentScene !== this.sceneId) return;
                 if (this.cursorField !== 0) return; // Only when on note field
 
+                // Don't insert notes during playback - prevents feedback loop from preview notes
+                if (this.engine.playing) return;
+
                 const [status, data1, data2] = event.data;
                 const messageType = status & 0xF0;
 
@@ -853,16 +856,18 @@ export class SequencerScene {
                 else if (e.ctrlKey && this.cursorField === 0) {
                     this.incrementOctave(1);
                 }
-                // Normal Up = move cursor up
+                // Normal Up = move cursor up (NO PREVIEW during playback)
                 else {
                     this.cursorRow = Math.max(0, this.cursorRow - 1);
                     this.ensureCursorVisible();
                     this.updateTrackerGrid();
 
-                    // Preview note on this row
-                    const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
-                    if (entry && entry.note) {
-                        this.previewNote(entry);
+                    // Only preview if NOT playing
+                    if (!this.engine.playing) {
+                        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+                        if (entry && entry.note) {
+                            this.previewNote(entry);
+                        }
                     }
                 }
                 break;
@@ -883,10 +888,12 @@ export class SequencerScene {
                     this.ensureCursorVisible();
                     this.updateTrackerGrid();
 
-                    // Preview note on this row
-                    const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
-                    if (entry && entry.note) {
-                        this.previewNote(entry);
+                    // Only preview if NOT playing
+                    if (!this.engine.playing) {
+                        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+                        if (entry && entry.note) {
+                            this.previewNote(entry);
+                        }
                     }
                 }
                 break;
@@ -1077,8 +1084,8 @@ export class SequencerScene {
         const velocity = parseInt(prompt(`Velocity (0-127):`, '100'));
         if (isNaN(velocity) || velocity < 0 || velocity > 127) return;
 
-        // Fill the track
-        for (let row = 0; row < this.engine.pattern.rows; row += interval) {
+        // Fill the track starting from cursor position
+        for (let row = this.cursorRow; row < this.engine.pattern.rows; row += interval) {
             const entry = new SequencerEntry();
             entry.note = fillNote;
             entry.octave = fillOctave;
@@ -1089,7 +1096,7 @@ export class SequencerScene {
 
         this.updateTrackerGrid();
         const separator = fillNote.includes('#') ? '' : '-';
-        console.log(`[Sequencer] Filled track ${track} with ${fillNote}${separator}${fillOctave} every ${interval} rows`);
+        console.log(`[Sequencer] Filled track ${track} with ${fillNote}${separator}${fillOctave} every ${interval} rows from row ${this.cursorRow}`);
     }
 
     exportMIDI() {
