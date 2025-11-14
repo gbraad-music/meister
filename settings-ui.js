@@ -137,13 +137,9 @@ export class SettingsUI {
                 } else if (scene.type === 'split') {
                     this.controller.sceneEditor.openSplitSceneEditor(sceneId);
                 } else if (scene.type === 'sequencer') {
-                    // Just allow editing the name for sequencer scenes
-                    const newName = prompt('Enter new sequencer scene name:', scene.name);
-                    if (newName && newName !== scene.name) {
-                        scene.name = newName;
-                        this.controller.sceneEditor?.saveScenesToStorage();
-                        this.refreshScenesList();
-                        this.controller.sceneManager.updateSceneSelector();
+                    // Open sequencer scene editor for renaming
+                    if (this.controller.sceneEditor) {
+                        this.controller.sceneEditor.openSequencerSceneEditor(sceneId);
                     }
                 } else {
                     this.controller.sceneEditor.openSceneEditor(sceneId);
@@ -191,10 +187,14 @@ export class SettingsUI {
             btn.addEventListener('click', () => {
                 const sceneId = btn.getAttribute('data-scene-id');
                 const scene = this.controller.sceneManager.scenes.get(sceneId);
-                if (scene && confirm(`Delete scene "${scene.name}"?\n\nThis action cannot be undone.`)) {
-                    this.controller.sceneManager.scenes.delete(sceneId);
-                    this.controller.sceneEditor?.saveScenesToStorage();
-                    this.refreshScenesList();
+                if (scene) {
+                    window.nbDialog.confirm(`Delete scene "${scene.name}"?\n\nThis action cannot be undone.`, (confirmed) => {
+                        if (confirmed) {
+                            this.controller.sceneManager.scenes.delete(sceneId);
+                            this.controller.sceneEditor?.saveScenesToStorage();
+                            this.refreshScenesList();
+                        }
+                    });
                 }
             });
         });
@@ -422,7 +422,7 @@ export class SettingsUI {
             // Check if action is selected
             const actionId = parseInt(actionSelect.value);
             if (!actionId) {
-                alert('Please select an action first');
+                window.nbDialog.alert('Please select an action first');
                 return;
             }
 
@@ -468,7 +468,7 @@ export class SettingsUI {
                     }
                 }
 
-                alert(`Mapped ${type.toUpperCase()} ${number} → ${getActionName(actionId)}\nTarget: ${targetDeviceName}`);
+                window.nbDialog.alert(`Mapped ${type.toUpperCase()} ${number} → ${getActionName(actionId)}\nTarget: ${targetDeviceName}`);
             });
         }
     }
@@ -552,11 +552,13 @@ export class SettingsUI {
      * Delete MIDI mapping
      */
     deleteMIDIMapping(index) {
-        if (confirm('Delete this MIDI mapping?')) {
-            this.controller.inputMapper.removeMidiMapping(index);
-            this.controller.saveConfig();
-            this.refreshMIDIMappingsList();
-        }
+        window.nbDialog.confirm('Delete this MIDI mapping?', (confirmed) => {
+            if (confirmed) {
+                this.controller.inputMapper.removeMidiMapping(index);
+                this.controller.saveConfig();
+                this.refreshMIDIMappingsList();
+            }
+        });
     }
 
     /**
@@ -633,18 +635,20 @@ export class SettingsUI {
      */
     addKeyboardShortcut() {
         // TODO: Show a dialog to add new shortcut
-        alert('Keyboard shortcut editor coming soon!\n\nFor now, use console:\nimport { KeyboardMapping, InputAction } from "./input-actions.js";\nmeisterController.inputMapper.addKeyboardMapping(new KeyboardMapping({ key: "r", action: InputAction.ACTION_REGROOVE_RECORD_TOGGLE }));');
+        window.nbDialog.alert('Keyboard shortcut editor coming soon!\n\nFor now, use console:\nimport { KeyboardMapping, InputAction } from "./input-actions.js";\nmeisterController.inputMapper.addKeyboardMapping(new KeyboardMapping({ key: "r", action: InputAction.ACTION_REGROOVE_RECORD_TOGGLE }));');
     }
 
     /**
      * Delete keyboard shortcut
      */
     deleteKeyboardShortcut(index) {
-        if (confirm('Delete this keyboard shortcut?')) {
-            this.controller.inputMapper.removeKeyboardMapping(index);
-            this.controller.saveConfig();
-            this.refreshKeyboardShortcutsList();
-        }
+        window.nbDialog.confirm('Delete this keyboard shortcut?', (confirmed) => {
+            if (confirmed) {
+                this.controller.inputMapper.removeKeyboardMapping(index);
+                this.controller.saveConfig();
+                this.refreshKeyboardShortcutsList();
+            }
+        });
     }
 
     /**
@@ -963,7 +967,7 @@ export class SettingsUI {
     addInputTargetOutput(inputId) {
         const outputId = document.getElementById('new-target-output')?.value;
         if (!outputId) {
-            alert('Please select a MIDI output');
+            window.nbDialog.alert('Please select a MIDI output');
             return;
         }
 
@@ -987,7 +991,7 @@ export class SettingsUI {
         const channelMode = document.getElementById('new-target-channel-mode')?.value || 'omni';
 
         if (!deviceId) {
-            alert('Please select a device');
+            window.nbDialog.alert('Please select a device');
             return;
         }
 

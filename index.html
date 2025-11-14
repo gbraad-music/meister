@@ -528,6 +528,7 @@
             padding: 5px;
         }
     </style>
+    <script src="./non-blocking-dialog.js"></script>
     <script type="module" src="./regroove-pad.js"></script>
     <script src="./regroove-state.js"></script>
     <script type="module" src="./meister-controller.js"></script>
@@ -1363,6 +1364,99 @@
                 <div class="button-group">
                     <button id="save-piano-scene">💾 SAVE SCENE</button>
                     <button id="delete-piano-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-overlay" id="sequencer-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="sequencer-scene-editor-title">NEW SEQUENCER SCENE</div>
+                <button class="close-settings" id="close-sequencer-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="sequencer-scene-name" placeholder="My Sequencer" style="width: 100%;">
+                </div>
+
+                <div class="button-group">
+                    <button id="save-sequencer-scene">💾 SAVE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Instance Editor -->
+    <div class="settings-overlay" id="device-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="device-editor-title">ADD DEVICE INSTANCE</div>
+                <button class="close-settings" id="close-device-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">DEVICE NAME</label>
+                    <input type="text" id="device-name" placeholder="My Device" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI CHANNEL (1-16)</label>
+                    <select id="device-midi-channel" style="width: 100%;">
+                        <option value="0">Channel 1</option>
+                        <option value="1">Channel 2</option>
+                        <option value="2">Channel 3</option>
+                        <option value="3">Channel 4</option>
+                        <option value="4">Channel 5</option>
+                        <option value="5">Channel 6</option>
+                        <option value="6">Channel 7</option>
+                        <option value="7">Channel 8</option>
+                        <option value="8">Channel 9</option>
+                        <option value="9">Channel 10</option>
+                        <option value="10">Channel 11</option>
+                        <option value="11">Channel 12</option>
+                        <option value="12">Channel 13</option>
+                        <option value="13">Channel 14</option>
+                        <option value="14">Channel 15</option>
+                        <option value="15">Channel 16</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">SYSEX DEVICE ID (0-15)</label>
+                    <select id="device-sysex-id" style="width: 100%;">
+                        <option value="0">Device ID 0</option>
+                        <option value="1">Device ID 1</option>
+                        <option value="2">Device ID 2</option>
+                        <option value="3">Device ID 3</option>
+                        <option value="4">Device ID 4</option>
+                        <option value="5">Device ID 5</option>
+                        <option value="6">Device ID 6</option>
+                        <option value="7">Device ID 7</option>
+                        <option value="8">Device ID 8</option>
+                        <option value="9">Device ID 9</option>
+                        <option value="10">Device ID 10</option>
+                        <option value="11">Device ID 11</option>
+                        <option value="12">Device ID 12</option>
+                        <option value="13">Device ID 13</option>
+                        <option value="14">Device ID 14</option>
+                        <option value="15">Device ID 15</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI OUTPUT</label>
+                    <select id="device-midi-output" style="width: 100%;">
+                        <option value="">-- Select MIDI Output --</option>
+                    </select>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-device">💾 SAVE DEVICE</button>
+                    <button id="delete-device" style="background: #4a2a2a; color: #cc4444; display: none;">🗑️ DELETE DEVICE</button>
                 </div>
             </div>
         </div>

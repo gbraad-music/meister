@@ -326,7 +326,7 @@ class MeisterController {
         document.getElementById('save-config').addEventListener('click', () => {
             if (!this.sceneEditor) {
                 console.warn('[Config] SceneEditor not yet initialized');
-                alert('Please wait for the app to fully load before saving configuration.');
+                window.nbDialog.alert('Please wait for the app to fully load before saving configuration.');
                 return;
             }
             this.downloadConfig();
@@ -441,8 +441,6 @@ class MeisterController {
 
             this.saveConfig();
         });
-
-        // WAAClock removed - using JS clock only
 
         // Receive SPP
         document.getElementById('receive-spp').addEventListener('change', (e) => {
@@ -2030,47 +2028,6 @@ class MeisterController {
         this.clockInterval = setTimeout(clockTick, 0);
     }
 
-    startWAAClock() {
-        try {
-            // Create Web Audio context if needed
-            if (!this.waaContext) {
-                this.waaContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            // Check if WAAClock is available
-            if (typeof WAAClock === 'undefined') {
-                console.error('WAAClock not loaded! Falling back to JavaScript clock.');
-                alert('WAAClock library not found. Using standard clock instead.\n\nTo use WAAClock, include the library:\n<script src="https://cdn.jsdelivr.net/npm/waaclock@latest/dist/WAAClock.min.js"></script>');
-                this.useWAAClock = false;
-                this.startJSClock();
-                return;
-            }
-
-            // Create WAAClock instance
-            if (!this.waaClock) {
-                this.waaClock = new WAAClock(this.waaContext);
-                this.waaClock.start();
-            }
-
-            // Calculate interval (24 ppqn)
-            const PULSES_PER_QUARTER_NOTE = 24;
-            const interval = 60 / this.clockBPM / PULSES_PER_QUARTER_NOTE;
-
-            // Schedule repeating MIDI clock - start slightly in the future
-            const startTime = this.waaContext.currentTime + 0.005; // Start 5ms in the future
-
-            this.waaClockEvent = this.waaClock.callbackAtTime((event) => {
-                if (this.midiOutput) {
-                    this.midiOutput.send([0xF8]);
-                }
-            }, startTime).repeat(interval).tolerance({ late: 0.01, early: 0.01 });
-        } catch (err) {
-            console.error('Failed to start WAAClock:', err);
-            this.useWAAClock = false;
-            this.startJSClock();
-        }
-    }
-
     stopClock() {
         // Stop Web Worker clock
         if (this.clockWorker && this.clockInterval) {
@@ -2083,12 +2040,6 @@ class MeisterController {
         if (this.clockInterval) {
             clearTimeout(this.clockInterval);
             this.clockInterval = null;
-        }
-
-        // Stop WAAClock
-        if (this.waaClockEvent) {
-            this.waaClockEvent.clear();
-            this.waaClockEvent = null;
         }
 
         // Note: We do NOT send MIDI Stop (0xFC) here
@@ -2188,7 +2139,6 @@ class MeisterController {
             this.config.clockMaster = this.clockMaster;
             this.config.clockBPM = this.clockBPM;
             this.config.receiveSPP = this.receiveSPP;
-            this.config.useWAAClock = this.useWAAClock;
             this.config.pollingIntervalMs = this.regrooveState.pollingIntervalMs;
 
             // Save MIDI output selection
@@ -2219,7 +2169,6 @@ class MeisterController {
                 this.clockMaster = this.config.clockMaster || false;
                 this.clockBPM = this.config.clockBPM || 120;
                 this.receiveSPP = this.config.receiveSPP !== undefined ? this.config.receiveSPP : true; // Default to true
-                this.useWAAClock = this.config.useWAAClock || false;
 
                 // Load polling interval
                 if (this.config.pollingIntervalMs !== undefined) {
@@ -2229,7 +2178,6 @@ class MeisterController {
                 document.getElementById('clock-master').checked = this.clockMaster;
                 document.getElementById('clock-bpm').value = this.clockBPM;
                 document.getElementById('receive-spp').checked = this.receiveSPP;
-                // WAAClock removed
 
                 // Update polling interval UI
                 const pollingSlider = document.getElementById('polling-interval');
@@ -2308,7 +2256,7 @@ class MeisterController {
                         this.sceneEditor.loadCustomScenes(customScenes);
                     } catch (sceneError) {
                         console.error('[Config] Error restoring custom scenes:', sceneError);
-                        alert('Warning: Could not restore custom mixer scenes. Pads and devices were loaded successfully.');
+                        window.nbDialog.alert('Warning: Could not restore custom mixer scenes. Pads and devices were loaded successfully.');
                     }
                 }
 
@@ -2326,10 +2274,10 @@ class MeisterController {
                 this.saveConfig();
 
                 console.log('[Config] Configuration loaded from file');
-                alert('Configuration loaded successfully!');
+                window.nbDialog.alert('Configuration loaded successfully!');
             } catch (err) {
                 console.error('Failed to parse config file:', err);
-                alert('Error loading configuration file');
+                window.nbDialog.alert('Error loading configuration file');
             }
         };
         reader.readAsText(file);

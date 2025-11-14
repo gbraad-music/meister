@@ -206,6 +206,15 @@ export class SceneEditor {
         document.getElementById('delete-piano-scene')?.addEventListener('click', () => {
             this.deletePianoScene();
         });
+
+        // Sequencer scene editor
+        document.getElementById('close-sequencer-scene-editor')?.addEventListener('click', () => {
+            this.closeSequencerSceneEditor();
+        });
+
+        document.getElementById('save-sequencer-scene')?.addEventListener('click', () => {
+            this.saveSequencerScene();
+        });
     }
 
     openSceneEditor(sceneId = null) {
@@ -462,7 +471,7 @@ export class SceneEditor {
     saveScene() {
         const name = document.getElementById('scene-name').value.trim();
         if (!name) {
-            alert('Please enter a scene name');
+            window.nbDialog.alert('Please enter a scene name');
             return;
         }
 
@@ -521,22 +530,23 @@ export class SceneEditor {
             this.sceneManager.switchScene(this.currentSceneId);
         }
 
-        alert(`Scene "${name}" saved!`);
         this.closeSceneEditor();
     }
 
     deleteScene() {
         if (!this.currentSceneId || this.currentSceneId === 'pads' || this.currentSceneId === 'mixer') {
-            alert('Cannot delete built-in scenes');
+            window.nbDialog.alert('Cannot delete built-in scenes');
             return;
         }
 
-        if (confirm(`Delete scene "${this.sceneConfig.name}"?`)) {
-            this.sceneManager.scenes.delete(this.currentSceneId);
-            this.saveScenesToStorage();
-            this.refreshScenesList();
-            this.closeSceneEditor();
-        }
+        window.nbDialog.confirm(`Delete scene "${this.sceneConfig.name}"?`, (confirmed) => {
+            if (confirmed) {
+                this.sceneManager.scenes.delete(this.currentSceneId);
+                this.saveScenesToStorage();
+                this.refreshScenesList();
+                this.closeSceneEditor();
+            }
+        });
     }
 
     openPadSceneEditor(sceneId = null) {
@@ -713,12 +723,12 @@ export class SceneEditor {
         }
 
         if (!name) {
-            alert('Please enter a scene name');
+            window.nbDialog.alert('Please enter a scene name');
             return;
         }
 
         if (!deviceBinding) {
-            alert('Please select a device');
+            window.nbDialog.alert('Please select a device');
             return;
         }
 
@@ -761,18 +771,17 @@ export class SceneEditor {
 
     deleteEffectsScene() {
         if (this.currentSceneId === 'effects') {
-            alert('Cannot delete the built-in effects scene');
+            window.nbDialog.alert('Cannot delete the built-in effects scene');
             return;
         }
 
-        if (!confirm('Are you sure you want to delete this effects scene?')) {
-            return;
-        }
-
-        this.sceneManager.scenes.delete(this.currentSceneId);
-        this.saveScenesToStorage();
-        this.refreshScenesList();
-        this.closeEffectsSceneEditor();
+        window.nbDialog.confirm('Are you sure you want to delete this effects scene?', (confirmed) => {
+            if (!confirmed) return;
+            this.sceneManager.scenes.delete(this.currentSceneId);
+            this.saveScenesToStorage();
+            this.refreshScenesList();
+            this.closeEffectsSceneEditor();
+        });
 
         // console.log(`[SceneEditor] Deleted effects scene: ${this.currentSceneId}`);
     }
@@ -780,7 +789,7 @@ export class SceneEditor {
     savePadScene() {
         const name = document.getElementById('pad-scene-name').value.trim();
         if (!name) {
-            alert('Please enter a scene name');
+            window.nbDialog.alert('Please enter a scene name');
             return;
         }
 
@@ -837,22 +846,23 @@ export class SceneEditor {
             this.sceneManager.switchScene(this.currentSceneId);
         }
 
-        alert(`Pad scene "${name}" saved! Switch to the scene to configure individual pads.`);
         this.closePadSceneEditor();
     }
 
     deletePadScene() {
         if (!this.currentSceneId || this.currentSceneId === 'pads') {
-            alert('Cannot delete the built-in pads scene');
+            window.nbDialog.alert('Cannot delete the built-in pads scene');
             return;
         }
 
-        if (confirm(`Delete pad scene "${this.padSceneConfig.name}"?`)) {
-            this.sceneManager.scenes.delete(this.currentSceneId);
-            this.saveScenesToStorage();
-            this.refreshScenesList();
-            this.closePadSceneEditor();
-        }
+        window.nbDialog.confirm(`Delete pad scene "${this.padSceneConfig.name}"?`, (confirmed) => {
+            if (confirmed) {
+                this.sceneManager.scenes.delete(this.currentSceneId);
+                this.saveScenesToStorage();
+                this.refreshScenesList();
+                this.closePadSceneEditor();
+            }
+        });
     }
 
     /**
@@ -1102,7 +1112,7 @@ export class SceneEditor {
     saveSplitScene() {
         const name = document.getElementById('split-scene-name').value.trim();
         if (!name) {
-            alert('Please enter a scene name');
+            window.nbDialog.alert('Please enter a scene name');
             return;
         }
 
@@ -1117,7 +1127,7 @@ export class SceneEditor {
         const slots = this.splitFaderSlots.filter(slot => slot && slot.type !== 'EMPTY');
 
         if (slots.length === 0) {
-            alert('Please configure at least one fader');
+            window.nbDialog.alert('Please configure at least one fader');
             return;
         }
 
@@ -1152,8 +1162,6 @@ export class SceneEditor {
         // Close editor and switch to scene
         this.closeSplitSceneEditor();
         this.sceneManager.switchScene(this.currentSceneId);
-
-        alert(`Split scene "${name}" saved!`);
     }
 
     deleteSplitScene() {
@@ -1162,15 +1170,17 @@ export class SceneEditor {
         const scene = this.sceneManager.scenes.get(this.currentSceneId);
         if (!scene) return;
 
-        if (confirm(`Delete split scene "${scene.name}"?`)) {
-            this.sceneManager.scenes.delete(this.currentSceneId);
-            this.saveScenesToStorage();
-            this.refreshScenesList();
-            if (this.sceneManager.controller.settingsUI) {
-                this.sceneManager.controller.settingsUI.refreshScenesList();
+        window.nbDialog.confirm(`Delete split scene "${scene.name}"?`, (confirmed) => {
+            if (confirmed) {
+                this.sceneManager.scenes.delete(this.currentSceneId);
+                this.saveScenesToStorage();
+                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
+                this.closeSplitSceneEditor();
             }
-            this.closeSplitSceneEditor();
-        }
+        });
     }
 
     closePianoSceneEditor() {
@@ -1185,7 +1195,7 @@ export class SceneEditor {
         const program = parseInt(document.getElementById('piano-scene-program').value);
 
         if (!name) {
-            alert('Please enter a scene name');
+            window.nbDialog.alert('Please enter a scene name');
             return;
         }
 
@@ -1214,18 +1224,17 @@ export class SceneEditor {
 
     deletePianoScene() {
         if (this.currentSceneId === 'piano') {
-            alert('Cannot delete the built-in piano scene');
+            window.nbDialog.alert('Cannot delete the built-in piano scene');
             return;
         }
 
-        if (!confirm('Are you sure you want to delete this piano scene?')) {
-            return;
-        }
-
-        this.sceneManager.scenes.delete(this.currentSceneId);
-        this.saveScenesToStorage();
-        this.refreshScenesList();
-        this.closePianoSceneEditor();
+        window.nbDialog.confirm('Are you sure you want to delete this piano scene?', (confirmed) => {
+            if (!confirmed) return;
+            this.sceneManager.scenes.delete(this.currentSceneId);
+            this.saveScenesToStorage();
+            this.refreshScenesList();
+            this.closePianoSceneEditor();
+        });
     }
 
     saveScenesToStorage() {
@@ -1560,28 +1569,87 @@ export class SceneEditor {
      * Create a new sequencer scene
      */
     createSequencerScene() {
-        const name = prompt('Enter sequencer scene name:', 'Sequencer ' + (this.sceneManager.scenes.size + 1));
-        if (!name) return;
+        this.openSequencerSceneEditor();
+    }
 
-        // Generate unique ID
-        const sceneId = 'sequencer-' + Date.now();
+    /**
+     * Open sequencer scene editor (for create or rename)
+     */
+    openSequencerSceneEditor(sceneId = null) {
+        this.currentSceneId = sceneId;
 
-        // Create and add scene
-        this.sceneManager.addScene(sceneId, {
-            name: name,
-            type: 'sequencer',
-            enabled: true
-        });
+        if (sceneId) {
+            // Edit existing scene (rename only)
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'sequencer') {
+                document.getElementById('sequencer-scene-editor-title').textContent = 'RENAME SEQUENCER SCENE';
+                document.getElementById('sequencer-scene-name').value = scene.name;
+            }
+        } else {
+            // New scene
+            document.getElementById('sequencer-scene-editor-title').textContent = 'NEW SEQUENCER SCENE';
+            document.getElementById('sequencer-scene-name').value = 'Sequencer ' + (this.sceneManager.scenes.size + 1);
+        }
 
-        // Save to localStorage
-        this.saveScenesToStorage();
+        document.getElementById('sequencer-scene-editor-overlay').classList.add('active');
 
-        // Refresh scenes list
-        this.refreshScenesList();
+        // Focus on name input
+        setTimeout(() => {
+            document.getElementById('sequencer-scene-name').focus();
+            document.getElementById('sequencer-scene-name').select();
+        }, 100);
+    }
 
-        // Switch to the new scene
-        this.sceneManager.switchScene(sceneId);
+    closeSequencerSceneEditor() {
+        document.getElementById('sequencer-scene-editor-overlay').classList.remove('active');
+    }
 
-        console.log(`[SceneEditor] Created sequencer scene: ${name}`);
+    saveSequencerScene() {
+        const name = document.getElementById('sequencer-scene-name').value.trim();
+        if (!name) {
+            window.nbDialog.alert('Please enter a scene name');
+            return;
+        }
+
+        if (this.currentSceneId) {
+            // Rename existing scene
+            const scene = this.sceneManager.scenes.get(this.currentSceneId);
+            if (scene) {
+                scene.name = name;
+                this.saveScenesToStorage();
+                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
+                this.closeSequencerSceneEditor();
+                console.log(`[SceneEditor] Renamed sequencer scene: ${name}`);
+            }
+        } else {
+            // Create new scene
+            const sceneId = 'sequencer-' + Date.now();
+
+            this.sceneManager.addScene(sceneId, {
+                name: name,
+                type: 'sequencer',
+                enabled: true
+            });
+
+            // Save to localStorage
+            this.saveScenesToStorage();
+
+            // Refresh scenes list
+            this.refreshScenesList();
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
+
+            // Close editor
+            this.closeSequencerSceneEditor();
+
+            // Switch to the new scene
+            this.sceneManager.switchScene(sceneId);
+
+            console.log(`[SceneEditor] Created sequencer scene: ${name}`);
+        }
     }
 }

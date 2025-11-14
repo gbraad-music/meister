@@ -536,9 +536,10 @@ export class SequencerEngine {
         // Determine MIDI channel
         let midiChannel = device.midiChannel;
 
-        // Send Program Change if program is specified (can be per-note for Samplecrate)
+        // Always send Program Change before note (required for multi-timbral devices like Samplecrate)
         // Programs are 0-indexed on wire (0-31), but 1-indexed in UI (1-32)
-        if (program > 0 && program <= 32) {
+        // Program 0 in UI = don't send, programs 1-32 in UI = send 0-31 on wire
+        if (program >= 1 && program <= 32) {
             const programChange = 0xC0 | midiChannel;
             const programNumber = (program - 1) & 0x7F; // Convert 1-32 to 0-31
             midiOutput.send([programChange, programNumber]);

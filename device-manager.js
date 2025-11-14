@@ -201,67 +201,115 @@ export class DeviceManager {
             this.openDeviceEditor();
         });
 
+        // Close device editor button
+        document.getElementById('close-device-editor')?.addEventListener('click', () => {
+            this.closeDeviceEditor();
+        });
+
+        // Save device button
+        document.getElementById('save-device')?.addEventListener('click', () => {
+            this.saveDeviceFromEditor();
+        });
+
+        // Delete device button
+        document.getElementById('delete-device')?.addEventListener('click', () => {
+            this.deleteDeviceFromEditor();
+        });
+
         // Refresh list on load
         this.refreshDeviceList();
     }
 
     /**
-     * Open device editor dialog
+     * Open device editor panel
      */
     openDeviceEditor(deviceId = null) {
-        const name = deviceId
-            ? this.devices.get(deviceId)?.name || ''
-            : '';
-        const midiChannel = deviceId
-            ? this.devices.get(deviceId)?.midiChannel ?? 0
-            : 0;
-        const sysexDeviceId = deviceId
-            ? this.devices.get(deviceId)?.deviceId ?? 0
-            : 0;
+        this.editingDeviceId = deviceId;
 
-        const newName = prompt(
-            `Device Name:`,
-            name || 'New Device'
-        );
+        // Set panel title
+        const title = deviceId ? 'EDIT DEVICE INSTANCE' : 'ADD DEVICE INSTANCE';
+        document.getElementById('device-editor-title').textContent = title;
 
-        if (!newName) return;
+        // Populate MIDI output dropdown
+        this.populateDeviceMidiOutputs();
 
-        const newChannelInput = parseInt(prompt(
-            `MIDI Channel (1-16):`,
-            (midiChannel + 1).toString()
-        ));
+        if (deviceId) {
+            // Edit existing device
+            const device = this.devices.get(deviceId);
+            if (device) {
+                document.getElementById('device-name').value = device.name;
+                document.getElementById('device-midi-channel').value = device.midiChannel;
+                document.getElementById('device-sysex-id').value = device.deviceId;
+                document.getElementById('device-midi-output').value = device.midiOutputId || '';
+                document.getElementById('delete-device').style.display = 'inline-block';
+            }
+        } else {
+            // New device - defaults
+            document.getElementById('device-name').value = 'New Device';
+            document.getElementById('device-midi-channel').value = 0;
+            document.getElementById('device-sysex-id').value = 0;
+            document.getElementById('device-midi-output').value = '';
+            document.getElementById('delete-device').style.display = 'none';
+        }
 
-        if (isNaN(newChannelInput) || newChannelInput < 1 || newChannelInput > 16) {
-            alert('Invalid MIDI channel. Must be 1-16.');
+        // Show panel
+        document.getElementById('device-editor-overlay').classList.add('active');
+
+        // Focus on name input
+        setTimeout(() => {
+            document.getElementById('device-name').focus();
+            document.getElementById('device-name').select();
+        }, 100);
+    }
+
+    /**
+     * Populate MIDI output dropdown in device editor
+     */
+    populateDeviceMidiOutputs() {
+        const select = document.getElementById('device-midi-output');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Use Default Output</option>';
+
+        if (this.controller.midiAccess) {
+            const outputs = Array.from(this.controller.midiAccess.outputs.values());
+            outputs.forEach(output => {
+                const option = document.createElement('option');
+                option.value = output.id;
+                option.textContent = output.name;
+                select.appendChild(option);
+            });
+        }
+    }
+
+    /**
+     * Close device editor panel
+     */
+    closeDeviceEditor() {
+        document.getElementById('device-editor-overlay').classList.remove('active');
+        this.editingDeviceId = null;
+    }
+
+    /**
+     * Save device from editor panel
+     */
+    saveDeviceFromEditor() {
+        const name = document.getElementById('device-name').value.trim();
+        if (!name) {
+            window.nbDialog.alert('Please enter a device name');
             return;
         }
 
-        // Convert from one-based (user input) to zero-based (internal storage)
-        const newChannel = newChannelInput - 1;
+        const midiChannel = parseInt(document.getElementById('device-midi-channel').value);
+        const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
+        const midiOutputId = document.getElementById('device-midi-output').value || null;
 
-        const newDeviceId = parseInt(prompt(
-            `SysEx Device ID (0-15):`,
-            sysexDeviceId.toString()
-        ));
-
-        if (isNaN(newDeviceId) || newDeviceId < 0 || newDeviceId > 15) {
-            alert('Invalid device ID. Must be 0-15.');
-            return;
-        }
-
-        // Get MIDI output selection
-        const currentOutputId = deviceId ? this.devices.get(deviceId)?.midiOutputId : null;
-        const midiOutputId = this.selectMidiOutput(currentOutputId);
-
-        // User cancelled MIDI output selection
-        if (midiOutputId === undefined) return;
-
-        const id = deviceId || `device-${Date.now()}`;
+        const id = this.editingDeviceId || `device-${Date.now()}`;
 
         this.addDevice(id, {
-            name: newName,
-            midiChannel: newChannel,
-            deviceId: newDeviceId,
+            name: name,
+            midiChannel: midiChannel,
+            deviceId: sysexDeviceId,
             midiOutputId: midiOutputId
         });
 
@@ -269,53 +317,25 @@ export class DeviceManager {
         if (this.devices.size === 1 && !this.defaultDeviceId) {
             this.setDefaultDevice(id);
         }
+
+        this.closeDeviceEditor();
     }
 
     /**
-     * Select MIDI output for a device
+     * Delete device from editor panel
      */
-    selectMidiOutput(currentOutputId) {
-        if (!this.controller.midiAccess) {
-            alert('MIDI not initialized. Please check MIDI settings.');
-            return null;
-        }
+    deleteDeviceFromEditor() {
+        if (!this.editingDeviceId) return;
 
-        const outputs = Array.from(this.controller.midiAccess.outputs.values());
+        const device = this.devices.get(this.editingDeviceId);
+        if (!device) return;
 
-        if (outputs.length === 0) {
-            alert('No MIDI outputs available.');
-            return null;
-        }
-
-        // Build list of outputs
-        let outputsList = 'Available MIDI Outputs:\n\n';
-        outputsList += '0. Use Default Output\n';
-        outputs.forEach((output, index) => {
-            const selected = output.id === currentOutputId ? ' (CURRENT)' : '';
-            outputsList += `${index + 1}. ${output.name}${selected}\n`;
+        window.nbDialog.confirm(`Delete device "${device.name}"?`, (confirmed) => {
+            if (confirmed) {
+                this.removeDevice(this.editingDeviceId);
+                this.closeDeviceEditor();
+            }
         });
-
-        const selection = prompt(
-            `${outputsList}\nSelect MIDI Output (0-${outputs.length}):`,
-            currentOutputId ? (outputs.findIndex(o => o.id === currentOutputId) + 1).toString() : '0'
-        );
-
-        if (selection === null) {
-            return undefined; // User cancelled
-        }
-
-        const selectedIndex = parseInt(selection);
-
-        if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex > outputs.length) {
-            alert(`Invalid selection. Must be 0-${outputs.length}.`);
-            return undefined;
-        }
-
-        if (selectedIndex === 0) {
-            return null; // Use default output
-        }
-
-        return outputs[selectedIndex - 1].id;
     }
 
     /**
@@ -378,9 +398,11 @@ export class DeviceManager {
             btn.addEventListener('click', () => {
                 const deviceId = btn.getAttribute('data-device-id');
                 const device = this.devices.get(deviceId);
-                if (confirm(`Delete device "${device.name}"?`)) {
-                    this.removeDevice(deviceId);
-                }
+                window.nbDialog.confirm(`Delete device "${device.name}"?`, (confirmed) => {
+                    if (confirmed) {
+                        this.removeDevice(deviceId);
+                    }
+                });
             });
         });
 

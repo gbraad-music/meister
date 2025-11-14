@@ -4,6 +4,7 @@
  */
 
 import { SequencerEngine, SequencerEntry } from './sequencer-engine.js';
+import { showFillDialog } from './fill-dialog.js';
 
 export class SequencerScene {
     constructor(controller, sceneId, config = {}) {
@@ -1051,52 +1052,192 @@ export class SequencerScene {
 
     openFillDialog() {
         const track = this.cursorTrack + 1;
-        const note = prompt(`Fill Track ${track} with note (e.g., C-3, D#4) or leave empty to fill with cursor note:`);
 
-        if (note === null) return; // User cancelled
-
-        let fillNote = null;
-        let fillOctave = 3;
-
-        if (note.trim() === '') {
-            // Use current cursor entry
-            const cursorEntry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
-            if (!cursorEntry || !cursorEntry.note) {
-                alert('No note at cursor position. Please specify a note (e.g., C-3 or C#4)');
-                return;
-            }
-            fillNote = cursorEntry.note;
-            fillOctave = cursorEntry.octave;
-        } else {
-            // Parse note format: "C-3" (naturals with dash) or "C#4" (sharps without dash)
-            const match = note.trim().match(/^([A-G]#?)-?(\d)$/i);
-            if (!match) {
-                alert('Invalid note format. Use format like C-3 or C#4.');
-                return;
-            }
-            fillNote = match[1].toUpperCase();
-            fillOctave = parseInt(match[2]);
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
         }
 
-        const interval = parseInt(prompt(`Fill every N rows (1=all, 4=every 4th, 8=every 8th, 16=every 16th):`, '4'));
-        if (!interval || interval < 1 || interval > 64) return;
+        // Get cursor note as default
+        const cursorEntry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+        const defaultNote = cursorEntry?.note || 'C';
+        const defaultOctave = cursorEntry?.octave || 3;
 
-        const velocity = parseInt(prompt(`Velocity (0-127):`, '100'));
-        if (isNaN(velocity) || velocity < 0 || velocity > 127) return;
+        // Create touch-friendly fill dialog
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const intervals = [1, 2, 4, 6, 8, 10, 12, 14, 16];
+        const velocities = [64, 80, 100, 120, 127];
 
-        // Fill the track starting from cursor position
-        for (let row = this.cursorRow; row < this.engine.pattern.rows; row += interval) {
-            const entry = new SequencerEntry();
-            entry.note = fillNote;
-            entry.octave = fillOctave;
-            entry.volume = velocity;
-            entry.program = this.engine.trackPrograms[this.cursorTrack] || 0;
-            this.engine.pattern.setEntry(row, this.cursorTrack, entry);
-        }
+        const content = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Fill Track ${track}</h3>
 
-        this.updateTrackerGrid();
-        const separator = fillNote.includes('#') ? '' : '-';
-        console.log(`[Sequencer] Filled track ${track} with ${fillNote}${separator}${fillOctave} every ${interval} rows from row ${this.cursorRow}`);
+                <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 5px; font-weight: bold;">Note:</div>
+                    <div id="fill-note-buttons" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;">
+                        ${notes.map(note => `
+                            <button class="fill-note-btn" data-note="${note}" style="
+                                padding: 10px;
+                                background: ${note === defaultNote ? '#4a9eff' : '#333'};
+                                color: #fff;
+                                border: 1px solid #555;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-weight: bold;
+                            ">${note}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 5px; font-weight: bold;">Octave:</div>
+                    <div id="fill-octave-buttons" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                        ${[0, 1, 2, 3, 4, 5, 6, 7, 8].map(oct => `
+                            <button class="fill-octave-btn" data-octave="${oct}" style="
+                                padding: 10px;
+                                background: ${oct === defaultOctave ? '#4a9eff' : '#333'};
+                                color: #fff;
+                                border: 1px solid #555;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-weight: bold;
+                            ">${oct}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 5px; font-weight: bold;">Interval (every N rows):</div>
+                    <div id="fill-interval-buttons" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                        ${intervals.map(int => `
+                            <button class="fill-interval-btn" data-interval="${int}" style="
+                                padding: 10px;
+                                background: ${int === 4 ? '#4a9eff' : '#333'};
+                                color: #fff;
+                                border: 1px solid #555;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-weight: bold;
+                            ">${int}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <div style="margin-bottom: 5px; font-weight: bold;">Velocity:</div>
+                    <div id="fill-velocity-buttons" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                        ${velocities.map(vel => `
+                            <button class="fill-velocity-btn" data-velocity="${vel}" style="
+                                padding: 10px;
+                                background: ${vel === 100 ? '#4a9eff' : '#333'};
+                                color: #fff;
+                                border: 1px solid #555;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-weight: bold;
+                            ">${vel}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="fill-cancel" style="
+                        padding: 10px 20px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Cancel</button>
+                    <button id="fill-ok" style="
+                        padding: 10px 20px;
+                        background: #4a9eff;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Fill</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(content);
+
+        // Track selected values
+        let selectedNote = defaultNote;
+        let selectedOctave = defaultOctave;
+        let selectedInterval = 4;
+        let selectedVelocity = 100;
+
+        // Note button handlers
+        document.querySelectorAll('.fill-note-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedNote = btn.dataset.note;
+                document.querySelectorAll('.fill-note-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a9eff';
+            });
+        });
+
+        // Octave button handlers
+        document.querySelectorAll('.fill-octave-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedOctave = parseInt(btn.dataset.octave);
+                document.querySelectorAll('.fill-octave-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a9eff';
+            });
+        });
+
+        // Interval button handlers
+        document.querySelectorAll('.fill-interval-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedInterval = parseInt(btn.dataset.interval);
+                document.querySelectorAll('.fill-interval-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a9eff';
+            });
+        });
+
+        // Velocity button handlers
+        document.querySelectorAll('.fill-velocity-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedVelocity = parseInt(btn.dataset.velocity);
+                document.querySelectorAll('.fill-velocity-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a9eff';
+            });
+        });
+
+        // OK button
+        document.getElementById('fill-ok').addEventListener('click', () => {
+            window.nbDialog.hide();
+
+            // Fill the track starting from cursor position
+            for (let row = this.cursorRow; row < this.engine.pattern.rows; row += selectedInterval) {
+                const entry = new SequencerEntry();
+                entry.note = selectedNote;
+                entry.octave = selectedOctave;
+                entry.volume = selectedVelocity;
+                entry.program = this.engine.trackPrograms[this.cursorTrack] || 0;
+                this.engine.pattern.setEntry(row, this.cursorTrack, entry);
+            }
+
+            this.updateTrackerGrid();
+            const separator = selectedNote.includes('#') ? '' : '-';
+            console.log(`[Sequencer] Filled track ${track} with ${selectedNote}${separator}${selectedOctave} every ${selectedInterval} rows from row ${this.cursorRow}`);
+        });
+
+        // Cancel button
+        document.getElementById('fill-cancel').addEventListener('click', () => {
+            window.nbDialog.hide();
+        });
     }
 
     exportMIDI() {
@@ -1254,7 +1395,7 @@ export class SequencerScene {
                     this.parseMIDIFile(data);
                 } catch (err) {
                     console.error('[Sequencer] MIDI import error:', err);
-                    alert('Error importing MIDI file: ' + err.message);
+                    window.nbDialog.alert('Error importing MIDI file: ' + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -1287,47 +1428,61 @@ export class SequencerScene {
 
         console.log(`[Sequencer] MIDI Import: Format ${format}, ${numTracks} tracks, ${ticksPerQuarterNote} ticks/quarter`);
 
-        // Ask which track to import
-        const targetTrack = parseInt(prompt(`Import to which sequencer track (1-4)?`, '1')) - 1;
-        if (targetTrack < 0 || targetTrack > 3) {
-            alert('Invalid track number');
-            return;
-        }
-
-        // Parse tracks
-        let midiTrack = 0;
-        while (pos < data.length && midiTrack < numTracks) {
-            const trackHeader = String.fromCharCode(...data.slice(pos, pos + 4));
-            pos += 4;
-
-            if (trackHeader !== 'MTrk') {
-                console.warn('[Sequencer] Skipping unknown chunk:', trackHeader);
-                continue;
+        // Ask which track to import (non-blocking)
+        window.nbDialog.prompt(`Import to which sequencer track (1-4)?`, '1', (trackStr) => {
+            if (trackStr === null) return;
+            const targetTrack = parseInt(trackStr) - 1;
+            if (targetTrack < 0 || targetTrack > 3) {
+                window.nbDialog.alert('Invalid track number');
+                return;
             }
 
-            const trackLength = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
-            pos += 4;
+            // Parse tracks
+            let midiTrack = 0;
+            const processNextTrack = () => {
+                if (pos >= data.length || midiTrack >= numTracks) {
+                    this.updateTrackerGrid();
+                    console.log(`[Sequencer] MIDI import complete`);
+                    return;
+                }
 
-            const trackData = data.slice(pos, pos + trackLength);
-            pos += trackLength;
+                const trackHeader = String.fromCharCode(...data.slice(pos, pos + 4));
+                pos += 4;
 
-            // Skip track 0 (tempo track)
-            if (midiTrack === 0) {
-                midiTrack++;
-                continue;
-            }
+                if (trackHeader !== 'MTrk') {
+                    console.warn('[Sequencer] Skipping unknown chunk:', trackHeader);
+                    processNextTrack();
+                    return;
+                }
 
-            // Ask if we want to import this track
-            if (confirm(`Import MIDI track ${midiTrack} (sequencer track ${midiTrack})?`)) {
-                this.importMIDITrack(trackData, targetTrack, ticksPerQuarterNote);
-                break; // Import only one track
-            }
+                const trackLength = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
+                pos += 4;
 
-            midiTrack++;
-        }
+                const trackData = data.slice(pos, pos + trackLength);
+                pos += trackLength;
 
-        this.updateTrackerGrid();
-        console.log(`[Sequencer] MIDI import complete`);
+                // Skip track 0 (tempo track)
+                if (midiTrack === 0) {
+                    midiTrack++;
+                    processNextTrack();
+                    return;
+                }
+
+                // Ask if we want to import this track
+                window.nbDialog.confirm(`Import MIDI track ${midiTrack} (sequencer track ${midiTrack})?`, (confirmed) => {
+                    if (confirmed) {
+                        this.importMIDITrack(trackData, targetTrack, ticksPerQuarterNote);
+                        this.updateTrackerGrid();
+                        console.log(`[Sequencer] MIDI import complete`);
+                    } else {
+                        midiTrack++;
+                        processNextTrack();
+                    }
+                });
+            };
+
+            processNextTrack();
+        });
     }
 
     importMIDITrack(trackData, targetTrack, ticksPerQuarterNote) {
