@@ -38,6 +38,9 @@ class MeisterController {
         this.regrooveState.onConnectionChange = (connected) => {
             this.isConnectedToRegroove = connected;
         };
+
+        // SysEx message handlers (for upload/download etc)
+        this.sysexHandlers = new Map(); // command -> callback
         this.regrooveDeviceId = 0; // Target Regroove device ID
 
         this.init();
@@ -100,8 +103,9 @@ class MeisterController {
         console.log('[Meister] Setting up MIDI input listeners...');
         let count = 0;
         // Listen to all MIDI inputs for SPP messages
+        // Use addEventListener instead of onmidimessage to allow multiple handlers (e.g., upload/download)
         for (let input of this.midiAccess.inputs.values()) {
-            input.onmidimessage = (event) => this.handleMIDIMessage(event);
+            input.addEventListener('midimessage', (event) => this.handleMIDIMessage(event));
             console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
             count++;
         }
@@ -197,6 +201,12 @@ class MeisterController {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
+        // Check for registered handlers (upload/download etc)
+        if (this.sysexHandlers.has(command)) {
+            const handler = this.sysexHandlers.get(command);
+            handler(data); // Pass full SysEx message
+        }
+
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
             this.regrooveState.handlePlayerStateResponse(deviceId, payload);
@@ -206,6 +216,18 @@ class MeisterController {
         if (command === 0x7F) {
             this.regrooveState.handleFxStateResponse(deviceId, payload);
         }
+    }
+
+    // Register a handler for a specific SysEx command
+    registerSysExHandler(command, callback) {
+        console.log(`[Meister] Registered SysEx handler for command 0x${command.toString(16)}`);
+        this.sysexHandlers.set(command, callback);
+    }
+
+    // Unregister a handler for a specific SysEx command
+    unregisterSysExHandler(command) {
+        console.log(`[Meister] Unregistered SysEx handler for command 0x${command.toString(16)}`);
+        this.sysexHandlers.delete(command);
     }
 
     // Device State Management Helper Methods (delegate to regrooveState)
