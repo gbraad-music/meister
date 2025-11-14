@@ -746,34 +746,53 @@ export class SequencerScene {
         // MIDI input for note entry
         if (this.controller.midiAccess) {
             this.midiInputListener = (event) => {
-                // Only handle MIDI input when this scene is active and cursor is on note field
-                if (this.controller.sceneManager?.currentScene !== this.sceneId) return;
-                if (this.cursorField !== 0) return; // Only when on note field
-
-                // Don't insert notes during playback - prevents feedback loop from preview notes
-                if (this.engine.playing) return;
-
                 const [status, data1, data2] = event.data;
                 const messageType = status & 0xF0;
 
-                // Note On message
-                if (messageType === 0x90 && data2 > 0) {
-                    const midiNote = data1;
-                    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                    const octave = Math.floor(midiNote / 12);
-                    const noteName = noteNames[midiNote % 12];
+                // Only process Note On messages
+                if (messageType !== 0x90 || data2 === 0) return;
 
-                    // Set the note at cursor position
-                    const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack) || new SequencerEntry();
-                    entry.note = noteName;
-                    entry.octave = octave;
-                    entry.volume = data2; // Use velocity as volume
-                    this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
-                    this.updateTrackerGrid();
-
-                    // Don't preview MIDI input notes - user already hears them from controller
-                    // and previewing creates infinite loops if MIDI output routes back to input
+                // CRITICAL: Only handle MIDI input when this scene is active
+                // This prevents notes from other sequencers bleeding in via MIDI loopback
+                if (this.controller.sceneManager?.currentScene !== this.sceneId) {
+                    console.log(`[Sequencer] ${this.sceneId}: Ignoring MIDI note (not active scene, current=${this.controller.sceneManager?.currentScene})`);
+                    return; // Not the active scene - ignore all MIDI input
                 }
+
+                // Only insert notes when cursor is on note field (not velocity/program fields)
+                if (this.cursorField !== 0) return;
+
+                // CRITICAL: Never insert notes from MIDI input while ANY sequencer is playing
+                // This prevents feedback loops where sequencer output loops back to input
+                // Check if ANY scene has a playing sequencer (not just this one)
+                if (this.controller.sceneManager) {
+                    for (let [sceneId, sceneData] of this.controller.sceneManager.scenes) {
+                        if (sceneData.type === 'sequencer' &&
+                            sceneData.sequencerInstance &&
+                            sceneData.sequencerInstance.engine.playing) {
+                            console.log(`[Sequencer] ${this.sceneId}: Ignoring MIDI note (sequencer ${sceneId} is playing)`);
+                            return; // A sequencer is playing - don't insert notes from MIDI input
+                        }
+                    }
+                }
+
+                // If we got here, accept the note
+                const midiNote = data1;
+                console.log(`[Sequencer] ${this.sceneId}: Accepting MIDI note ${midiNote} for insertion`);
+                const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const octave = Math.floor(midiNote / 12);
+                const noteName = noteNames[midiNote % 12];
+
+                // Set the note at cursor position
+                const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack) || new SequencerEntry();
+                entry.note = noteName;
+                entry.octave = octave;
+                entry.volume = data2; // Use velocity as volume
+                this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
+                this.updateTrackerGrid();
+
+                // Don't preview MIDI input notes - user already hears them from controller
+                // and previewing creates infinite loops if MIDI output routes back to input
             };
 
             // Attach listener to all MIDI inputs
@@ -782,55 +801,8 @@ export class SequencerScene {
             }
         }
 
-        // Track last highlighted row for efficient updates
-        this.lastHighlightedRow = -1;
-
-        // Update position indicator during playback (OPTIMIZED - no grid rebuild!)
-        this.positionUpdateInterval = setInterval(() => {
-            if (this.engine.playing) {
-                const posLabel = document.getElementById('seq-position');
-                if (posLabel) {
-                    posLabel.textContent = `Row: ${this.engine.currentRow.toString().padStart(2, '0')}`;
-                }
-
-                // Update play button state
-                const playBtn = document.getElementById('seq-play-btn');
-                if (playBtn) {
-                    playBtn.textContent = '⏸ PAUSE';
-                    playBtn.style.background = '#4a4a2a';
-                    playBtn.style.color = '#9a9a4a';
-                }
-
-                // Update row highlighting efficiently (only 2 DOM updates per tick!)
-                if (this.engine.currentRow !== this.lastHighlightedRow) {
-                    const grid = document.getElementById('seq-tracker-grid');
-                    if (grid) {
-                        // Remove highlight from previous row
-                        if (this.lastHighlightedRow >= 0) {
-                            const prevRow = grid.children[this.lastHighlightedRow];
-                            if (prevRow) {
-                                prevRow.style.background = this.lastHighlightedRow % 4 === 0 ? '#0a0a0a' : '#000';
-                            }
-                        }
-
-                        // Add highlight to current row
-                        const currentRowDiv = grid.children[this.engine.currentRow];
-                        if (currentRowDiv) {
-                            currentRowDiv.style.background = '#1a2a1a';
-                        }
-
-                        this.lastHighlightedRow = this.engine.currentRow;
-                    }
-                }
-            } else {
-                const playBtn = document.getElementById('seq-play-btn');
-                if (playBtn) {
-                    playBtn.textContent = '▶ PLAY';
-                    playBtn.style.background = '#2a4a2a';
-                    playBtn.style.color = '#4a9e4a';
-                }
-            }
-        }, 100);
+        // Setup UI update interval
+        this.setupUIUpdateInterval();
     }
 
     handlePlayStop() {
@@ -1598,6 +1570,108 @@ export class SequencerScene {
         }
     }
 
+    /**
+     * Pause scene (when switching away) - stop UI updates but keep playback
+     */
+    pause() {
+        console.log(`[Sequencer] Pausing scene: ${this.name} (${this.sceneId})`);
+
+        // Clear UI update interval
+        if (this.positionUpdateInterval) {
+            clearInterval(this.positionUpdateInterval);
+            this.positionUpdateInterval = null;
+            console.log(`[Sequencer] Cleared UI update interval`);
+        }
+
+        // Remove MIDI input listener to prevent note bleeding
+        if (this.controller.midiAccess && this.midiInputListener) {
+            let listenerCount = 0;
+            for (let input of this.controller.midiAccess.inputs.values()) {
+                input.removeEventListener('midimessage', this.midiInputListener);
+                listenerCount++;
+            }
+            console.log(`[Sequencer] Removed MIDI input listener from ${listenerCount} MIDI input(s)`);
+        } else {
+            console.warn(`[Sequencer] Could not remove MIDI listener: midiAccess=${!!this.controller.midiAccess}, listener=${!!this.midiInputListener}`);
+        }
+    }
+
+    /**
+     * Resume scene (when switching back) - restart UI updates and MIDI input
+     */
+    resume() {
+        console.log(`[Sequencer] Resuming scene: ${this.name} (${this.sceneId})`);
+
+        // Restart UI update interval
+        if (!this.positionUpdateInterval) {
+            this.setupUIUpdateInterval();
+            console.log(`[Sequencer] Restarted UI update interval`);
+        }
+
+        // Re-attach MIDI input listener
+        if (this.controller.midiAccess && this.midiInputListener) {
+            let listenerCount = 0;
+            for (let input of this.controller.midiAccess.inputs.values()) {
+                input.addEventListener('midimessage', this.midiInputListener);
+                listenerCount++;
+            }
+            console.log(`[Sequencer] Re-attached MIDI input listener to ${listenerCount} MIDI input(s)`);
+        }
+    }
+
+    /**
+     * Setup UI update interval (extracted for reuse)
+     */
+    setupUIUpdateInterval() {
+        this.lastHighlightedRow = -1;
+
+        this.positionUpdateInterval = setInterval(() => {
+            if (this.engine.playing) {
+                const posLabel = document.getElementById('seq-position');
+                if (posLabel) {
+                    posLabel.textContent = `Row: ${this.engine.currentRow.toString().padStart(2, '0')}`;
+                }
+
+                // Update play button state
+                const playBtn = document.getElementById('seq-play-btn');
+                if (playBtn) {
+                    playBtn.textContent = '⏸ PAUSE';
+                    playBtn.style.background = '#4a4a2a';
+                    playBtn.style.color = '#9a9a4a';
+                }
+
+                // Update row highlighting efficiently (only 2 DOM updates per tick!)
+                if (this.engine.currentRow !== this.lastHighlightedRow) {
+                    const grid = document.getElementById('seq-tracker-grid');
+                    if (grid) {
+                        // Remove highlight from previous row
+                        if (this.lastHighlightedRow >= 0) {
+                            const prevRow = grid.children[this.lastHighlightedRow];
+                            if (prevRow) {
+                                prevRow.style.background = this.lastHighlightedRow % 4 === 0 ? '#0a0a0a' : '#000';
+                            }
+                        }
+
+                        // Add highlight to current row
+                        const currentRowDiv = grid.children[this.engine.currentRow];
+                        if (currentRowDiv) {
+                            currentRowDiv.style.background = '#1a2a1a';
+                        }
+
+                        this.lastHighlightedRow = this.engine.currentRow;
+                    }
+                }
+            } else {
+                const playBtn = document.getElementById('seq-play-btn');
+                if (playBtn) {
+                    playBtn.textContent = '▶ PLAY';
+                    playBtn.style.background = '#2a4a2a';
+                    playBtn.style.color = '#4a9e4a';
+                }
+            }
+        }, 100);
+    }
+
     destroy() {
         this.engine.stopPlayback();
         if (this.positionUpdateInterval) {
@@ -1609,6 +1683,13 @@ export class SequencerScene {
         const globalBpmInput = document.getElementById('clock-bpm');
         if (globalBpmInput && this.globalBpmListener) {
             globalBpmInput.removeEventListener('change', this.globalBpmListener);
+        }
+
+        // Remove MIDI input listener to prevent note bleeding between scenes
+        if (this.controller.midiAccess && this.midiInputListener) {
+            for (let input of this.controller.midiAccess.inputs.values()) {
+                input.removeEventListener('midimessage', this.midiInputListener);
+            }
         }
     }
 

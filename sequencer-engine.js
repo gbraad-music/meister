@@ -373,12 +373,13 @@ export class SequencerEngine {
             this.lastTickTime = now;
             this.tickCount++;
 
-            // Only log timing diagnostics occasionally to avoid console.log() performance hit
-            if (this.tickCount % 64 === 1) {
-                const expectedMs = this.msPerRow;
-                const drift = delta - expectedMs;
-                console.log(`[Sequencer] Internal Tick #${this.tickCount} Row ${this.currentRow}: delta=${delta.toFixed(2)}ms (expected=${expectedMs.toFixed(2)}ms, drift=${drift.toFixed(2)}ms)`);
-            }
+            // Timing diagnostics disabled to prevent performance degradation with multiple sequencers
+            // Uncomment for debugging timing issues:
+            // if (this.tickCount % 64 === 1) {
+            //     const expectedMs = this.msPerRow;
+            //     const drift = delta - expectedMs;
+            //     console.log(`[Sequencer] Internal Tick #${this.tickCount} Row ${this.currentRow}: delta=${delta.toFixed(2)}ms (expected=${expectedMs.toFixed(2)}ms, drift=${drift.toFixed(2)}ms)`);
+            // }
 
             // Play the row
             this.playRow(this.currentRow);
@@ -420,12 +421,13 @@ export class SequencerEngine {
         this.lastTickTime = now;
         this.tickCount++;
 
-        // Only log timing diagnostics occasionally to avoid console.log() performance hit
-        if (this.tickCount % 64 === 1) {
-            const expectedMs = this.msPerRow;
-            const drift = delta - expectedMs;
-            console.log(`[Sequencer] JS Tick #${this.tickCount} Row ${this.currentRow}: delta=${delta.toFixed(2)}ms (expected=${expectedMs.toFixed(2)}ms, drift=${drift.toFixed(2)}ms)`);
-        }
+        // Timing diagnostics disabled to prevent performance degradation with multiple sequencers
+        // Uncomment for debugging timing issues:
+        // if (this.tickCount % 64 === 1) {
+        //     const expectedMs = this.msPerRow;
+        //     const drift = delta - expectedMs;
+        //     console.log(`[Sequencer] JS Tick #${this.tickCount} Row ${this.currentRow}: delta=${delta.toFixed(2)}ms (expected=${expectedMs.toFixed(2)}ms, drift=${drift.toFixed(2)}ms)`);
+        // }
 
         this.playRow(this.currentRow);
 

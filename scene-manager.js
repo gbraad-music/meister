@@ -225,6 +225,13 @@ export class SceneManager {
             return;
         }
 
+        // Pause sequencer scene when switching away (keeps playback running)
+        const previousScene = this.scenes.get(this.currentScene);
+        if (previousScene && previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
+            console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
+            previousScene.sequencerInstance.pause();
+        }
+
         // console.log(`[Scene] Switching to: ${scene.name}`);
         this.currentScene = sceneName;
 
@@ -2589,6 +2596,10 @@ export class SceneManager {
         } else {
             // Re-render existing instance
             scene.sequencerInstance.render();
+
+            // Resume the scene (restart UI updates and MIDI input)
+            console.log(`[Sequencer] Resuming sequencer scene: ${scene.name}`);
+            scene.sequencerInstance.resume();
         }
     }
 }
