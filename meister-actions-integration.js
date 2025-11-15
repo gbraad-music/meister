@@ -47,10 +47,20 @@ export function integrateActionSystem(controller) {
     controller.handlePadPress = function(detail, padElement, padIndex) {
         console.log(`[handlePadPress] Called with padIndex=${padIndex}, detail=`, detail);
 
-        const padConfig = this.config.pads[padIndex];
+        // Get pad config from the correct location (split scene vs default pads)
+        const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
+        let padConfig = null;
+        if (isCustomScene) {
+            const scene = this.sceneManager?.scenes.get(this.currentPadSceneId);
+            padConfig = scene?.pads?.[padIndex];
+            console.log(`[handlePadPress] Split scene pad - scene="${this.currentPadSceneId}", padConfig=`, padConfig);
+        } else {
+            padConfig = this.config.pads[padIndex];
+            console.log(`[handlePadPress] Default pad - padConfig=`, padConfig);
+        }
 
         if (!padConfig) {
-            console.warn(`No config for pad ${padIndex}`, 'Total pads:', this.config.pads?.length);
+            console.warn(`[handlePadPress] No config for pad ${padIndex}`);
             return;
         }
 

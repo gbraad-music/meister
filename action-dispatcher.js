@@ -4,6 +4,7 @@
  */
 
 import { InputAction, ActionCategory, getActionCategory } from './input-actions.js';
+import { buildPlaybackControlMessage, buildMuteMessage, buildSoloMessage } from './midi-sequence-utils.js';
 
 /**
  * ActionDispatcher
@@ -21,6 +22,7 @@ export class ActionDispatcher {
      */
     handleEvent(event) {
         if (!event || event.action === InputAction.ACTION_NONE) {
+            console.warn('[ActionDispatcher] Received null/ACTION_NONE event');
             return;
         }
 
@@ -29,7 +31,7 @@ export class ActionDispatcher {
         const meetsThreshold = event.meetsThreshold();
 
         // Log action for debugging
-        console.log(`[Action] ${event.action} (cat: ${category}, val: ${event.value}, param: ${event.parameter})`);
+        console.log(`[ActionDispatcher] Handling action ${event.action} (cat: ${category}, val: ${event.value}, param: ${event.parameter}, threshold: ${meetsThreshold})`);
 
         switch (event.action) {
             // === REGROOVE TRANSPORT CONTROL ===
@@ -456,10 +458,15 @@ export class ActionDispatcher {
             case InputAction.ACTION_SEQUENCER_PLAY:
                 {
                     const sceneId = event.parameter;
+                    console.log(`[Action 700] SEQUENCER_PLAY triggered - sceneId="${sceneId}"`);
                     const scene = this.controller.sceneManager.scenes.get(sceneId);
+                    console.log(`[Action 700] Found scene:`, scene);
                     if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                        console.log(`[Action 700] ✓ Starting sequencer playback...`);
                         scene.sequencerInstance.engine.startPlayback();
-                        console.log(`[Action] Sequencer ${sceneId} started`);
+                        console.log(`[Action 700] ✓ Sequencer ${sceneId} started`);
+                    } else {
+                        console.error(`[Action 700] ERROR: Cannot start sequencer - scene=${scene}, type=${scene?.type}, instance=${scene?.sequencerInstance}`);
                     }
                 }
                 break;
@@ -522,6 +529,50 @@ export class ActionDispatcher {
                             console.log(`[Action] Sequencer ${sceneId} track ${trackIndex} solo toggled`);
                         }
                     }
+                }
+                break;
+
+            // === DEVICE SEQUENCER CONTROL ===
+            case InputAction.ACTION_DEVICE_SEQ_PLAY:
+                if (meetsThreshold) {
+                    const deviceIndex = (event.parameter >> 8) & 0xFF;
+                    const slot = event.parameter & 0xFF;
+                    console.log(`[Action 720] DEVICE_SEQ_PLAY triggered - deviceIndex=${deviceIndex}, slot=${slot}, parameter=0x${event.parameter.toString(16)}`);
+                    this.playDeviceSequencer(deviceIndex, slot, true); // loop = true
+                } else {
+                    console.warn(`[Action 720] Threshold not met - value=${event.value}`);
+                }
+                break;
+
+            case InputAction.ACTION_DEVICE_SEQ_STOP:
+                if (meetsThreshold) {
+                    const deviceIndex = (event.parameter >> 8) & 0xFF;
+                    const slot = event.parameter & 0xFF;
+                    this.stopDeviceSequencer(deviceIndex, slot);
+                }
+                break;
+
+            case InputAction.ACTION_DEVICE_SEQ_PLAY_STOP:
+                if (meetsThreshold) {
+                    const deviceIndex = (event.parameter >> 8) & 0xFF;
+                    const slot = event.parameter & 0xFF;
+                    this.toggleDeviceSequencer(deviceIndex, slot);
+                }
+                break;
+
+            case InputAction.ACTION_DEVICE_SEQ_MUTE:
+                if (meetsThreshold) {
+                    const deviceIndex = (event.parameter >> 8) & 0xFF;
+                    const slot = event.parameter & 0xFF;
+                    this.muteDeviceSequencer(deviceIndex, slot);
+                }
+                break;
+
+            case InputAction.ACTION_DEVICE_SEQ_SOLO:
+                if (meetsThreshold) {
+                    const deviceIndex = (event.parameter >> 8) & 0xFF;
+                    const slot = event.parameter & 0xFF;
+                    this.soloDeviceSequencer(deviceIndex, slot);
                 }
                 break;
 
@@ -636,5 +687,135 @@ export class ActionDispatcher {
                 padElement.removeAttribute('color');
             }
         });
+    }
+
+    /**
+     * Play a sequence on a device (Samplecrate)
+     * @param {number} deviceIndex - Index in devices array (0-based)
+     * @param {number} slot - Slot number (0-15)
+     * @param {boolean} loop - Loop mode (true=LOOP, false=ONESHOT)
+     */
+    playDeviceSequencer(deviceIndex, slot, loop = true) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
+            return;
+        }
+
+        const device = devices[deviceIndex];
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
+        midiOutput.send(message);
+        console.log(`[Action] Playing sequence: device=${device.name}, slot=${slot}, loop=${loop}`);
+    }
+
+    /**
+     * Stop a sequence on a device (Samplecrate)
+     * @param {number} deviceIndex - Index in devices array (0-based)
+     * @param {number} slot - Slot number (0-15)
+     */
+    stopDeviceSequencer(deviceIndex, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
+            return;
+        }
+
+        const device = devices[deviceIndex];
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
+        midiOutput.send(message);
+        console.log(`[Action] Stopping sequence: device=${device.name}, slot=${slot}`);
+    }
+
+    /**
+     * Toggle play/stop of a sequence on a device
+     * @param {number} deviceIndex - Index in devices array (0-based)
+     * @param {number} slot - Slot number (0-15)
+     */
+    toggleDeviceSequencer(deviceIndex, slot) {
+        // For now, just send play with loop
+        // TODO: Track playback state to toggle properly
+        this.playDeviceSequencer(deviceIndex, slot, true);
+    }
+
+    /**
+     * Mute a sequence on a device
+     * @param {number} deviceIndex - Index in devices array (0-based)
+     * @param {number} slot - Slot number (0-15)
+     */
+    muteDeviceSequencer(deviceIndex, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
+            return;
+        }
+
+        const device = devices[deviceIndex];
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        // Toggle mute (send true, device should toggle)
+        const message = buildMuteMessage(device.deviceId, slot, true);
+        midiOutput.send(message);
+        console.log(`[Action] Toggling mute: device=${device.name}, slot=${slot}`);
+    }
+
+    /**
+     * Solo a sequence on a device
+     * @param {number} deviceIndex - Index in devices array (0-based)
+     * @param {number} slot - Slot number (0-15)
+     */
+    soloDeviceSequencer(deviceIndex, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
+            return;
+        }
+
+        const device = devices[deviceIndex];
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        // Toggle solo (send true, device should toggle)
+        const message = buildSoloMessage(device.deviceId, slot, true);
+        midiOutput.send(message);
+        console.log(`[Action] Toggling solo: device=${device.name}, slot=${slot}`);
     }
 }

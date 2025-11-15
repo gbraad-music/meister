@@ -22,6 +22,37 @@ export class SceneManager {
 
         // Setup orientation change listener for responsive split scenes
         this.setupOrientationListener();
+
+        // IMPORTANT: Initialize all sequencer instances so they can be triggered via pads
+        // Without this, sequencers won't work until you view the scene first!
+        this.initializeSequencerInstances();
+    }
+
+    /**
+     * Initialize all sequencer instances in background
+     * This allows sequencers to be controlled via pads without visiting the scene first
+     */
+    initializeSequencerInstances() {
+        console.log('[SceneManager] Initializing sequencer instances...');
+        let count = 0;
+
+        for (const [sceneId, scene] of this.scenes.entries()) {
+            if (scene.type === 'sequencer' && !scene.sequencerInstance) {
+                if (window.SequencerScene) {
+                    // Create instance WITHOUT rendering (skipRender = true)
+                    scene.sequencerInstance = new window.SequencerScene(this.controller, sceneId, scene, true);
+                    // Immediately pause it so it doesn't respond to MIDI clock
+                    scene.sequencerInstance.pause();
+                    console.log(`[SceneManager] Pre-initialized sequencer (paused): ${scene.name} (${sceneId})`);
+                    count++;
+                } else {
+                    console.error('[SceneManager] SequencerScene class not available - cannot initialize sequencers');
+                    return;
+                }
+            }
+        }
+
+        console.log(`[SceneManager] ✓ Initialized ${count} sequencer instance(s) in background`);
     }
 
     setupOrientationListener() {

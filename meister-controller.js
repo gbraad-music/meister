@@ -371,7 +371,40 @@ class MeisterController {
 
         // Message type selector
         document.getElementById('pad-message-type').addEventListener('change', (e) => {
-            this.updatePadEditorFields(e.target.value);
+            const messageType = e.target.value;
+            this.updatePadEditorFields(messageType);
+
+            // For sequencer message type, also show parameter fields based on selected action
+            if (messageType === 'sequencer') {
+                const select = document.getElementById('pad-sequencer-action');
+                const selectedOption = select.options[select.selectedIndex];
+                const actionValue = selectedOption.value;
+
+                const sceneField = document.getElementById('pad-sequencer-scene-field');
+                const trackField = document.getElementById('pad-sequencer-track-field');
+                const deviceField = document.getElementById('pad-device-sequencer-field');
+                const slotField = document.getElementById('pad-device-sequencer-slot-field');
+
+                // Hide all first
+                sceneField.style.display = 'none';
+                trackField.style.display = 'none';
+                deviceField.style.display = 'none';
+                slotField.style.display = 'none';
+
+                // Show appropriate fields based on default action
+                if (actionValue === 'play' || actionValue === 'stop' || actionValue === 'play_stop') {
+                    sceneField.style.display = 'block';
+                    this.populateSequencerScenes();
+                } else if (actionValue === 'mute_track' || actionValue === 'solo_track') {
+                    sceneField.style.display = 'block';
+                    trackField.style.display = 'block';
+                    this.populateSequencerScenes();
+                } else if (actionValue.startsWith('device_')) {
+                    deviceField.style.display = 'block';
+                    slotField.style.display = 'block';
+                    this.populateDeviceSequencerDevices();
+                }
+            }
         });
 
         // Secondary message type selector
@@ -411,18 +444,69 @@ class MeisterController {
             }
         });
 
-        // Action selector (MIDI, Routing) - show/hide routing parameter fields
+        // Action selector (MIDI, Routing, Sequencer) - show/hide parameter fields
         document.getElementById('pad-action-select').addEventListener('change', (e) => {
             const selectedOption = e.target.options[e.target.selectedIndex];
             const actionId = selectedOption.getAttribute('data-action');
-            const routingParams = document.getElementById('pad-routing-input-params');
+            const dataParam = selectedOption.getAttribute('data-param');
 
-            // Show routing params for ACTION_SWITCH_INPUT_ROUTE (602)
-            if (actionId === '602') {
+            const routingParams = document.getElementById('pad-routing-input-params');
+            const seqTrackParams = document.getElementById('pad-sequencer-track-params');
+            const deviceSeqParams = document.getElementById('pad-device-seq-params');
+
+            // Hide all parameter fields by default
+            routingParams.style.display = 'none';
+            seqTrackParams.style.display = 'none';
+            deviceSeqParams.style.display = 'none';
+
+            // Show routing params for ACTION_SWITCH_INPUT_ROUTE (602) with custom param
+            if (actionId === '602' && dataParam === 'custom') {
                 routingParams.style.display = 'block';
                 this.populateRoutingInputs();
-            } else {
-                routingParams.style.display = 'none';
+            }
+            // Show sequencer track params for ACTION_SEQUENCER_TRACK_MUTE/SOLO (710, 711) with custom param
+            else if ((actionId === '710' || actionId === '711') && dataParam === 'custom') {
+                seqTrackParams.style.display = 'block';
+            }
+            // Show device sequencer params for device sequencer actions (720-724) with custom param
+            else if (parseInt(actionId) >= 720 && parseInt(actionId) <= 724 && dataParam === 'custom') {
+                deviceSeqParams.style.display = 'block';
+            }
+        });
+
+        // Sequencer action selector - show/hide parameter fields
+        document.getElementById('pad-sequencer-action').addEventListener('change', (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const actionValue = selectedOption.value;
+            const actionId = selectedOption.getAttribute('data-action');
+
+            const sceneField = document.getElementById('pad-sequencer-scene-field');
+            const trackField = document.getElementById('pad-sequencer-track-field');
+            const deviceField = document.getElementById('pad-device-sequencer-field');
+            const slotField = document.getElementById('pad-device-sequencer-slot-field');
+
+            // Hide all fields by default
+            sceneField.style.display = 'none';
+            trackField.style.display = 'none';
+            deviceField.style.display = 'none';
+            slotField.style.display = 'none';
+
+            // Meister sequencer actions (play, stop, play_stop) - show scene selector
+            if (actionValue === 'play' || actionValue === 'stop' || actionValue === 'play_stop') {
+                sceneField.style.display = 'block';
+                this.populateSequencerScenes();
+            }
+            // Meister track actions (mute_track, solo_track) - show scene + track selectors
+            else if (actionValue === 'mute_track' || actionValue === 'solo_track') {
+                sceneField.style.display = 'block';
+                trackField.style.display = 'block';
+                this.populateSequencerScenes();
+            }
+            // Device sequencer actions - show device + slot selectors
+            else if (actionValue.startsWith('device_')) {
+                deviceField.style.display = 'block';
+                slotField.style.display = 'block';
+                this.populateDeviceSequencerDevices();
             }
         });
 
@@ -524,19 +608,42 @@ class MeisterController {
         // Populate device binding dropdown
         this.populatePadDeviceBindings();
 
-        if (padIndex !== null && this.config.pads[padIndex]) {
-            const pad = this.config.pads[padIndex];
+        // Get pad config from the correct location (split scene vs default pads)
+        const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
+        let pad = null;
+        if (padIndex !== null) {
+            if (isCustomScene) {
+                const scene = this.sceneManager?.scenes.get(this.currentPadSceneId);
+                pad = scene?.pads?.[padIndex];
+            } else {
+                pad = this.config.pads[padIndex];
+            }
+        }
+
+        if (padIndex !== null && pad) {
             document.getElementById('pad-label').value = pad.label || '';
             document.getElementById('pad-sublabel').value = pad.sublabel || '';
             document.getElementById('pad-device-binding').value = pad.deviceBinding || '';
 
             // Determine message type
             if (pad.action !== undefined) {
-                // New action system - determine if Regroove or Action System
-                // Action IDs: 100-199 = Regroove, 200-299 = MIDI Clock, 600-699 = Routing
-                const isActionSystem = (pad.action >= 200 && pad.action < 300) || (pad.action >= 600);
-                const messageType = isActionSystem ? 'action' : 'regroove';
-                const selectId = isActionSystem ? 'pad-action-select' : 'pad-regroove-action';
+                // New action system - determine message type based on action ID range
+                // 100-199 = Regroove
+                // 200-299 = MIDI Clock
+                // 600-699 = Routing
+                // 700-799 = Sequencer
+                let messageType, selectId;
+
+                if (pad.action >= 700 && pad.action < 800) {
+                    messageType = 'sequencer';
+                    selectId = 'pad-sequencer-action';
+                } else if ((pad.action >= 200 && pad.action < 300) || (pad.action >= 600 && pad.action < 700)) {
+                    messageType = 'action';
+                    selectId = 'pad-action-select';
+                } else {
+                    messageType = 'regroove';
+                    selectId = 'pad-regroove-action';
+                }
 
                 document.getElementById('pad-message-type').value = messageType;
 
@@ -563,6 +670,7 @@ class MeisterController {
                                 routingSelect.value = pad.parameter || '';
                             }
                         }
+                        // Note: Sequencer action parameter fields are now handled after updatePadEditorFields()
                         break;
                     }
                 }
@@ -573,6 +681,48 @@ class MeisterController {
 
                 // Update visible fields
                 this.updatePadEditorFields(messageType);
+
+                // Trigger parameter field visibility based on action (for sequencer actions)
+                if (messageType === 'sequencer') {
+                    const select = document.getElementById('pad-sequencer-action');
+                    const selectedOption = select.options[select.selectedIndex];
+                    const actionValue = selectedOption.value;
+
+                    const sceneField = document.getElementById('pad-sequencer-scene-field');
+                    const trackField = document.getElementById('pad-sequencer-track-field');
+                    const deviceField = document.getElementById('pad-device-sequencer-field');
+                    const slotField = document.getElementById('pad-device-sequencer-slot-field');
+
+                    // Show appropriate fields based on action
+                    if (actionValue === 'play' || actionValue === 'stop' || actionValue === 'play_stop') {
+                        sceneField.style.display = 'block';
+                        this.populateSequencerScenes();
+                        // Set value if parameter exists
+                        if (pad.parameter) {
+                            document.getElementById('pad-sequencer-scene-select').value = pad.parameter;
+                        }
+                    } else if (actionValue === 'mute_track' || actionValue === 'solo_track') {
+                        sceneField.style.display = 'block';
+                        trackField.style.display = 'block';
+                        this.populateSequencerScenes();
+                        // Set values if parameter exists
+                        if (typeof pad.parameter === 'object') {
+                            document.getElementById('pad-sequencer-scene-select').value = pad.parameter.sceneId || '';
+                            document.getElementById('pad-sequencer-track-number').value = pad.parameter.trackNumber || 1;
+                        }
+                    } else if (actionValue.startsWith('device_')) {
+                        deviceField.style.display = 'block';
+                        slotField.style.display = 'block';
+                        this.populateDeviceSequencerDevices();
+                        // Set values if parameter exists
+                        if (pad.parameter !== undefined) {
+                            const deviceIndex = (pad.parameter >> 8) & 0xFF;
+                            const slot = pad.parameter & 0xFF;
+                            document.getElementById('pad-device-seq-device-select').value = deviceIndex.toString();
+                            document.getElementById('pad-device-seq-slot-select').value = slot.toString();
+                        }
+                    }
+                }
             } else if (pad.mmc !== undefined) {
                 document.getElementById('pad-message-type').value = 'mmc';
                 document.getElementById('pad-mmc-command').value = pad.mmc || 'stop';
@@ -713,6 +863,53 @@ class MeisterController {
         select.innerHTML = options;
     }
 
+    populateSequencerScenes() {
+        const select = document.getElementById('pad-sequencer-scene-select');
+        if (!select) return;
+
+        // Get all sequencer scenes
+        const sequencerScenes = [];
+        if (this.sceneManager) {
+            this.sceneManager.scenes.forEach((scene, id) => {
+                if (scene.type === 'sequencer') {
+                    sequencerScenes.push({ id, name: scene.name });
+                }
+            });
+        }
+
+        if (sequencerScenes.length === 0) {
+            select.innerHTML = '<option value="">-- No Sequencers Found --</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Sequencer --</option>' +
+            sequencerScenes.map(seq =>
+                `<option value="${seq.id}">${seq.name}</option>`
+            ).join('');
+    }
+
+    populateDeviceSequencerDevices() {
+        const select = document.getElementById('pad-device-seq-device-select');
+        if (!select) return;
+
+        const deviceManager = this.deviceManager;
+        if (!deviceManager) {
+            select.innerHTML = '<option value="">-- No Devices Found --</option>';
+            return;
+        }
+
+        const devices = deviceManager.getAllDevices();
+        if (devices.length === 0) {
+            select.innerHTML = '<option value="">-- No Devices Configured --</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Device --</option>' +
+            devices.map(device =>
+                `<option value="${device.deviceId}">${device.name} (ID ${device.deviceId})</option>`
+            ).join('');
+    }
+
     isRegrooveActionCC(cc) {
         // List of all Regroove action CCs
         const regrooveCCs = [
@@ -734,6 +931,7 @@ class MeisterController {
     updatePadEditorFields(messageType) {
         const regrooveField = document.getElementById('pad-regroove-field');
         const actionField = document.getElementById('pad-action-field');
+        const sequencerField = document.getElementById('pad-sequencer-field');
         const sysexField = document.getElementById('pad-sysex-field');
         const ccField = document.getElementById('pad-cc-field');
         const noteField = document.getElementById('pad-note-field');
@@ -742,13 +940,14 @@ class MeisterController {
 
         regrooveField.style.display = messageType === 'regroove' ? 'block' : 'none';
         actionField.style.display = messageType === 'action' ? 'block' : 'none';
+        sequencerField.style.display = messageType === 'sequencer' ? 'block' : 'none';
         sysexField.style.display = messageType === 'sysex' ? 'block' : 'none';
         ccField.style.display = messageType === 'cc' ? 'block' : 'none';
         noteField.style.display = messageType === 'note' ? 'block' : 'none';
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
 
-        // Hide device binding for Action System (MIDI, Routing) - those are Meister actions, not device-specific
-        deviceField.style.display = messageType === 'action' ? 'none' : 'block';
+        // Hide device binding for Action System (MIDI, Routing) and Sequencer - those are Meister actions, not device-specific
+        deviceField.style.display = (messageType === 'action' || messageType === 'sequencer') ? 'none' : 'block';
     }
 
     updateSecondaryPadEditorFields(messageType) {
@@ -813,7 +1012,7 @@ class MeisterController {
                 }
             }
         } else if (messageType === 'action') {
-            // Action system (MIDI, Routing)
+            // Action system (MIDI, Routing, Sequencer)
             const select = document.getElementById('pad-action-select');
             const selectedOption = select.options[select.selectedIndex];
             const actionId = selectedOption.getAttribute('data-action');
@@ -826,14 +1025,88 @@ class MeisterController {
 
                 // Handle parameter
                 if (actionParam === 'custom') {
-                    // Custom parameter from input field (for routing actions)
-                    const inputId = document.getElementById('pad-routing-input-select')?.value;
-                    padConfig.parameter = inputId || ''; // Empty string means "all inputs"
+                    const actionIdInt = parseInt(actionId);
+
+                    // Routing actions (602) - use input ID string parameter
+                    if (actionIdInt === 602) {
+                        const inputId = document.getElementById('pad-routing-input-select')?.value;
+                        padConfig.parameter = inputId || ''; // Empty string means "all inputs"
+                    }
+                    else {
+                        padConfig.parameter = 0;
+                    }
                 } else if (actionParam && actionParam !== '0') {
                     // Fixed parameter from data-param attribute
                     padConfig.parameter = parseInt(actionParam) || 0;
                 } else {
                     // No parameter or parameter is 0
+                    padConfig.parameter = 0;
+                }
+            }
+        } else if (messageType === 'sequencer') {
+            // Sequencer Control
+            const select = document.getElementById('pad-sequencer-action');
+            const selectedOption = select.options[select.selectedIndex];
+            const actionId = selectedOption.getAttribute('data-action');
+            const actionValue = selectedOption.value;
+
+            if (actionId) {
+                padConfig.action = parseInt(actionId);
+                hasMessage = true;
+
+                // Determine parameter based on action type
+                const actionIdInt = parseInt(actionId);
+
+                // Meister sequencer actions (700-702: play/stop/toggle)
+                if (actionIdInt >= 700 && actionIdInt <= 702) {
+                    const sceneId = document.getElementById('pad-sequencer-scene-select')?.value || '';
+
+                    console.log(`[Pad Save] Action ${actionIdInt}: Scene selector value = "${sceneId}"`);
+
+                    // Validate scene selection
+                    if (!sceneId) {
+                        console.error('[Pad Save] ERROR: No scene selected!');
+                        window.nbDialog.alert('Please select a sequencer scene to control!');
+                        return;
+                    }
+
+                    padConfig.parameter = sceneId; // Store scene ID as string
+                    console.log(`[Pad Save] Saved action ${actionIdInt} with parameter (sceneId): "${sceneId}"`);
+                }
+                // Meister track actions (710-711: mute/solo track)
+                else if (actionIdInt === 710 || actionIdInt === 711) {
+                    const sceneId = document.getElementById('pad-sequencer-scene-select')?.value || '';
+                    const trackNumber = parseInt(document.getElementById('pad-sequencer-track-number')?.value) || 1;
+
+                    // Validate scene selection
+                    if (!sceneId) {
+                        window.nbDialog.alert('Please select a sequencer scene to control!');
+                        return;
+                    }
+
+                    // Store as object with scene ID and track number
+                    padConfig.parameter = { sceneId, trackNumber };
+                }
+                // Device sequencer actions (720-724: play/stop/mute/solo slot)
+                else if (actionIdInt >= 720 && actionIdInt <= 724) {
+                    const deviceId = document.getElementById('pad-device-seq-device-select')?.value || '';
+                    const slot = parseInt(document.getElementById('pad-device-seq-slot-select')?.value) || 0;
+
+                    console.log(`[Pad Save] Action ${actionIdInt}: Device="${deviceId}", Slot=${slot}`);
+
+                    // Validate device selection
+                    if (!deviceId) {
+                        console.error('[Pad Save] ERROR: No device selected!');
+                        window.nbDialog.alert('Please select a device to control!');
+                        return;
+                    }
+
+                    // Convert device ID to device index (parse from string)
+                    const deviceIndex = parseInt(deviceId);
+                    padConfig.parameter = (deviceIndex << 8) | slot;
+                    console.log(`[Pad Save] Saved action ${actionIdInt} with parameter: deviceIndex=${deviceIndex}, slot=${slot}, encoded=0x${padConfig.parameter.toString(16)}`);
+                }
+                else {
                     padConfig.parameter = 0;
                 }
             }
@@ -935,6 +1208,9 @@ class MeisterController {
         // Check if we're editing a custom scene's pads or the default pads
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
+        console.log(`[Pad Save] Final padConfig for pad ${this.editingPadIndex}:`, JSON.stringify(padConfig, null, 2));
+        console.log(`[Pad Save] Saving to: ${isCustomScene ? 'scene "' + this.currentPadSceneId + '"' : 'global config'}`);
+
         if (isCustomScene) {
             // Save to scene's pads array
             const scene = this.sceneManager.scenes.get(this.currentPadSceneId);
@@ -947,6 +1223,7 @@ class MeisterController {
                     scene.pads[this.editingPadIndex] = null;
                 } else {
                     scene.pads[this.editingPadIndex] = padConfig;
+                    console.log(`[Pad Save] ✓ Saved to scene.pads[${this.editingPadIndex}]`);
                 }
 
                 // Save scene config to localStorage
@@ -1284,14 +1561,20 @@ class MeisterController {
             const actionId = parseInt(detail.action);
             let parameter = 0;
 
+            console.log(`[Pad Press] Pad ${padIndex} pressed - action=${detail.action}`);
+            console.log(`[Pad Press] Pad element dataset:`, padElement.dataset);
+
             // Get parameter from pad element's dataset
             if (padElement.dataset.actionParameter !== undefined) {
                 const paramValue = padElement.dataset.actionParameter;
                 // Parameter can be string (MIDI input ID) or number
                 parameter = isNaN(paramValue) ? paramValue : parseInt(paramValue);
+                console.log(`[Pad Press] Found parameter in dataset: "${paramValue}" → parsed as:`, parameter);
+            } else {
+                console.warn(`[Pad Press] WARNING: No actionParameter in dataset!`);
             }
 
-            console.log(`[Pad] Action ${actionId} with parameter:`, parameter);
+            console.log(`[Pad Press] Executing action ${actionId} with parameter:`, parameter, `(type: ${typeof parameter})`);
 
             // Execute action through action system (added by meister-actions-integration.js)
             if (this.executeAction) {

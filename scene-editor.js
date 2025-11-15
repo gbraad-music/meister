@@ -1347,6 +1347,9 @@ export class SceneEditor {
 
                 // Re-register defaults with loadSaved=true to skip mixer if saved
                 this.sceneManager.registerDefaultScenes(true);
+
+                // Initialize any sequencer instances that were loaded
+                this.sceneManager.initializeSequencerInstances();
             }
         } catch (e) {
             console.error('Failed to load scenes from storage:', e);
@@ -1396,6 +1399,9 @@ export class SceneEditor {
         Object.entries(scenes).forEach(([id, config]) => {
             this.sceneManager.addScene(id, config);
         });
+
+        // Initialize any sequencer instances that were just loaded
+        this.sceneManager.initializeSequencerInstances();
 
         // Save to localStorage
         this.saveScenesToStorage();

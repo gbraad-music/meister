@@ -826,6 +826,7 @@
                 <select id="pad-message-type">
                     <option value="regroove">Regroove Action (CC)</option>
                     <option value="action">Action System (MIDI, Routing)</option>
+                    <option value="sequencer">Sequencer Control</option>
                     <option value="sysex">Regroove SysEx</option>
                     <option value="cc">Control Change (CC)</option>
                     <option value="note">Note On/Off</option>
@@ -902,6 +903,84 @@
                         <option value="" data-action="602" data-param="custom">Switch Specific Input...</option>
                     </optgroup>
                 </select>
+            </div>
+
+            <div class="setting-group" id="pad-sequencer-field" style="display: none;">
+                <label class="setting-label">SEQUENCER ACTION</label>
+                <select id="pad-sequencer-action">
+                    <optgroup label="Meister Sequencer">
+                        <option value="play" data-action="700">Play Sequencer</option>
+                        <option value="stop" data-action="701">Stop Sequencer</option>
+                        <option value="play_stop" data-action="702">Play/Stop Toggle</option>
+                        <option value="mute_track" data-action="710">Mute Track</option>
+                        <option value="solo_track" data-action="711">Solo Track</option>
+                    </optgroup>
+                    <optgroup label="Device Sequencer (Samplecrate)">
+                        <option value="device_play" data-action="720">Play Slot</option>
+                        <option value="device_stop" data-action="721">Stop Slot</option>
+                        <option value="device_play_stop" data-action="722">Play/Stop Slot</option>
+                        <option value="device_mute" data-action="723">Mute Slot</option>
+                        <option value="device_solo" data-action="724">Solo Slot</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="setting-group" id="pad-sequencer-scene-field" style="display: none;">
+                <label class="setting-label">SEQUENCER SCENE</label>
+                <select id="pad-sequencer-scene-select" style="width: 100%;">
+                    <option value="">-- Select Sequencer --</option>
+                </select>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Which sequencer scene to control
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-sequencer-track-field" style="display: none;">
+                <label class="setting-label">TRACK NUMBER</label>
+                <select id="pad-sequencer-track-number" style="width: 100%;">
+                    <option value="1">Track 1</option>
+                    <option value="2">Track 2</option>
+                    <option value="3">Track 3</option>
+                    <option value="4">Track 4</option>
+                </select>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Which track to mute/solo
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-device-sequencer-field" style="display: none;">
+                <label class="setting-label">TARGET DEVICE</label>
+                <select id="pad-device-seq-device-select" style="width: 100%;">
+                    <option value="">-- Select Device --</option>
+                </select>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Which Samplecrate/Regroove device to control
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-device-sequencer-slot-field" style="display: none;">
+                <label class="setting-label">SEQUENCE SLOT</label>
+                <select id="pad-device-seq-slot-select" style="width: 100%;">
+                    <option value="0">Slot 0</option>
+                    <option value="1">Slot 1</option>
+                    <option value="2">Slot 2</option>
+                    <option value="3">Slot 3</option>
+                    <option value="4">Slot 4</option>
+                    <option value="5">Slot 5</option>
+                    <option value="6">Slot 6</option>
+                    <option value="7">Slot 7</option>
+                    <option value="8">Slot 8</option>
+                    <option value="9">Slot 9</option>
+                    <option value="10">Slot 10</option>
+                    <option value="11">Slot 11</option>
+                    <option value="12">Slot 12</option>
+                    <option value="13">Slot 13</option>
+                    <option value="14">Slot 14</option>
+                    <option value="15">Slot 15</option>
+                </select>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Which sequence slot (0-15) to control
+                </div>
             </div>
 
             <div class="setting-group" id="pad-cc-field" style="display: none;">

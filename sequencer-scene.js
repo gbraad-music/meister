@@ -8,7 +8,7 @@ import { showFillDialog } from './fill-dialog.js';
 import { uploadMidiFile, downloadMidiFile } from './midi-sequence-utils.js';
 
 export class SequencerScene {
-    constructor(controller, sceneId, config = {}) {
+    constructor(controller, sceneId, config = {}, skipRender = false) {
         this.controller = controller;
         this.sceneId = sceneId;
         this.type = 'sequencer';
@@ -30,8 +30,13 @@ export class SequencerScene {
         // Track whether we're editing
         this.editing = false;
 
-        this.render();
-        this.setupEventListeners();
+        // Only render and setup listeners if not initializing in background
+        if (!skipRender) {
+            this.render();
+            this.setupEventListeners();
+        } else {
+            console.log(`[Sequencer] Created instance in background (no render): ${this.name}`);
+        }
     }
 
     render() {
@@ -858,57 +863,123 @@ export class SequencerScene {
         // Only handle if this scene is active
         if (this.controller.sceneManager?.currentScene !== this.sceneId) return;
 
+        // Ignore keyboard shortcuts when input fields or dialogs have focus
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.tagName === 'SELECT' ||
+            activeElement.isContentEditable
+        );
+
+        // Check if nbDialog is visible (check for common dialog container classes)
+        const isDialogVisible = window.nbDialog && (
+            document.querySelector('.nb-dialog-overlay') ||
+            document.querySelector('[role="dialog"]') ||
+            document.querySelector('.dialog') ||
+            document.querySelector('#nb-dialog') ||
+            // Check if any modal-like element is visible
+            Array.from(document.querySelectorAll('div')).some(el =>
+                el.style.position === 'fixed' &&
+                el.style.zIndex > 1000 &&
+                el.offsetParent !== null
+            )
+        );
+
+        if (isInputFocused || isDialogVisible) {
+            // Don't capture keyboard shortcuts when typing in inputs or dialogs are open
+            return;
+        }
+
         // Arrow keys for navigation and editing
         switch (e.key) {
             case 'ArrowUp':
                 e.preventDefault();
-                // Shift + Up = increment note (C → C# → D, etc.)
-                if (e.shiftKey && this.cursorField === 0) {
-                    this.incrementNote(1);
+
+                // Note field: Shift+Up = increment note, Ctrl+Up = increment octave
+                if (this.cursorField === 0) {
+                    if (e.shiftKey) {
+                        this.incrementNote(1);
+                    } else if (e.ctrlKey) {
+                        this.incrementOctave(1);
+                    } else {
+                        // Normal Up = move cursor up
+                        this.cursorRow = Math.max(0, this.cursorRow - 1);
+                        this.ensureCursorVisible();
+                        this.updateTrackerGrid();
+
+                        // Only preview if NOT playing
+                        if (!this.engine.playing) {
+                            const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+                            if (entry && entry.note) {
+                                this.previewNote(entry);
+                            }
+                        }
+                    }
                 }
-                // Ctrl + Up = increment octave
-                else if (e.ctrlKey && this.cursorField === 0) {
-                    this.incrementOctave(1);
+                // Volume field: Shift+Up = small increment (+1), Ctrl+Up = large increment (+16)
+                else if (this.cursorField === 1) {
+                    if (e.shiftKey) {
+                        this.incrementVolume(1);
+                    } else if (e.ctrlKey) {
+                        this.incrementVolume(16);
+                    } else {
+                        // Normal Up = move cursor up
+                        this.cursorRow = Math.max(0, this.cursorRow - 1);
+                        this.ensureCursorVisible();
+                        this.updateTrackerGrid();
+                    }
                 }
-                // Normal Up = move cursor up (NO PREVIEW during playback)
+                // Effect field: just move cursor
                 else {
                     this.cursorRow = Math.max(0, this.cursorRow - 1);
                     this.ensureCursorVisible();
                     this.updateTrackerGrid();
-
-                    // Only preview if NOT playing
-                    if (!this.engine.playing) {
-                        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
-                        if (entry && entry.note) {
-                            this.previewNote(entry);
-                        }
-                    }
                 }
                 break;
 
             case 'ArrowDown':
                 e.preventDefault();
-                // Shift + Down = decrement note
-                if (e.shiftKey && this.cursorField === 0) {
-                    this.incrementNote(-1);
+
+                // Note field: Shift+Down = decrement note, Ctrl+Down = decrement octave
+                if (this.cursorField === 0) {
+                    if (e.shiftKey) {
+                        this.incrementNote(-1);
+                    } else if (e.ctrlKey) {
+                        this.incrementOctave(-1);
+                    } else {
+                        // Normal Down = move cursor down
+                        this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
+                        this.ensureCursorVisible();
+                        this.updateTrackerGrid();
+
+                        // Only preview if NOT playing
+                        if (!this.engine.playing) {
+                            const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+                            if (entry && entry.note) {
+                                this.previewNote(entry);
+                            }
+                        }
+                    }
                 }
-                // Ctrl + Down = decrement octave
-                else if (e.ctrlKey && this.cursorField === 0) {
-                    this.incrementOctave(-1);
+                // Volume field: Shift+Down = small decrement (-1), Ctrl+Down = large decrement (-16)
+                else if (this.cursorField === 1) {
+                    if (e.shiftKey) {
+                        this.incrementVolume(-1);
+                    } else if (e.ctrlKey) {
+                        this.incrementVolume(-16);
+                    } else {
+                        // Normal Down = move cursor down
+                        this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
+                        this.ensureCursorVisible();
+                        this.updateTrackerGrid();
+                    }
                 }
-                // Normal Down = move cursor down
+                // Effect field: just move cursor
                 else {
                     this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
                     this.ensureCursorVisible();
                     this.updateTrackerGrid();
-
-                    // Only preview if NOT playing
-                    if (!this.engine.playing) {
-                        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
-                        if (entry && entry.note) {
-                            this.previewNote(entry);
-                        }
-                    }
                 }
                 break;
 
@@ -957,10 +1028,15 @@ export class SequencerScene {
                 break;
 
             default:
-                // Handle note input (C, D, E, F, G, A, B)
+                // Handle note input (C, D, E, F, G, A, B) when on note field
                 if (this.cursorField === 0 && /^[A-G]$/i.test(e.key)) {
                     e.preventDefault();
                     this.setNote(e.key.toUpperCase());
+                }
+                // Handle hex input (0-9, A-F) when on volume field
+                else if (this.cursorField === 1 && /^[0-9A-F]$/i.test(e.key)) {
+                    e.preventDefault();
+                    this.setVolumeHex(e.key.toUpperCase());
                 }
                 break;
         }
@@ -1022,6 +1098,9 @@ export class SequencerScene {
 
         // Preview the note audibly (CTRL+UP/DOWN)
         this.previewNote(entry);
+
+        // Auto-save after edit
+        this.triggerAutoSave();
     }
 
     ensureCursorVisible() {
@@ -1066,13 +1145,71 @@ export class SequencerScene {
         // Preview the note
         this.previewNote(entry);
 
+        // Auto-save after edit
+        this.triggerAutoSave();
+
         // Don't auto-advance cursor - let user press Enter or Down to move
+    }
+
+    incrementVolume(amount) {
+        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack) || new SequencerEntry();
+
+        // If no note, create one first
+        if (!entry.note) {
+            entry.note = 'C';
+            entry.octave = 3;
+        }
+
+        // Increment volume (clamp to 0-127)
+        entry.volume = Math.max(0, Math.min(127, (entry.volume || 100) + amount));
+
+        this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
+        this.updateTrackerGrid();
+
+        // Preview the note at new volume
+        this.previewNote(entry);
+
+        // Auto-save after edit
+        this.triggerAutoSave();
+    }
+
+    setVolumeHex(hexDigit) {
+        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack) || new SequencerEntry();
+
+        // If no note, create one first
+        if (!entry.note) {
+            entry.note = 'C';
+            entry.octave = 3;
+        }
+
+        // Convert hex digit to value (0-15)
+        const digitValue = parseInt(hexDigit, 16);
+
+        // Current volume in hex (00-7F)
+        const currentVolume = entry.volume || 100;
+        const currentHex = currentVolume.toString(16).toUpperCase().padStart(2, '0');
+
+        // Replace second hex digit (units place)
+        const highNibble = parseInt(currentHex[0], 16);
+        const newVolume = (highNibble * 16) + digitValue;
+
+        // Clamp to 0-127
+        entry.volume = Math.max(0, Math.min(127, newVolume));
+
+        this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
+        this.updateTrackerGrid();
+
+        // Preview the note at new volume
+        this.previewNote(entry);
     }
 
     clearCurrentEntry() {
         const entry = new SequencerEntry();
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
         this.updateTrackerGrid();
+
+        // Auto-save after edit
+        this.triggerAutoSave();
     }
 
     openFillDialog() {
@@ -1265,6 +1402,147 @@ export class SequencerScene {
         });
     }
 
+    /**
+     * Export single track to MIDI file
+     * @param {number} trackIndex - Track to export (0-3)
+     * @returns {Uint8Array} - MIDI file data
+     */
+    exportSingleTrackMIDI(trackIndex) {
+        const tracks = [];
+        const ticksPerQuarterNote = 480;
+        const ticksPerRow = ticksPerQuarterNote / 4;
+
+        // Tempo track
+        const tempoTrack = [];
+        tempoTrack.push(0x00);
+        tempoTrack.push(0xFF, 0x51, 0x03);
+        const microsecondsPerQuarter = Math.floor(60000000 / this.engine.bpm);
+        tempoTrack.push((microsecondsPerQuarter >> 16) & 0xFF);
+        tempoTrack.push((microsecondsPerQuarter >> 8) & 0xFF);
+        tempoTrack.push(microsecondsPerQuarter & 0xFF);
+        tempoTrack.push(0x00);
+        tempoTrack.push(0xFF, 0x2F, 0x00);
+        tracks.push(tempoTrack);
+
+        // Export only the specified track
+        const track = this.buildMIDITrack(trackIndex, ticksPerRow);
+        tracks.push(track);
+
+        return this.buildMIDIFile(tracks, ticksPerQuarterNote);
+    }
+
+    /**
+     * Build MIDI track data for a single sequencer track
+     */
+    buildMIDITrack(trackIndex, ticksPerRow) {
+        const midiTrack = [];
+        const events = [];
+
+        // Get device and channel for this track
+        const trackDeviceBinding = this.engine.trackDeviceBindings[trackIndex];
+        let midiChannel = 0;
+
+        if (trackDeviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(trackDeviceBinding);
+            if (device) {
+                midiChannel = device.midiChannel;
+            }
+        }
+
+        // Track name
+        const trackName = `Track ${trackIndex + 1}`;
+        midiTrack.push(0x00);
+        midiTrack.push(0xFF, 0x03);
+        midiTrack.push(trackName.length);
+        for (let i = 0; i < trackName.length; i++) {
+            midiTrack.push(trackName.charCodeAt(i));
+        }
+
+        // Convert pattern to note events
+        const activeNotes = new Map();
+
+        for (let row = 0; row < this.engine.pattern.rows; row++) {
+            const entry = this.engine.pattern.getEntry(row, trackIndex);
+
+            if (entry && !entry.isEmpty()) {
+                const time = row * ticksPerRow;
+
+                // Note off for previous note
+                if (activeNotes.has(trackIndex)) {
+                    const prevNote = activeNotes.get(trackIndex);
+                    events.push({ time, type: 'noteOff', note: prevNote, velocity: 0, channel: midiChannel });
+                    activeNotes.delete(trackIndex);
+                }
+
+                if (entry.isNoteOff()) {
+                    continue;
+                }
+
+                const midiNote = entry.getMidiNote();
+                if (midiNote !== null && midiNote >= 0 && midiNote <= 127) {
+                    const velocity = Math.min(127, Math.max(0, entry.volume));
+                    events.push({ time, type: 'noteOn', note: midiNote, velocity, channel: midiChannel });
+                    activeNotes.set(trackIndex, midiNote);
+                }
+            }
+        }
+
+        // Note off for any remaining active notes
+        if (activeNotes.has(trackIndex)) {
+            const prevNote = activeNotes.get(trackIndex);
+            const time = this.engine.pattern.rows * ticksPerRow;
+            events.push({ time, type: 'noteOff', note: prevNote, velocity: 0, channel: midiChannel });
+        }
+
+        // Sort events by time
+        events.sort((a, b) => a.time - b.time);
+
+        // Convert events to MIDI bytes with delta times
+        let lastTime = 0;
+        events.forEach(event => {
+            const deltaTime = event.time - lastTime;
+            lastTime = event.time;
+
+            this.writeVarLen(midiTrack, deltaTime);
+
+            if (event.type === 'noteOn') {
+                midiTrack.push(0x90 | event.channel, event.note, event.velocity);
+            } else if (event.type === 'noteOff') {
+                midiTrack.push(0x80 | event.channel, event.note, event.velocity);
+            }
+        });
+
+        // End of track
+        midiTrack.push(0x00);
+        midiTrack.push(0xFF, 0x2F, 0x00);
+
+        return midiTrack;
+    }
+
+    /**
+     * Build complete MIDI file from tracks
+     */
+    buildMIDIFile(tracks, ticksPerQuarterNote) {
+        const midiFile = [];
+
+        // Header chunk
+        midiFile.push(0x4D, 0x54, 0x68, 0x64); // "MThd"
+        midiFile.push(0x00, 0x00, 0x00, 0x06);
+        midiFile.push(0x00, 0x01); // Format 1
+        midiFile.push((tracks.length >> 8) & 0xFF, tracks.length & 0xFF);
+        midiFile.push((ticksPerQuarterNote >> 8) & 0xFF, ticksPerQuarterNote & 0xFF);
+
+        // Track chunks
+        tracks.forEach(track => {
+            midiFile.push(0x4D, 0x54, 0x72, 0x6B); // "MTrk"
+            const trackLength = track.length;
+            midiFile.push((trackLength >> 24) & 0xFF, (trackLength >> 16) & 0xFF, (trackLength >> 8) & 0xFF, trackLength & 0xFF);
+            midiFile.push(...track);
+        });
+
+        return new Uint8Array(midiFile);
+    }
+
     exportMIDI(returnData = false) {
         // Create Standard MIDI File (Format 1)
         const tracks = [];
@@ -1287,118 +1565,19 @@ export class SequencerScene {
 
         // Convert each sequencer track to MIDI track
         for (let track = 0; track < this.engine.pattern.tracks; track++) {
-            const midiTrack = [];
-            const events = [];
-
-            // Get device and channel for this track
-            const trackDeviceBinding = this.engine.trackDeviceBindings[track];
-            let midiChannel = 0;
-
-            if (trackDeviceBinding && this.controller.deviceManager) {
-                const device = this.controller.deviceManager.getDevice(trackDeviceBinding);
-                if (device) {
-                    midiChannel = device.midiChannel;
-                }
-            }
-
-            // Track name
-            const trackName = `Track ${track + 1}`;
-            midiTrack.push(0x00); // Delta time
-            midiTrack.push(0xFF, 0x03); // Track name meta event
-            midiTrack.push(trackName.length);
-            for (let i = 0; i < trackName.length; i++) {
-                midiTrack.push(trackName.charCodeAt(i));
-            }
-
-            // Convert pattern to note events
-            const activeNotes = new Map(); // row -> midiNote
-
-            for (let row = 0; row < this.engine.pattern.rows; row++) {
-                const entry = this.engine.pattern.getEntry(row, track);
-
-                if (entry && !entry.isEmpty()) {
-                    const time = row * ticksPerRow;
-
-                    // Note off for previous note
-                    if (activeNotes.has(track)) {
-                        const prevNote = activeNotes.get(track);
-                        events.push({ time, type: 'noteOff', note: prevNote, velocity: 0, channel: midiChannel });
-                        activeNotes.delete(track);
-                    }
-
-                    if (entry.isNoteOff()) {
-                        // Explicit note off
-                        continue;
-                    }
-
-                    const midiNote = entry.getMidiNote();
-                    if (midiNote !== null && midiNote >= 0 && midiNote <= 127) {
-                        const velocity = Math.min(127, Math.max(0, entry.volume));
-                        events.push({ time, type: 'noteOn', note: midiNote, velocity, channel: midiChannel });
-                        activeNotes.set(track, midiNote);
-                    }
-                }
-            }
-
-            // Note off for any remaining active notes
-            if (activeNotes.has(track)) {
-                const prevNote = activeNotes.get(track);
-                const time = this.engine.pattern.rows * ticksPerRow;
-                events.push({ time, type: 'noteOff', note: prevNote, velocity: 0, channel: midiChannel });
-            }
-
-            // Sort events by time
-            events.sort((a, b) => a.time - b.time);
-
-            // Convert events to MIDI bytes with delta times
-            let lastTime = 0;
-            events.forEach(event => {
-                const deltaTime = event.time - lastTime;
-                lastTime = event.time;
-
-                // Write variable-length delta time
-                this.writeVarLen(midiTrack, deltaTime);
-
-                // Write event
-                if (event.type === 'noteOn') {
-                    midiTrack.push(0x90 | event.channel, event.note, event.velocity);
-                } else if (event.type === 'noteOff') {
-                    midiTrack.push(0x80 | event.channel, event.note, event.velocity);
-                }
-            });
-
-            // End of track
-            midiTrack.push(0x00); // Delta time
-            midiTrack.push(0xFF, 0x2F, 0x00);
-
-            tracks.push(midiTrack);
+            tracks.push(this.buildMIDITrack(track, ticksPerRow));
         }
 
-        // Build MIDI file
-        const midiFile = [];
-
-        // Header chunk
-        midiFile.push(0x4D, 0x54, 0x68, 0x64); // "MThd"
-        midiFile.push(0x00, 0x00, 0x00, 0x06); // Header length (6 bytes)
-        midiFile.push(0x00, 0x01); // Format 1 (multiple tracks)
-        midiFile.push((tracks.length >> 8) & 0xFF, tracks.length & 0xFF); // Number of tracks
-        midiFile.push((ticksPerQuarterNote >> 8) & 0xFF, ticksPerQuarterNote & 0xFF); // Ticks per quarter note
-
-        // Track chunks
-        tracks.forEach(track => {
-            midiFile.push(0x4D, 0x54, 0x72, 0x6B); // "MTrk"
-            const trackLength = track.length;
-            midiFile.push((trackLength >> 24) & 0xFF, (trackLength >> 16) & 0xFF, (trackLength >> 8) & 0xFF, trackLength & 0xFF);
-            midiFile.push(...track);
-        });
+        // Build complete MIDI file
+        const midiFile = this.buildMIDIFile(tracks, ticksPerQuarterNote);
 
         // Return data if requested, otherwise download
         if (returnData) {
-            return new Uint8Array(midiFile);
+            return midiFile;
         }
 
         // Download file
-        const blob = new Blob([new Uint8Array(midiFile)], { type: 'audio/midi' });
+        const blob = new Blob([midiFile], { type: 'audio/midi' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1626,10 +1805,26 @@ export class SequencerScene {
                 color: #fff;
                 font-family: 'Arial', sans-serif;
             ">
-                <h3 style="margin: 0 0 15px 0; text-align: center;">Upload to Samplecrate</h3>
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Upload Pattern to Samplecrate</h3>
 
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Target Device:</label>
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Upload:</label>
+                    <select id="upload-track-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        <option value="all">All 4 tracks</option>
+                        ${Array.from({length: 4}, (_, i) => `<option value="${i}">Track ${i + 1}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Target Device (override):</label>
                     <select id="upload-device-selector" style="
                         width: 100%;
                         padding: 8px;
@@ -1639,12 +1834,14 @@ export class SequencerScene {
                         border-radius: 4px;
                         font-size: 14px;
                     ">
+                        <option value="">Use track bindings</option>
                         ${deviceOptions}
                     </select>
+                    <div style="font-size: 0.8em; color: #888; margin-top: 4px;">Leave as "Use track bindings" to use each track's assigned device</div>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Target Slot (0-15):</label>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Starting slot:</label>
                     <select id="upload-slot-selector" style="
                         width: 100%;
                         padding: 8px;
@@ -1656,6 +1853,11 @@ export class SequencerScene {
                     ">
                         ${Array.from({length: 16}, (_, i) => `<option value="${i}">Slot ${i}</option>`).join('')}
                     </select>
+                </div>
+
+                <div id="upload-preview" style="margin-bottom: 20px; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; font-size: 0.85em;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">This will upload:</div>
+                    <div id="upload-preview-content"></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -1683,21 +1885,491 @@ export class SequencerScene {
 
         window.nbDialog.show(selectorContent);
 
-        // Wire up buttons
+        // Wire up dialog interactivity
         setTimeout(() => {
+            const trackSelector = document.getElementById('upload-track-selector');
+            const deviceSelector = document.getElementById('upload-device-selector');
+            const slotSelector = document.getElementById('upload-slot-selector');
+            const previewContent = document.getElementById('upload-preview-content');
+
+            // Update preview function
+            const updatePreview = () => {
+                const trackSelection = trackSelector.value;
+                const uploadAll = trackSelection === 'all';
+                const startingSlot = parseInt(slotSelector.value);
+                const overrideDeviceId = deviceSelector.value;
+
+                let previewHtml = '';
+
+                if (uploadAll) {
+                    // Show all 4 tracks
+                    for (let track = 0; track < 4; track++) {
+                        const targetSlot = startingSlot + track;
+                        const program = this.engine.trackPrograms[track] || 0;
+
+                        // Use override device if specified, otherwise use track binding
+                        let deviceId = overrideDeviceId || this.engine.trackDeviceBindings[track];
+                        let deviceName = 'Default';
+
+                        if (deviceId && this.controller.deviceManager) {
+                            const device = this.controller.deviceManager.getDevice(deviceId);
+                            if (device) deviceName = device.name;
+                        }
+
+                        const progText = program === 0 ? 'No Prog' : `Prog ${program}`;
+                        previewHtml += `<div style="padding: 4px 0; color: #ccc;">• Track ${track + 1} (${progText}, ${deviceName}) → Slot ${targetSlot}</div>`;
+                    }
+                } else {
+                    // Show single track
+                    const selectedTrack = parseInt(trackSelection);
+                    const program = this.engine.trackPrograms[selectedTrack] || 0;
+
+                    // Use override device if specified, otherwise use track binding
+                    let deviceId = overrideDeviceId || this.engine.trackDeviceBindings[selectedTrack];
+                    let deviceName = 'Default';
+
+                    if (deviceId && this.controller.deviceManager) {
+                        const device = this.controller.deviceManager.getDevice(deviceId);
+                        if (device) deviceName = device.name;
+                    }
+
+                    const progText = program === 0 ? 'No Prog' : `Prog ${program}`;
+                    previewHtml = `<div style="padding: 4px 0; color: #ccc;">• Track ${selectedTrack + 1} (${progText}, ${deviceName}) → Slot ${startingSlot}</div>`;
+                }
+
+                previewContent.innerHTML = previewHtml;
+            };
+
+            // Update preview when selections change
+            trackSelector.addEventListener('change', updatePreview);
+            deviceSelector.addEventListener('change', updatePreview);
+            slotSelector.addEventListener('change', updatePreview);
+
+            // Initial preview
+            updatePreview();
+
+            // Cancel button
             document.getElementById('upload-slot-cancel')?.addEventListener('click', () => {
                 window.nbDialog.hide();
             });
 
+            // Upload button
             document.getElementById('upload-slot-ok')?.addEventListener('click', () => {
-                const deviceId = document.getElementById('upload-device-selector').value;
-                const slot = parseInt(document.getElementById('upload-slot-selector').value);
+                const trackSelection = trackSelector.value;
+                const uploadAll = trackSelection === 'all';
+                const startingSlot = parseInt(slotSelector.value);
+                const overrideDeviceId = deviceSelector.value || null;
+
                 window.nbDialog.hide();
 
-                // Now proceed with upload
-                this.performUpload(deviceId, slot);
+                if (uploadAll) {
+                    // Upload all 4 tracks sequentially
+                    this.performMultiTrackUpload(startingSlot, overrideDeviceId);
+                } else {
+                    // Upload single track
+                    const selectedTrack = parseInt(trackSelection);
+                    this.performSingleTrackUpload(selectedTrack, startingSlot, overrideDeviceId);
+                }
             });
         }, 100);
+    }
+
+    /**
+     * Upload a single track to a slot using the track's device binding and program
+     * @param {number} trackIndex - Track index (0-3)
+     * @param {number} slot - Target slot (0-15)
+     * @param {string|null} overrideDeviceId - Optional device ID to override track binding
+     */
+    performSingleTrackUpload(trackIndex, slot, overrideDeviceId = null) {
+        // Use override device if specified, otherwise use track binding
+        const deviceId = overrideDeviceId || this.engine.trackDeviceBindings[trackIndex];
+        if (!deviceId) {
+            if (window.nbDialog) {
+                window.nbDialog.alert(`Track ${trackIndex + 1} has no device assigned. Please select a device or assign one in the track header.`);
+            }
+            console.error(`[Sequencer] Track ${trackIndex + 1} has no device binding and no override specified`);
+            return;
+        }
+
+        const program = this.engine.trackPrograms[trackIndex] || 0;
+
+        // Get device configuration
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('Device not found.');
+            }
+            console.error('[Sequencer] Device not found:', deviceId);
+            return;
+        }
+
+        // Get MIDI output for this device
+        const midiOutput = this.controller.deviceManager.getMidiOutput(deviceId);
+        if (!midiOutput) {
+            if (window.nbDialog) {
+                window.nbDialog.alert('MIDI output not available for this device.');
+            }
+            console.error('[Sequencer] MIDI output not available for device:', device.name);
+            return;
+        }
+
+        console.log(`[Sequencer] Uploading Track ${trackIndex + 1} to device: ${device.name} (SysEx ID: ${device.deviceId}), slot ${slot}, program ${program}`);
+
+        // Generate MIDI file for this track only
+        console.log(`[Sequencer] Generating MIDI file for track ${trackIndex + 1}...`);
+        const midiFileData = this.exportSingleTrackMIDI(trackIndex);
+        if (!midiFileData) {
+            console.error('[Sequencer] Failed to generate MIDI file');
+            return;
+        }
+
+        console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
+
+        // Create progress dialog
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        let uploadCancelled = false;
+
+        const progressContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Uploading Track ${trackIndex + 1}</h3>
+
+                <div style="margin-bottom: 10px;">
+                    <strong>Device:</strong> ${device.name}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Slot:</strong> ${slot}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Program:</strong> ${program === 0 ? 'No Prog' : program}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Size:</strong> ${midiFileData.length} bytes
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <strong>Status:</strong> <span id="upload-status">Preparing...</span>
+                </div>
+
+                <div style="
+                    width: 100%;
+                    height: 20px;
+                    background: #0a0a0a;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 10px;
+                ">
+                    <div id="upload-progress-bar" style="
+                        width: 0%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #4a9eff, #aa6aaa);
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span id="upload-progress-text">0%</span>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="upload-cancel-btn" style="
+                        padding: 8px 20px;
+                        background: #4a2a2a;
+                        color: #ff6a6a;
+                        border: 1px solid #6a3a3a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(progressContent);
+
+        // Wire up cancel button
+        setTimeout(() => {
+            const cancelBtn = document.getElementById('upload-cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    uploadCancelled = true;
+                    window.nbDialog.hide();
+                    console.log('[Sequencer] Upload cancelled by user');
+                });
+            }
+        }, 100);
+
+        // Upload with progress callbacks
+        try {
+            uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, program, midiFileData, {
+                onProgress: (currentChunk, totalChunks) => {
+                    if (uploadCancelled) return;
+
+                    const percent = Math.round((currentChunk / totalChunks) * 100);
+                    const progressBar = document.getElementById('upload-progress-bar');
+                    const progressText = document.getElementById('upload-progress-text');
+                    const statusText = document.getElementById('upload-status');
+
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (progressText) progressText.textContent = `${percent}%`;
+                    if (statusText) statusText.textContent = `Uploading chunk ${currentChunk}/${totalChunks}`;
+
+                    console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                },
+
+                onComplete: () => {
+                    if (uploadCancelled) return;
+
+                    console.log(`[Sequencer] Upload complete: Track ${trackIndex + 1} → slot ${slot}`);
+                    const statusText = document.getElementById('upload-status');
+                    if (statusText) statusText.textContent = 'Upload complete!';
+
+                    // Close dialog after 1 second
+                    setTimeout(() => {
+                        window.nbDialog.hide();
+                        if (window.nbDialog.alert) {
+                            window.nbDialog.alert(`Track ${trackIndex + 1} uploaded successfully to slot ${slot}!`);
+                        }
+                    }, 1000);
+                },
+
+                onError: (error) => {
+                    if (uploadCancelled) return;
+
+                    console.error(`[Sequencer] Upload error:`, error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Upload failed: ${error}`);
+                    }
+                }
+            }).catch(error => {
+                if (!uploadCancelled) {
+                    console.error('[Sequencer] Upload promise rejected:', error);
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`Upload failed: ${error}`);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('[Sequencer] Upload exception:', error);
+            window.nbDialog.hide();
+            if (window.nbDialog.alert) {
+                window.nbDialog.alert(`Upload failed: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Upload all 4 tracks sequentially starting from the specified slot
+     * @param {number} startingSlot - Starting slot (0-15)
+     * @param {string|null} overrideDeviceId - Optional device ID to override all track bindings
+     */
+    async performMultiTrackUpload(startingSlot, overrideDeviceId = null) {
+        // Validate all tracks have device bindings (unless override specified)
+        if (!overrideDeviceId) {
+            const missingDevices = [];
+            for (let track = 0; track < 4; track++) {
+                if (!this.engine.trackDeviceBindings[track]) {
+                    missingDevices.push(track + 1);
+                }
+            }
+
+            if (missingDevices.length > 0) {
+                if (window.nbDialog) {
+                    window.nbDialog.alert(`Tracks ${missingDevices.join(', ')} have no device assigned. Please select a device override or assign devices in the track headers.`);
+                }
+                return;
+            }
+        }
+
+        // Create progress dialog
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        let uploadCancelled = false;
+
+        const progressContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Uploading All Tracks</h3>
+
+                <div style="margin-bottom: 10px;">
+                    <strong>Current Track:</strong> <span id="upload-current-track">1 / 4</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Current Slot:</strong> <span id="upload-current-slot">${startingSlot}</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <strong>Status:</strong> <span id="upload-status">Preparing...</span>
+                </div>
+
+                <div style="
+                    width: 100%;
+                    height: 20px;
+                    background: #0a0a0a;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 10px;
+                ">
+                    <div id="upload-progress-bar" style="
+                        width: 0%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #4a9eff, #aa6aaa);
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span id="upload-progress-text">0%</span>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="upload-cancel-btn" style="
+                        padding: 8px 20px;
+                        background: #4a2a2a;
+                        color: #ff6a6a;
+                        border: 1px solid #6a3a3a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(progressContent);
+
+        // Wire up cancel button
+        const cancelBtn = document.getElementById('upload-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                uploadCancelled = true;
+                window.nbDialog.hide();
+                console.log('[Sequencer] Multi-track upload cancelled by user');
+            });
+        }
+
+        // Upload each track sequentially
+        try {
+            for (let track = 0; track < 4; track++) {
+                if (uploadCancelled) {
+                    console.log('[Sequencer] Multi-track upload cancelled');
+                    return;
+                }
+
+                const slot = startingSlot + track;
+                // Use override device if specified, otherwise use track binding
+                const deviceId = overrideDeviceId || this.engine.trackDeviceBindings[track];
+                const program = this.engine.trackPrograms[track] || 0;
+
+                // Update current track display
+                const currentTrackSpan = document.getElementById('upload-current-track');
+                const currentSlotSpan = document.getElementById('upload-current-slot');
+                if (currentTrackSpan) currentTrackSpan.textContent = `${track + 1} / 4`;
+                if (currentSlotSpan) currentSlotSpan.textContent = slot;
+
+                // Get device
+                const device = this.controller.deviceManager.getDevice(deviceId);
+                if (!device) {
+                    throw new Error(`Device not found for track ${track + 1}`);
+                }
+
+                // Get MIDI output
+                const midiOutput = this.controller.deviceManager.getMidiOutput(deviceId);
+                if (!midiOutput) {
+                    throw new Error(`MIDI output not available for device: ${device.name}`);
+                }
+
+                console.log(`[Sequencer] Uploading Track ${track + 1} to device: ${device.name}, slot ${slot}, program ${program}`);
+
+                // Generate MIDI file for this track
+                const midiFileData = this.exportSingleTrackMIDI(track);
+                if (!midiFileData) {
+                    throw new Error(`Failed to generate MIDI file for track ${track + 1}`);
+                }
+
+                console.log(`[Sequencer] MIDI file generated for track ${track + 1}: ${midiFileData.length} bytes`);
+
+                // Upload this track
+                await new Promise((resolve, reject) => {
+                    uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, program, midiFileData, {
+                        onProgress: (currentChunk, totalChunks) => {
+                            if (uploadCancelled) return;
+
+                            // Calculate overall progress (track progress + chunk progress within track)
+                            const trackProgress = track / 4;
+                            const chunkProgress = (currentChunk / totalChunks) / 4;
+                            const totalProgress = Math.round((trackProgress + chunkProgress) * 100);
+
+                            const progressBar = document.getElementById('upload-progress-bar');
+                            const progressText = document.getElementById('upload-progress-text');
+                            const statusText = document.getElementById('upload-status');
+
+                            if (progressBar) progressBar.style.width = `${totalProgress}%`;
+                            if (progressText) progressText.textContent = `${totalProgress}%`;
+                            if (statusText) statusText.textContent = `Track ${track + 1}/4: Chunk ${currentChunk}/${totalChunks}`;
+                        },
+
+                        onComplete: () => {
+                            if (uploadCancelled) return;
+                            console.log(`[Sequencer] Track ${track + 1} upload complete`);
+                            resolve();
+                        },
+
+                        onError: (error) => {
+                            if (uploadCancelled) return;
+                            reject(new Error(`Track ${track + 1} upload failed: ${error}`));
+                        }
+                    }).catch(error => {
+                        if (!uploadCancelled) {
+                            reject(error);
+                        }
+                    });
+                });
+            }
+
+            // All tracks uploaded
+            if (!uploadCancelled) {
+                console.log('[Sequencer] All tracks uploaded successfully');
+                const statusText = document.getElementById('upload-status');
+                if (statusText) statusText.textContent = 'All tracks uploaded!';
+
+                setTimeout(() => {
+                    window.nbDialog.hide();
+                    if (window.nbDialog.alert) {
+                        window.nbDialog.alert(`All 4 tracks uploaded successfully to slots ${startingSlot}-${startingSlot + 3}!`);
+                    }
+                }, 1000);
+            }
+        } catch (error) {
+            console.error('[Sequencer] Multi-track upload error:', error);
+            window.nbDialog.hide();
+            if (window.nbDialog.alert) {
+                window.nbDialog.alert(`Multi-track upload failed: ${error.message}`);
+            }
+        }
     }
 
     performUpload(deviceId, slot) {
@@ -2344,6 +3016,33 @@ export class SequencerScene {
                 input.removeEventListener('midimessage', this.midiInputListener);
             }
         }
+    }
+
+    /**
+     * Trigger auto-save with debouncing (saves 2 seconds after last edit)
+     */
+    triggerAutoSave() {
+        console.log(`[Sequencer] triggerAutoSave() called for: ${this.name}`);
+
+        // Clear existing timer
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+            console.log(`[Sequencer] Cleared previous auto-save timer`);
+        }
+
+        // Set new timer to save after 2 seconds of inactivity
+        this.autoSaveTimer = setTimeout(() => {
+            console.log(`[Sequencer] Auto-save timer fired!`);
+            if (this.controller.sceneEditor) {
+                console.log(`[Sequencer] Calling saveScenesToStorage()...`);
+                this.controller.sceneEditor.saveScenesToStorage();
+                console.log(`[Sequencer] ✓ Auto-saved sequencer data: ${this.name}`);
+            } else {
+                console.error(`[Sequencer] ERROR: sceneEditor not found on controller!`);
+            }
+        }, 2000);
+
+        console.log(`[Sequencer] Auto-save scheduled in 2 seconds`);
     }
 
     toJSON() {
