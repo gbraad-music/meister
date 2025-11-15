@@ -104,6 +104,7 @@ export class SettingsUI {
                     <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0; margin-left: 8px;">
                         <button class="scene-move-up" data-scene-id="${scene.id}" style="padding: 3px 7px; background: #333; border: 1px solid #444; color: ${index > 0 ? '#888' : '#333'}; cursor: ${index > 0 ? 'pointer' : 'default'}; border-radius: 2px; font-size: 0.75em;" ${index === 0 ? 'disabled' : ''}>▲</button>
                         <button class="scene-move-down" data-scene-id="${scene.id}" style="padding: 3px 7px; background: #333; border: 1px solid #444; color: ${index < scenes.length - 1 ? '#888' : '#333'}; cursor: ${index < scenes.length - 1 ? 'pointer' : 'default'}; border-radius: 2px; font-size: 0.75em;" ${index === scenes.length - 1 ? 'disabled' : ''}>▼</button>
+                        <button class="scene-set-default" data-scene-id="${scene.id}" style="padding: 3px 7px; background: ${this.controller.sceneManager.defaultScene === scene.id ? '#4a4a2a' : '#2a2a2a'}; border: 1px solid ${this.controller.sceneManager.defaultScene === scene.id ? '#6a6a3a' : '#3a3a3a'}; color: ${this.controller.sceneManager.defaultScene === scene.id ? '#ffff88' : '#888'}; cursor: pointer; border-radius: 2px; font-size: 0.7em;">★</button>
                         <button class="scene-toggle" data-scene-id="${scene.id}" style="padding: 3px 10px; background: ${isEnabled ? '#4a2a2a' : '#2a4a2a'}; border: 1px solid ${isEnabled ? '#5a3a3a' : '#3a5a3a'}; color: ${isEnabled ? '#9e4a4a' : '#4a9e4a'}; cursor: pointer; border-radius: 2px; font-size: 0.75em; white-space: nowrap;">${isEnabled ? 'DISABLE' : 'ENABLE'}</button>
                         <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-edit" data-scene-id="${scene.id}">✏️</div>
                         <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-delete" data-scene-id="${scene.id}">🗑️</div>
@@ -160,6 +161,16 @@ export class SettingsUI {
             btn.addEventListener('click', () => {
                 const sceneId = btn.getAttribute('data-scene-id');
                 this.moveScene(sceneId, 1);
+            });
+        });
+
+        // Add set default handlers
+        container.querySelectorAll('.scene-set-default').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sceneId = btn.getAttribute('data-scene-id');
+                this.controller.sceneManager.defaultScene = sceneId;
+                localStorage.setItem('meisterDefaultScene', sceneId);
+                this.refreshScenesList();
             });
         });
 

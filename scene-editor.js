@@ -568,8 +568,7 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list in both editor and settings panel
-        this.refreshScenesList();
+        // Refresh scenes list in settings panel
         if (this.sceneManager.controller.settingsUI) {
             this.sceneManager.controller.settingsUI.refreshScenesList();
         }
@@ -593,7 +592,9 @@ export class SceneEditor {
             if (confirmed) {
                 this.sceneManager.scenes.delete(this.currentSceneId);
                 this.saveScenesToStorage();
-                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
                 this.closeSceneEditor();
             }
         });
@@ -806,8 +807,7 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list in both editor and settings panel
-        this.refreshScenesList();
+        // Refresh scenes list in settings panel
         if (this.sceneManager.controller.settingsUI) {
             this.sceneManager.controller.settingsUI.refreshScenesList();
         }
@@ -884,8 +884,7 @@ export class SceneEditor {
         // Save to localStorage
         this.saveScenesToStorage();
 
-        // Refresh scenes list in both editor and settings panel
-        this.refreshScenesList();
+        // Refresh scenes list in settings panel
         if (this.sceneManager.controller.settingsUI) {
             this.sceneManager.controller.settingsUI.refreshScenesList();
         }
@@ -909,7 +908,9 @@ export class SceneEditor {
             if (confirmed) {
                 this.sceneManager.scenes.delete(this.currentSceneId);
                 this.saveScenesToStorage();
-                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
                 this.closePadSceneEditor();
             }
         });
@@ -1238,7 +1239,9 @@ export class SceneEditor {
             if (confirmed) {
                 this.sceneManager.scenes.delete(this.currentSceneId);
                 this.saveScenesToStorage();
-                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
                 if (this.sceneManager.controller.settingsUI) {
                     this.sceneManager.controller.settingsUI.refreshScenesList();
                 }
@@ -1407,173 +1410,9 @@ export class SceneEditor {
         this.saveScenesToStorage();
 
         // Refresh the scenes list UI
-        this.refreshScenesList();
-    }
-
-    refreshScenesList() {
-        const container = document.getElementById('scenes-list');
-        if (!container) return;
-
-        const scenes = this.sceneManager.getScenes(true); // Include disabled scenes
-        const sceneArray = Array.from(this.sceneManager.scenes.entries());
-        const currentSceneId = this.sceneManager.currentScene;
-
-        container.innerHTML = scenes.map((scene, index) => {
-            // Only pads scene is truly non-editable built-in
-            const isNonEditable = (scene.id === 'pads');
-            const isBuiltIn = (scene.id === 'pads' || scene.id === 'mixer' || scene.id === 'effects' || scene.id === 'piano');
-            const isEnabled = scene.enabled !== false;
-            const isActive = scene.id === currentSceneId;
-
-            let typeLabel = 'Mixer Layout';
-            if (scene.type === 'grid') typeLabel = 'Pad Grid';
-            else if (scene.type === 'effects') typeLabel = 'Effects';
-            else if (scene.type === 'piano') typeLabel = 'Piano Keyboard';
-            else if (scene.type === 'split') typeLabel = 'Split Scene (Pads + Faders)';
-            else if (scene.type === 'sequencer') typeLabel = 'Sequencer (Tracker)';
-
-            return `
-                <div class="scene-list-item" data-scene-id="${scene.id}" style="
-                    background: ${isActive ? '#3a4a3a' : (isEnabled ? '#2a2a2a' : '#1a1a1a')};
-                    border: 2px solid ${isActive ? '#4a9e4a' : (isEnabled ? '#444' : '#333')};
-                    border-radius: 4px;
-                    padding: 12px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    opacity: ${isEnabled ? '1' : '0.5'};
-                ">
-                    <div style="flex: 1; cursor: ${isNonEditable ? 'default' : 'pointer'};" class="scene-name-area">
-                        <div style="font-weight: bold; color: ${isEnabled ? '#ccc' : '#666'};">${scene.name}${isActive ? ' ⬤' : ''}</div>
-                        <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
-                            ${typeLabel}
-                            ${isBuiltIn ? '(Built-in)' : ''}
-                            ${!isEnabled ? '(Disabled)' : ''}
-                            ${isActive ? '(Active)' : ''}
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 5px; align-items: center;">
-                        ${index > 0 ? '<button class="scene-move-up" style="padding: 5px 8px; background: #333; border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; font-size: 0.8em;">▲</button>' : ''}
-                        ${index < scenes.length - 1 ? '<button class="scene-move-down" style="padding: 5px 8px; background: #333; border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; font-size: 0.8em;">▼</button>' : ''}
-                        <button class="scene-toggle" style="padding: 5px 10px; background: ${isEnabled ? '#2a4a2a' : '#4a2a2a'}; border: 1px solid ${isEnabled ? '#3a5a3a' : '#5a3a3a'}; color: ${isEnabled ? '#4a9e4a' : '#9e4a4a'}; cursor: pointer; border-radius: 3px; font-size: 0.8em; min-width: 70px;">${isEnabled ? 'DISABLE' : 'ENABLE'}</button>
-                        ${!isNonEditable ? '<div style="color: #cc4444; font-size: 1.2em; cursor: pointer;" class="scene-edit">✏️</div>' : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Add click handlers - all scenes except pads are editable
-        container.querySelectorAll('.scene-list-item').forEach((item, index) => {
-            const sceneId = item.getAttribute('data-scene-id');
-
-            // Edit button handler
-            const editBtn = item.querySelector('.scene-edit');
-            if (editBtn) {
-                editBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const scene = this.sceneManager.scenes.get(sceneId);
-                    if (scene && scene.type === 'grid') {
-                        this.openPadSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'effects') {
-                        this.openEffectsSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'piano') {
-                        this.openPianoSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'split') {
-                        this.openSplitSceneEditor(sceneId);
-                    } else {
-                        this.openSceneEditor(sceneId);
-                    }
-                });
-            }
-
-            // Name area click handler (same as edit for non-pads)
-            const nameArea = item.querySelector('.scene-name-area');
-            if (nameArea && sceneId !== 'pads') {
-                nameArea.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const scene = this.sceneManager.scenes.get(sceneId);
-                    if (scene && scene.type === 'grid') {
-                        this.openPadSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'effects') {
-                        this.openEffectsSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'piano') {
-                        this.openPianoSceneEditor(sceneId);
-                    } else if (scene && scene.type === 'split') {
-                        this.openSplitSceneEditor(sceneId);
-                    } else {
-                        this.openSceneEditor(sceneId);
-                    }
-                });
-            }
-
-            // Toggle enable/disable
-            const toggleBtn = item.querySelector('.scene-toggle');
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const scene = this.sceneManager.scenes.get(sceneId);
-                    if (scene) {
-                        scene.enabled = !(scene.enabled !== false);
-                        this.saveScenesToStorage();
-                        this.refreshScenesList();
-                        this.sceneManager.updateSceneSelector();
-                    }
-                });
-            }
-
-            // Move up button
-            const moveUpBtn = item.querySelector('.scene-move-up');
-            if (moveUpBtn) {
-                moveUpBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.moveScene(sceneId, -1);
-                });
-            }
-
-            // Move down button
-            const moveDownBtn = item.querySelector('.scene-move-down');
-            if (moveDownBtn) {
-                moveDownBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.moveScene(sceneId, 1);
-                });
-            }
-        });
-
-        // Update the scene selector dropdown in the status bar
-        this.sceneManager.updateSceneSelector();
-    }
-
-    /**
-     * Move a scene up or down in the order
-     */
-    moveScene(sceneId, direction) {
-        // Convert Map to array
-        const scenesArray = Array.from(this.sceneManager.scenes.entries());
-
-        // Find the index of the scene to move
-        const currentIndex = scenesArray.findIndex(([id]) => id === sceneId);
-        if (currentIndex === -1) return;
-
-        // Calculate new index
-        const newIndex = currentIndex + direction;
-        if (newIndex < 0 || newIndex >= scenesArray.length) return;
-
-        // Swap scenes
-        const temp = scenesArray[currentIndex];
-        scenesArray[currentIndex] = scenesArray[newIndex];
-        scenesArray[newIndex] = temp;
-
-        // Recreate the Map with new order
-        this.sceneManager.scenes.clear();
-        scenesArray.forEach(([id, scene]) => {
-            this.sceneManager.scenes.set(id, scene);
-        });
-
-        // Save and refresh
-        this.saveScenesToStorage();
-        this.refreshScenesList();
-        this.sceneManager.updateSceneSelector();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
     }
 
     /**
@@ -1687,7 +1526,9 @@ export class SceneEditor {
             if (scene) {
                 scene.name = name;
                 this.saveScenesToStorage();
-                this.refreshScenesList();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
                 if (this.sceneManager.controller.settingsUI) {
                     this.sceneManager.controller.settingsUI.refreshScenesList();
                 }

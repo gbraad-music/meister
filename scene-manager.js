@@ -10,7 +10,11 @@ import { InputAction, InputEvent } from './input-actions.js';
 export class SceneManager {
     constructor(controller) {
         this.controller = controller;
-        this.currentScene = 'pads';
+
+        // Load default scene from localStorage or use 'pads'
+        this.defaultScene = localStorage.getItem('meisterDefaultScene') || 'pads';
+        this.currentScene = this.defaultScene;
+
         this.scenes = new Map();
 
         // Register default scenes
@@ -306,9 +310,6 @@ export class SceneManager {
         this.refreshQuickSelector();
 
         // Update settings scenes list if settings UI exists
-        if (this.controller.sceneEditor) {
-            this.controller.sceneEditor.refreshScenesList();
-        }
         if (this.controller.settingsUI) {
             this.controller.settingsUI.refreshScenesList();
         }
