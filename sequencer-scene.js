@@ -989,10 +989,16 @@ export class SequencerScene {
                 entry.note = notes[index];
             }
         }
+
+        // Ensure volume is set for preview
+        if (!entry.volume) {
+            entry.volume = 100;
+        }
+
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
         this.updateTrackerGrid();
 
-        // Preview the note
+        // Preview the note audibly (SHIFT+UP/DOWN)
         this.previewNote(entry);
     }
 
@@ -1005,10 +1011,16 @@ export class SequencerScene {
         } else {
             entry.octave = Math.max(0, Math.min(8, entry.octave + direction));
         }
+
+        // Ensure volume is set for preview
+        if (!entry.volume) {
+            entry.volume = 100;
+        }
+
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
         this.updateTrackerGrid();
 
-        // Preview the note
+        // Preview the note audibly (CTRL+UP/DOWN)
         this.previewNote(entry);
     }
 
