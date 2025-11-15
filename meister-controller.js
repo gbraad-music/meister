@@ -1394,7 +1394,7 @@ class MeisterController {
                     const device = this.deviceManager?.getDevice(padConfig.deviceId);
                     if (device) {
                         const slot = padConfig.parameter & 0xFF;
-                        const deviceInfo = `[${device.name} #${slot}]`;
+                        const deviceInfo = `[${device.name} S${slot + 1}]`; // Display as S1-S16 (one-based)
                         sublabel = sublabel ? `${sublabel}\n${deviceInfo}` : deviceInfo;
                     }
                 }

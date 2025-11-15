@@ -1764,7 +1764,7 @@ export class SequencerScene {
                         border-radius: 4px;
                         font-size: 14px;
                     ">
-                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">Slot ${i}</option>`).join('')}
+                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">S${i + 1}</option>`).join('')}
                     </select>
                 </div>
 
@@ -1830,7 +1830,7 @@ export class SequencerScene {
                         }
 
                         const progText = program === 0 ? 'No Prog' : `Prog ${program}`;
-                        previewHtml += `<div style="padding: 4px 0; color: #ccc;">• Track ${track + 1} (${progText}, ${deviceName}) → Slot ${targetSlot}</div>`;
+                        previewHtml += `<div style="padding: 4px 0; color: #ccc;">• Track ${track + 1} (${progText}, ${deviceName}) → S${targetSlot + 1}</div>`;
                     }
                 } else {
                     // Show single track
@@ -1847,7 +1847,7 @@ export class SequencerScene {
                     }
 
                     const progText = program === 0 ? 'No Prog' : `Prog ${program}`;
-                    previewHtml = `<div style="padding: 4px 0; color: #ccc;">• Track ${selectedTrack + 1} (${progText}, ${deviceName}) → Slot ${startingSlot}</div>`;
+                    previewHtml = `<div style="padding: 4px 0; color: #ccc;">• Track ${selectedTrack + 1} (${progText}, ${deviceName}) → S${startingSlot + 1}</div>`;
                 }
 
                 previewContent.innerHTML = previewHtml;
@@ -1904,7 +1904,9 @@ export class SequencerScene {
             return;
         }
 
-        const program = this.engine.trackPrograms[trackIndex] || 0;
+        const programUI = this.engine.trackPrograms[trackIndex] || 0;
+        // Convert UI program (0=NO PROG, 1-32=PROG 1-32) to wire (127=NO PROG, 0-31=PROG 1-32)
+        const programWire = programUI > 0 ? (programUI - 1) & 0x7F : 127;
 
         // Get device configuration
         const device = this.controller.deviceManager.getDevice(deviceId);
@@ -1926,7 +1928,7 @@ export class SequencerScene {
             return;
         }
 
-        console.log(`[Sequencer] Uploading Track ${trackIndex + 1} to device: ${device.name} (SysEx ID: ${device.deviceId}), slot ${slot}, program ${program}`);
+        console.log(`[Sequencer] Uploading Track ${trackIndex + 1} to device: ${device.name} (SysEx ID: ${device.deviceId}), slot ${slot}, program UI=${programUI} wire=${programWire}`);
 
         // Generate MIDI file for this track only
         console.log(`[Sequencer] Generating MIDI file for track ${trackIndex + 1}...`);
@@ -1962,10 +1964,10 @@ export class SequencerScene {
                     <strong>Device:</strong> ${device.name}
                 </div>
                 <div style="margin-bottom: 10px;">
-                    <strong>Slot:</strong> ${slot}
+                    <strong>Slot:</strong> S${slot + 1}
                 </div>
                 <div style="margin-bottom: 10px;">
-                    <strong>Program:</strong> ${program === 0 ? 'No Prog' : program}
+                    <strong>Program:</strong> ${programUI === 0 ? 'No Prog' : `Prog ${programUI}`}
                 </div>
                 <div style="margin-bottom: 10px;">
                     <strong>Size:</strong> ${midiFileData.length} bytes
@@ -2025,7 +2027,7 @@ export class SequencerScene {
 
         // Upload with progress callbacks
         try {
-            uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, program, midiFileData, {
+            uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, programWire, midiFileData, {
                 onProgress: (currentChunk, totalChunks) => {
                     if (uploadCancelled) return;
 
@@ -2131,7 +2133,7 @@ export class SequencerScene {
                     <strong>Current Track:</strong> <span id="upload-current-track">1 / 4</span>
                 </div>
                 <div style="margin-bottom: 10px;">
-                    <strong>Current Slot:</strong> <span id="upload-current-slot">${startingSlot}</span>
+                    <strong>Current Slot:</strong> <span id="upload-current-slot">S${startingSlot + 1}</span>
                 </div>
                 <div style="margin-bottom: 15px;">
                     <strong>Status:</strong> <span id="upload-status">Preparing...</span>
@@ -2195,13 +2197,15 @@ export class SequencerScene {
                 const slot = startingSlot + track;
                 // Use override device if specified, otherwise use track binding
                 const deviceId = overrideDeviceId || this.engine.trackDeviceBindings[track];
-                const program = this.engine.trackPrograms[track] || 0;
+                const programUI = this.engine.trackPrograms[track] || 0;
+                // Convert UI program (0=NO PROG, 1-32=PROG 1-32) to wire (127=NO PROG, 0-31=PROG 1-32)
+                const programWire = programUI > 0 ? (programUI - 1) & 0x7F : 127;
 
                 // Update current track display
                 const currentTrackSpan = document.getElementById('upload-current-track');
                 const currentSlotSpan = document.getElementById('upload-current-slot');
                 if (currentTrackSpan) currentTrackSpan.textContent = `${track + 1} / 4`;
-                if (currentSlotSpan) currentSlotSpan.textContent = slot;
+                if (currentSlotSpan) currentSlotSpan.textContent = `S${slot + 1}`;
 
                 // Get device
                 const device = this.controller.deviceManager.getDevice(deviceId);
@@ -2215,7 +2219,7 @@ export class SequencerScene {
                     throw new Error(`MIDI output not available for device: ${device.name}`);
                 }
 
-                console.log(`[Sequencer] Uploading Track ${track + 1} to device: ${device.name}, slot ${slot}, program ${program}`);
+                console.log(`[Sequencer] Uploading Track ${track + 1} to device: ${device.name}, slot ${slot}, program UI=${programUI} wire=${programWire}`);
 
                 // Generate MIDI file for this track
                 const midiFileData = this.exportSingleTrackMIDI(track);
@@ -2227,7 +2231,7 @@ export class SequencerScene {
 
                 // Upload this track
                 await new Promise((resolve, reject) => {
-                    uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, program, midiFileData, {
+                    uploadMidiFile(midiOutput, this.controller, device.deviceId, slot, programWire, midiFileData, {
                         onProgress: (currentChunk, totalChunks) => {
                             if (uploadCancelled) return;
 
@@ -2536,7 +2540,7 @@ export class SequencerScene {
                         border-radius: 4px;
                         font-size: 14px;
                     ">
-                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">Slot ${i}</option>`).join('')}
+                        ${Array.from({length: 16}, (_, i) => `<option value="${i}">S${i + 1}</option>`).join('')}
                     </select>
                 </div>
 
@@ -2647,7 +2651,7 @@ export class SequencerScene {
                 <h3 style="margin: 0 0 15px 0; text-align: center;">Downloading from Samplecrate</h3>
 
                 <div style="margin-bottom: 10px;">
-                    <strong>Slot:</strong> ${slot}
+                    <strong>Slot:</strong> S${slot + 1}
                 </div>
                 <div style="margin-bottom: 10px;">
                     <strong>Status:</strong> <span id="download-status">Requesting...</span>

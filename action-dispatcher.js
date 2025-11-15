@@ -748,7 +748,7 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId number (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
         midiOutput.send(message);
-        console.log(`[Action] Playing sequence: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}, loop=${loop}`);
+        console.log(`[Action] Playing sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
     }
 
     /**
@@ -780,7 +780,7 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
         midiOutput.send(message);
-        console.log(`[Action] Playing sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}, loop=${loop}`);
+        console.log(`[Action] Playing sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
     }
 
     /**
@@ -808,7 +808,7 @@ export class ActionDispatcher {
 
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
         midiOutput.send(message);
-        console.log(`[Action] Stopping sequence: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+        console.log(`[Action] Stopping sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -839,7 +839,7 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
         midiOutput.send(message);
-        console.log(`[Action] Stopping sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}`);
+        console.log(`[Action] Stopping sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -889,7 +889,7 @@ export class ActionDispatcher {
 
         const message = buildMuteMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling mute: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+        console.log(`[Action] Toggling mute: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -921,7 +921,7 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildMuteMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling mute: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}`);
+        console.log(`[Action] Toggling mute: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -949,7 +949,7 @@ export class ActionDispatcher {
 
         const message = buildSoloMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling solo: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+        console.log(`[Action] Toggling solo: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -979,6 +979,6 @@ export class ActionDispatcher {
         // Toggle solo (send true, device should toggle)
         const message = buildSoloMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling solo: device=${device.name}, slot=${slot}`);
+        console.log(`[Action] Toggling solo: device=${device.name}, S${slot + 1}`);
     }
 }
