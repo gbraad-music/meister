@@ -1737,8 +1737,8 @@
                 window.meisterController.sceneEditor.loadScenesFromStorage();
                 console.log('[Meister] Scene editor initialized');
 
-                // Switch to first enabled scene if current scene (pads) is disabled
-                window.meisterController.sceneManager.switchToFirstEnabledIfNeeded();
+                // Switch to default scene (loads from localStorage or defaults to 'pads')
+                window.meisterController.sceneManager.switchScene(window.meisterController.sceneManager.defaultScene);
 
                 // Setup scene selector and populate it
                 const sceneSelector = document.getElementById('scene-selector');
