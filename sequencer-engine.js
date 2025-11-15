@@ -584,9 +584,9 @@ export class SequencerEngine {
      * Play a note on a specific track
      */
     playNote(track, midiNote, velocity, program) {
-        // DON'T stop previous note - Samplecrate is one-shot and stopping interferes with
-        // polyphonic playback when multiple tracks play on same row with different programs
-        // this.stopTrackNote(track);
+        // Stop previous note on THIS track only (allows per-track monophonic playback)
+        // This doesn't interfere with other tracks playing polyphonically
+        this.stopTrackNote(track);
 
         // Get target device - use track-specific binding if set, otherwise fall back to global deviceId
         const trackDeviceBinding = this.trackDeviceBindings[track];
