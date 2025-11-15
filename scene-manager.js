@@ -1498,10 +1498,9 @@ export class SceneManager {
                 this.controller.clockBPM = bpm;
                 this.controller.config.bpm = bpm;
 
-                // Restart clock if running
-                if (this.controller.clockMaster) {
-                    this.controller.stopClock();
-                    this.controller.startClock();
+                // Update clock BPM dynamically if running (no restart!)
+                if (this.controller.clockMaster && this.controller.updateClockBPM) {
+                    this.controller.updateClockBPM(bpm);
                 }
             }
         }

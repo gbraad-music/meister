@@ -222,6 +222,10 @@ export class SequencerScene {
             color: #888;
             border: 1px solid #333;
         `;
+        bpmInput.addEventListener('click', (e) => {
+            e.target.blur(); // Prevent keyboard popup on mobile
+            this.openSequencerTempoSlider();
+        });
         bpmInput.addEventListener('change', (e) => {
             this.engine.setBPM(parseInt(e.target.value) || 120);
         });
@@ -1251,6 +1255,64 @@ export class SequencerScene {
                 console.log(`[Sequencer] Filled track ${this.cursorTrack + 1} with ${selectedNote}${separator}${selectedOctave} every ${selectedInterval} rows from row ${this.cursorRow}`);
             }
         );
+    }
+
+    /**
+     * Open tempo slider popup for sequencer BPM
+     */
+    openSequencerTempoSlider() {
+        const overlay = document.getElementById('tempo-slider-overlay');
+        const tempoFader = document.getElementById('global-tempo-fader');
+        const display = document.getElementById('tempo-display-value');
+        const closeBtn = document.getElementById('close-tempo-slider');
+
+        // Set initial values from sequencer engine
+        tempoFader.setAttribute('bpm', this.engine.bpm);
+        display.textContent = this.engine.bpm;
+
+        // Show overlay
+        overlay.classList.add('active');
+
+        // Handle tempo changes from fader (live updates)
+        const handleTempoChange = (e) => {
+            const bpm = e.detail.bpm;
+            display.textContent = bpm;
+
+            // Update sequencer engine BPM (seamless, no restart)
+            this.engine.bpm = bpm;
+            this.engine.msPerRow = this.engine.calculateMsPerRow();
+
+            // Update sequencer BPM display
+            const seqBpmInput = document.getElementById('seq-bpm-input');
+            if (seqBpmInput) {
+                seqBpmInput.value = bpm;
+            }
+
+            // Sync to global clock if controller is available
+            if (this.engine.controller) {
+                this.engine.controller.clockBPM = bpm;
+                const globalBpmInput = document.getElementById('clock-bpm');
+                if (globalBpmInput) {
+                    globalBpmInput.value = bpm;
+                }
+            }
+        };
+
+        const handleClose = () => {
+            overlay.classList.remove('active');
+            tempoFader.removeEventListener('tempo-change', handleTempoChange);
+            tempoFader.removeEventListener('tempo-reset', handleTempoChange);
+            closeBtn.removeEventListener('click', handleClose);
+
+            // Save config
+            if (this.engine.controller && this.engine.controller.saveConfig) {
+                this.engine.controller.saveConfig();
+            }
+        };
+
+        tempoFader.addEventListener('tempo-change', handleTempoChange);
+        tempoFader.addEventListener('tempo-reset', handleTempoChange); // Handle reset button too
+        closeBtn.addEventListener('click', handleClose);
     }
 
     /**

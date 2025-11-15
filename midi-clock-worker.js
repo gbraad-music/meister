@@ -4,6 +4,8 @@
 let clockInterval = null;
 let pulseCount = 0;
 let isRunning = false;
+let currentBPM = 120;
+let currentInterval = 0;
 
 self.onmessage = function(e) {
     const { cmd, bpm } = e.data;
@@ -18,10 +20,9 @@ self.onmessage = function(e) {
     } else if (cmd === 'stop') {
         stopClock();
     } else if (cmd === 'setBPM') {
-        // Restart with new BPM
+        // Update BPM dynamically without stopping
         if (isRunning) {
-            stopClock();
-            startClock(bpm);
+            updateBPM(bpm);
         }
     }
 };
@@ -29,12 +30,13 @@ self.onmessage = function(e) {
 function startClock(bpm) {
     const PULSES_PER_QUARTER_NOTE = 24;
     const msPerBeat = 60000 / bpm;
-    const interval = msPerBeat / PULSES_PER_QUARTER_NOTE;
+    currentInterval = msPerBeat / PULSES_PER_QUARTER_NOTE;
+    currentBPM = bpm;
 
     self.postMessage({
         type: 'started',
         bpm: bpm,
-        interval: interval.toFixed(2)
+        interval: currentInterval.toFixed(2)
     });
 
     isRunning = true;
@@ -52,8 +54,8 @@ function startClock(bpm) {
             count: pulseCount
         });
 
-        // Schedule next pulse with drift compensation
-        nextPulseTime += interval;
+        // Schedule next pulse with drift compensation (uses currentInterval for dynamic BPM)
+        nextPulseTime += currentInterval;
         const delay = Math.max(0, nextPulseTime - performance.now());
 
         clockInterval = setTimeout(clockTick, delay);
@@ -61,6 +63,21 @@ function startClock(bpm) {
 
     // Start immediately
     clockInterval = setTimeout(clockTick, 0);
+}
+
+function updateBPM(bpm) {
+    if (!isRunning) return;
+
+    const PULSES_PER_QUARTER_NOTE = 24;
+    const msPerBeat = 60000 / bpm;
+    currentInterval = msPerBeat / PULSES_PER_QUARTER_NOTE;
+    currentBPM = bpm;
+
+    self.postMessage({
+        type: 'bpmChanged',
+        bpm: bpm,
+        interval: currentInterval.toFixed(2)
+    });
 }
 
 function stopClock() {
