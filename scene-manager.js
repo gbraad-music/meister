@@ -1263,6 +1263,14 @@ export class SceneManager {
                     if (seqScene && seqScene.sequencerInstance) {
                         const trackIdx = column.sequencerTrack - 1;
                         seqScene.sequencerInstance.engine.toggleSolo(trackIdx);
+
+                        // Update fader UI to reflect new state
+                        const engine = seqScene.sequencerInstance.engine;
+                        fader.setAttribute('solo', engine.isTrackSoloed(trackIdx).toString());
+                        fader.setAttribute('muted', engine.trackMutes[trackIdx].toString());
+
+                        // Update all other sequencer track faders in this scene
+                        this.updateSequencerFaders(column.sequencerScene);
                     }
                 });
 
@@ -1271,6 +1279,11 @@ export class SceneManager {
                     if (seqScene && seqScene.sequencerInstance) {
                         const trackIdx = column.sequencerTrack - 1;
                         seqScene.sequencerInstance.engine.toggleMute(trackIdx);
+
+                        // Update fader UI to reflect new state
+                        const engine = seqScene.sequencerInstance.engine;
+                        fader.setAttribute('muted', engine.trackMutes[trackIdx].toString());
+                        fader.setAttribute('solo', engine.isTrackSoloed(trackIdx).toString());
                     }
                 });
 
@@ -1518,6 +1531,27 @@ export class SceneManager {
         } else {
             console.warn(`[Dev${deviceId}] Stereo separation SysEx command not available`);
         }
+    }
+
+    /**
+     * Update all sequencer faders for a given sequencer scene
+     */
+    updateSequencerFaders(sequencerSceneId) {
+        const seqScene = this.scenes.get(sequencerSceneId);
+        if (!seqScene || !seqScene.sequencerInstance) return;
+
+        const engine = seqScene.sequencerInstance.engine;
+
+        // Find all faders that reference this sequencer (search entire document, not just one container)
+        const sequencerFaders = document.querySelectorAll('channel-fader[data-sequencer-scene]');
+        sequencerFaders.forEach(fader => {
+            if (fader.dataset.sequencerScene === sequencerSceneId) {
+                const trackIdx = parseInt(fader.dataset.sequencerTrack) - 1;
+                fader.setAttribute('muted', engine.trackMutes[trackIdx].toString());
+                fader.setAttribute('solo', engine.isTrackSoloed(trackIdx).toString());
+                console.log(`[SceneManager] Updated fader for track ${trackIdx}: muted=${engine.trackMutes[trackIdx]}, solo=${engine.isTrackSoloed(trackIdx)}`);
+            }
+        });
     }
 
     /**
