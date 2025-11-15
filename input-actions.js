@@ -90,12 +90,19 @@ export const InputAction = {
     ACTION_ROUTE_MIDI_CC: 601,            // Direct MIDI CC routing to device
     ACTION_SWITCH_INPUT_ROUTE: 602,       // parameter = input_id (switch to next target)
 
-    // === SEQUENCER CONTROL ===
+    // === SEQUENCER CONTROL (Meister) ===
     ACTION_SEQUENCER_PLAY: 700,           // parameter = sequencer scene ID
     ACTION_SEQUENCER_STOP: 701,           // parameter = sequencer scene ID
     ACTION_SEQUENCER_PLAY_STOP: 702,      // parameter = sequencer scene ID
     ACTION_SEQUENCER_TRACK_MUTE: 710,     // parameter = (scene_index << 8) | track_index
     ACTION_SEQUENCER_TRACK_SOLO: 711,     // parameter = (scene_index << 8) | track_index
+
+    // === DEVICE SEQUENCER CONTROL (Samplecrate Slots) ===
+    ACTION_DEVICE_SEQ_PLAY: 720,          // parameter = (device_index << 8) | slot (0-15)
+    ACTION_DEVICE_SEQ_STOP: 721,          // parameter = (device_index << 8) | slot (0-15)
+    ACTION_DEVICE_SEQ_PLAY_STOP: 722,     // parameter = (device_index << 8) | slot (0-15)
+    ACTION_DEVICE_SEQ_MUTE: 723,          // parameter = (device_index << 8) | slot (0-15)
+    ACTION_DEVICE_SEQ_SOLO: 724,          // parameter = (device_index << 8) | slot (0-15)
 };
 
 /**
