@@ -594,11 +594,11 @@ export class SequencerEngine {
         let midiChannel = device.midiChannel;
 
         // Always send Program Change before note (required for multi-timbral devices like Samplecrate)
-        // Programs are 0-indexed on wire (0-31), but 1-indexed in UI (1-32)
-        // Program 0 in UI = don't send, programs 1-32 in UI = send 0-31 on wire
-        if (program >= 1 && program <= 32) {
+        // Program 0 = Regroove, programs 1-31 = Samplecrate slots
+        // All programs 0-31 are valid and should be sent
+        if (program >= 0 && program <= 31) {
             const programChange = 0xC0 | midiChannel;
-            const programNumber = (program - 1) & 0x7F; // Convert 1-32 to 0-31
+            const programNumber = program & 0x7F; // 0-31 wire value
             midiOutput.send([programChange, programNumber]);
         }
 
@@ -801,7 +801,8 @@ export class SequencerEngine {
     }
 
     /**
-     * Check if a track is soloed (NOT muted while 3 others ARE muted)
+     * Check if a track is soloed (NOT muted while AT LEAST 3 others ARE muted)
+     * If user manually unmutes another track, solo disappears (< 3 muted means not solo)
      */
     isTrackSoloed(track) {
         if (this.trackMutes[track]) return false;
@@ -812,7 +813,7 @@ export class SequencerEngine {
                 otherMutedCount++;
             }
         }
-        return otherMutedCount === 3;
+        return otherMutedCount >= 3;
     }
 
     /**
@@ -835,12 +836,15 @@ export class SequencerEngine {
         if (track < 0 || track >= this.pattern.tracks) return;
 
         if (this.isTrackSoloed(track)) {
-            // Deactivating solo: unmute all other tracks
+            // Deactivating solo: unmute all tracks
+            console.log(`[Sequencer] Unsolo track ${track} - unmuting all tracks`);
             for (let t = 0; t < this.pattern.tracks; t++) {
                 this.trackMutes[t] = false;
             }
+            console.log(`[Sequencer] After unsolo, mute states:`, this.trackMutes);
         } else {
             // Activating solo: unmute this track, mute all other tracks
+            console.log(`[Sequencer] Solo track ${track} - muting others`);
             this.trackMutes[track] = false;
             for (let t = 0; t < this.pattern.tracks; t++) {
                 if (t !== track) {
@@ -848,6 +852,7 @@ export class SequencerEngine {
                     this.stopTrackNote(t);
                 }
             }
+            console.log(`[Sequencer] After solo, mute states:`, this.trackMutes);
         }
     }
 
