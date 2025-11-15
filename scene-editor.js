@@ -1359,7 +1359,9 @@ export class SceneEditor {
         }
 
         // Refresh the scenes list UI
-        this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
     }
 
     /**
