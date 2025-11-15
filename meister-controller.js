@@ -2288,10 +2288,10 @@ class MeisterController {
                     if (this.midiOutput && this.clockMaster) {
                         this.midiOutput.send([0xF8]);
 
-                        // Log every 96 pulses (4 beats)
-                        if (count % 96 === 0) {
-                            console.log(`[MIDI Clock] Worker sent pulse ${count} (beat ${count / 24})`);
-                        }
+                        // Log every 96 pulses (4 beats) - DISABLED (too noisy)
+                        // if (count % 96 === 0) {
+                        //     console.log(`[MIDI Clock] Worker sent pulse ${count} (beat ${count / 24})`);
+                        // }
                     }
 
                     // ONLY notify sequencer if it wants MIDI clock sync
