@@ -535,10 +535,17 @@ export class ActionDispatcher {
             // === DEVICE SEQUENCER CONTROL ===
             case InputAction.ACTION_DEVICE_SEQ_PLAY:
                 if (meetsThreshold) {
-                    const deviceIndex = (event.parameter >> 8) & 0xFF;
                     const slot = event.parameter & 0xFF;
-                    console.log(`[Action 720] DEVICE_SEQ_PLAY triggered - deviceIndex=${deviceIndex}, slot=${slot}, parameter=0x${event.parameter.toString(16)}`);
-                    this.playDeviceSequencer(deviceIndex, slot, true); // loop = true
+
+                    // NEW: Use event.deviceId to look up device by stable string ID
+                    if (event.deviceId) {
+                        this.playDeviceSequencerByDeviceId(event.deviceId, slot, true); // loop = true
+                    } else {
+                        // FALLBACK: Old parameter-based index (backward compat)
+                        const deviceIndex = (event.parameter >> 8) & 0xFF;
+                        console.warn(`[Action 720] Using old device index (${deviceIndex}) - please re-save pad config`);
+                        this.playDeviceSequencer(deviceIndex, slot, true);
+                    }
                 } else {
                     console.warn(`[Action 720] Threshold not met - value=${event.value}`);
                 }
@@ -546,33 +553,57 @@ export class ActionDispatcher {
 
             case InputAction.ACTION_DEVICE_SEQ_STOP:
                 if (meetsThreshold) {
-                    const deviceIndex = (event.parameter >> 8) & 0xFF;
                     const slot = event.parameter & 0xFF;
-                    this.stopDeviceSequencer(deviceIndex, slot);
+
+                    if (event.deviceId) {
+                        this.stopDeviceSequencerByDeviceId(event.deviceId, slot);
+                    } else {
+                        const deviceIndex = (event.parameter >> 8) & 0xFF;
+                        console.warn(`[Action 721] Using old device index (${deviceIndex}) - please re-save pad config`);
+                        this.stopDeviceSequencer(deviceIndex, slot);
+                    }
                 }
                 break;
 
             case InputAction.ACTION_DEVICE_SEQ_PLAY_STOP:
                 if (meetsThreshold) {
-                    const deviceIndex = (event.parameter >> 8) & 0xFF;
                     const slot = event.parameter & 0xFF;
-                    this.toggleDeviceSequencer(deviceIndex, slot);
+
+                    if (event.deviceId) {
+                        this.toggleDeviceSequencerByDeviceId(event.deviceId, slot);
+                    } else {
+                        const deviceIndex = (event.parameter >> 8) & 0xFF;
+                        console.warn(`[Action 722] Using old device index (${deviceIndex}) - please re-save pad config`);
+                        this.toggleDeviceSequencer(deviceIndex, slot);
+                    }
                 }
                 break;
 
             case InputAction.ACTION_DEVICE_SEQ_MUTE:
                 if (meetsThreshold) {
-                    const deviceIndex = (event.parameter >> 8) & 0xFF;
                     const slot = event.parameter & 0xFF;
-                    this.muteDeviceSequencer(deviceIndex, slot);
+
+                    if (event.deviceId) {
+                        this.muteDeviceSequencerByDeviceId(event.deviceId, slot);
+                    } else {
+                        const deviceIndex = (event.parameter >> 8) & 0xFF;
+                        console.warn(`[Action 723] Using old device index (${deviceIndex}) - please re-save pad config`);
+                        this.muteDeviceSequencer(deviceIndex, slot);
+                    }
                 }
                 break;
 
             case InputAction.ACTION_DEVICE_SEQ_SOLO:
                 if (meetsThreshold) {
-                    const deviceIndex = (event.parameter >> 8) & 0xFF;
                     const slot = event.parameter & 0xFF;
-                    this.soloDeviceSequencer(deviceIndex, slot);
+
+                    if (event.deviceId) {
+                        this.soloDeviceSequencerByDeviceId(event.deviceId, slot);
+                    } else {
+                        const deviceIndex = (event.parameter >> 8) & 0xFF;
+                        console.warn(`[Action 724] Using old device index (${deviceIndex}) - please re-save pad config`);
+                        this.soloDeviceSequencer(deviceIndex, slot);
+                    }
                 }
                 break;
 
@@ -690,7 +721,38 @@ export class ActionDispatcher {
     }
 
     /**
-     * Play a sequence on a device (Samplecrate)
+     * Play a sequence on a device by device string ID (NEW - stable identifier)
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     * @param {boolean} loop - Loop mode (true=LOOP, false=ONESHOT)
+     */
+    playDeviceSequencerByDeviceId(deviceId, slot, loop = true) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        // Look up device by string ID
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        // Use device's CURRENT deviceId number (may have changed in settings!)
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
+        midiOutput.send(message);
+        console.log(`[Action] Playing sequence: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}, loop=${loop}`);
+    }
+
+    /**
+     * Play a sequence on a device (Samplecrate) - OLD method using device index
      * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      * @param {boolean} loop - Loop mode (true=LOOP, false=ONESHOT)
@@ -722,7 +784,35 @@ export class ActionDispatcher {
     }
 
     /**
-     * Stop a sequence on a device (Samplecrate)
+     * Stop a sequence on a device by device string ID (NEW - stable identifier)
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     */
+    stopDeviceSequencerByDeviceId(deviceId, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
+        midiOutput.send(message);
+        console.log(`[Action] Stopping sequence: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+    }
+
+    /**
+     * Stop a sequence on a device (Samplecrate) - OLD method using device index
      * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
@@ -753,7 +843,18 @@ export class ActionDispatcher {
     }
 
     /**
-     * Toggle play/stop of a sequence on a device
+     * Toggle play/stop of a sequence on a device by device string ID (NEW - stable identifier)
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     */
+    toggleDeviceSequencerByDeviceId(deviceId, slot) {
+        // For now, just send play with loop
+        // TODO: Track playback state to toggle properly
+        this.playDeviceSequencerByDeviceId(deviceId, slot, true);
+    }
+
+    /**
+     * Toggle play/stop of a sequence on a device - OLD method using device index
      * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
@@ -764,7 +865,35 @@ export class ActionDispatcher {
     }
 
     /**
-     * Mute a sequence on a device
+     * Mute a sequence on a device by device string ID (NEW - stable identifier)
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     */
+    muteDeviceSequencerByDeviceId(deviceId, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildMuteMessage(device.deviceId, slot, true);
+        midiOutput.send(message);
+        console.log(`[Action] Toggling mute: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+    }
+
+    /**
+     * Mute a sequence on a device - OLD method using device index
      * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
@@ -796,7 +925,35 @@ export class ActionDispatcher {
     }
 
     /**
-     * Solo a sequence on a device
+     * Solo a sequence on a device by device string ID (NEW - stable identifier)
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     */
+    soloDeviceSequencerByDeviceId(deviceId, slot) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildSoloMessage(device.deviceId, slot, true);
+        midiOutput.send(message);
+        console.log(`[Action] Toggling solo: device=${device.name} (deviceId ${device.deviceId}), slot=${slot}`);
+    }
+
+    /**
+     * Solo a sequence on a device - OLD method using device index
      * @param {number} deviceIndex - Index in devices array (0-based)
      * @param {number} slot - Slot number (0-15)
      */

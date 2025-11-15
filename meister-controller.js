@@ -720,8 +720,14 @@ class MeisterController {
                         deviceField.style.display = 'block';
                         slotField.style.display = 'block';
                         this.populateDeviceSequencerDevices();
-                        // Set values if parameter exists
-                        if (pad.parameter !== undefined) {
+                        // Set values - prefer deviceId field (stable), fallback to parameter (deprecated)
+                        if (pad.deviceId) {
+                            // New format: use device string ID
+                            document.getElementById('pad-device-seq-device-select').value = pad.deviceId;
+                            const slot = pad.parameter & 0xFF;
+                            document.getElementById('pad-device-seq-slot-select').value = slot.toString();
+                        } else if (pad.parameter !== undefined) {
+                            // Old format: use device index (may be broken if devices changed)
                             const deviceIndex = (pad.parameter >> 8) & 0xFF;
                             const slot = pad.parameter & 0xFF;
                             document.getElementById('pad-device-seq-device-select').value = deviceIndex.toString();
@@ -912,7 +918,7 @@ class MeisterController {
 
         select.innerHTML = '<option value="">-- Select Device --</option>' +
             devices.map(device =>
-                `<option value="${device.deviceId}">${device.name} (ID ${device.deviceId})</option>`
+                `<option value="${device.id}">${device.name} (ID ${device.deviceId})</option>`
             ).join('');
     }
 
@@ -1095,22 +1101,27 @@ class MeisterController {
                 }
                 // Device sequencer actions (720-724: play/stop/mute/solo slot)
                 else if (actionIdInt >= 720 && actionIdInt <= 724) {
-                    const deviceId = document.getElementById('pad-device-seq-device-select')?.value || '';
+                    const deviceStringId = document.getElementById('pad-device-seq-device-select')?.value || '';
                     const slot = parseInt(document.getElementById('pad-device-seq-slot-select')?.value) || 0;
 
-                    console.log(`[Pad Save] Action ${actionIdInt}: Device="${deviceId}", Slot=${slot}`);
+                    console.log(`[Pad Save] Action ${actionIdInt}: Device="${deviceStringId}", Slot=${slot}`);
 
                     // Validate device selection
-                    if (!deviceId) {
+                    if (!deviceStringId) {
                         console.error('[Pad Save] ERROR: No device selected!');
                         window.nbDialog.alert('Please select a device to control!');
                         return;
                     }
 
-                    // Convert device ID to device index (parse from string)
-                    const deviceIndex = parseInt(deviceId);
+                    // Store device string ID in pad config for stable lookup
+                    padConfig.deviceId = deviceStringId;
+
+                    // For backward compat, also encode device index in parameter
+                    // (will be ignored, we use deviceId field instead)
+                    const devices = this.deviceManager?.getAllDevices() || [];
+                    const deviceIndex = devices.findIndex(d => d.id === deviceStringId);
                     padConfig.parameter = (deviceIndex << 8) | slot;
-                    console.log(`[Pad Save] Saved action ${actionIdInt} with parameter: deviceIndex=${deviceIndex}, slot=${slot}, encoded=0x${padConfig.parameter.toString(16)}`);
+                    console.log(`[Pad Save] Saved action ${actionIdInt} with deviceId="${deviceStringId}", slot=${slot}, index=${deviceIndex}`);
                 }
                 else {
                     padConfig.parameter = 0;
