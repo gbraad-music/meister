@@ -557,14 +557,26 @@ export class SequencerEngine {
             notesToPlay.push({ track, midiNote, velocity, program });
         }
 
-        // Sort notes by program number (DESCENDING) so highest program gets sent first
-        // This ensures that when multiple notes play on same row, the LAST program change
-        // (lowest number) is what's active, allowing proper polyphony
-        notesToPlay.sort((a, b) => b.program - a.program);
-
-        // Now play all notes in sorted order
+        // Play notes with tiny delays between them to allow program changes to take effect
+        // When multiple notes play on same row with different programs, we need to:
+        // 1. Send program change for note 1
+        // 2. Send note 1
+        // 3. Wait 1ms
+        // 4. Send program change for note 2
+        // 5. Send note 2
+        let delay = 0;
         for (const note of notesToPlay) {
-            this.playNote(note.track, note.midiNote, note.velocity, note.program);
+            if (delay === 0) {
+                // First note - play immediately
+                this.playNote(note.track, note.midiNote, note.velocity, note.program);
+                delay = 1; // Next note waits 1ms
+            } else {
+                // Subsequent notes - delay to allow previous program change to take effect
+                setTimeout(() => {
+                    this.playNote(note.track, note.midiNote, note.velocity, note.program);
+                }, delay);
+                delay += 1; // Each note adds 1ms delay
+            }
         }
     }
 
