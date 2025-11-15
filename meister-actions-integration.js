@@ -256,8 +256,8 @@ export function integrateActionSystem(controller) {
         }
     };
 
-    // Enable keyboard handling
-    controller.setupKeyboardHandling();
+    // DISABLED: Keyboard handling conflicts with sequencer editor
+    // controller.setupKeyboardHandling();
 
     console.log('[Actions] Action system integration complete');
     return controller;

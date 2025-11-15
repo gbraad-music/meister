@@ -30,10 +30,28 @@ export class SequencerScene {
         // Track whether we're editing
         this.editing = false;
 
-        // Only render and setup listeners if not initializing in background
+        // Track last preview note time to prevent MIDI feedback loops
+        // When navigating with arrow keys, preview notes are sent via MIDI output
+        // and can loop back as MIDI input, causing unwanted note entry.
+        // We ignore ALL MIDI input for 300ms after ANY preview to prevent this.
+        //
+        // NOTE: This means you cannot play notes from a MIDI keyboard while rapidly
+        // navigating with arrow keys (within 300ms of each navigation).
+        //
+        // POTENTIAL IMPROVEMENT: Track the specific MIDI note number that was previewed
+        // and only ignore that exact note, allowing other notes from MIDI keyboard.
+        // This would require: this.lastPreviewNote = null; and checking if
+        // (data1 === this.lastPreviewNote && now - this.lastPreviewTime < 300)
+        this.lastPreviewTime = 0;
+        this.previewIgnoreWindow = 300; // Ignore MIDI input for 300ms after preview
+
+        // Always setup event listeners (even if skipRender)
+        // Otherwise resume() won't have keyboard handler attached
+        this.setupEventListeners();
+
+        // Only render if not initializing in background
         if (!skipRender) {
             this.render();
-            this.setupEventListeners();
         } else {
             console.log(`[Sequencer] Created instance in background (no render): ${this.name}`);
         }
@@ -768,8 +786,9 @@ export class SequencerScene {
     }
 
     setupEventListeners() {
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        // Keyboard navigation - bind to instance so we can remove it later
+        this.keydownHandler = (e) => this.handleKeyDown(e);
+        document.addEventListener('keydown', this.keydownHandler);
 
         // Sync global BPM changes to sequencer
         const globalBpmInput = document.getElementById('clock-bpm');
@@ -823,6 +842,14 @@ export class SequencerScene {
                     }
                 }
 
+                // CRITICAL: Ignore MIDI input shortly after preview to prevent feedback loops
+                // When navigating with arrow keys, preview notes are sent via MIDI and can
+                // loop back as input, causing unwanted note entry
+                const now = Date.now();
+                if (now - this.lastPreviewTime < this.previewIgnoreWindow) {
+                    return; // Too soon after preview - likely feedback from our own preview
+                }
+
                 // If we got here, accept the note
                 const midiNote = data1;
                 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -861,33 +888,7 @@ export class SequencerScene {
 
     handleKeyDown(e) {
         // Only handle if this scene is active
-        if (this.controller.sceneManager?.currentScene !== this.sceneId) return;
-
-        // Ignore keyboard shortcuts when input fields or dialogs have focus
-        const activeElement = document.activeElement;
-        const isInputFocused = activeElement && (
-            activeElement.tagName === 'INPUT' ||
-            activeElement.tagName === 'TEXTAREA' ||
-            activeElement.tagName === 'SELECT' ||
-            activeElement.isContentEditable
-        );
-
-        // Check if nbDialog is visible (check for common dialog container classes)
-        const isDialogVisible = window.nbDialog && (
-            document.querySelector('.nb-dialog-overlay') ||
-            document.querySelector('[role="dialog"]') ||
-            document.querySelector('.dialog') ||
-            document.querySelector('#nb-dialog') ||
-            // Check if any modal-like element is visible
-            Array.from(document.querySelectorAll('div')).some(el =>
-                el.style.position === 'fixed' &&
-                el.style.zIndex > 1000 &&
-                el.offsetParent !== null
-            )
-        );
-
-        if (isInputFocused || isDialogVisible) {
-            // Don't capture keyboard shortcuts when typing in inputs or dialogs are open
+        if (this.controller.sceneManager?.currentScene !== this.sceneId) {
             return;
         }
 
@@ -1125,6 +1126,9 @@ export class SequencerScene {
 
         const velocity = Math.min(127, Math.max(0, entry.volume || 100));
         const program = entry.program || this.engine.trackPrograms[this.cursorTrack] || 0;
+
+        // Mark preview timestamp to ignore MIDI feedback
+        this.lastPreviewTime = Date.now();
 
         // Play the note on the current track
         this.engine.playNote(this.cursorTrack, midiNote, velocity, program);
@@ -2908,6 +2912,12 @@ export class SequencerScene {
             console.log(`[Sequencer] Cleared UI update interval`);
         }
 
+        // Remove keyboard listener when paused
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            console.log(`[Sequencer] Removed keyboard listener for paused scene`);
+        }
+
         // Remove MIDI input listener to prevent note bleeding
         if (this.controller.midiAccess && this.midiInputListener) {
             let listenerCount = 0;
@@ -2926,6 +2936,12 @@ export class SequencerScene {
      */
     resume() {
         console.log(`[Sequencer] Resuming scene: ${this.name} (${this.sceneId})`);
+
+        // Re-attach keyboard listener
+        if (this.keydownHandler) {
+            document.addEventListener('keydown', this.keydownHandler);
+            console.log(`[Sequencer] Re-attached keyboard listener for resumed scene`);
+        }
 
         // Restart UI update interval
         if (!this.positionUpdateInterval) {
@@ -3002,7 +3018,12 @@ export class SequencerScene {
         if (this.positionUpdateInterval) {
             clearInterval(this.positionUpdateInterval);
         }
-        document.removeEventListener('keydown', this.handleKeyDown);
+
+        // Remove keyboard listener
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = null;
+        }
 
         // Remove global BPM listener
         const globalBpmInput = document.getElementById('clock-bpm');
@@ -3020,9 +3041,12 @@ export class SequencerScene {
 
     /**
      * Trigger auto-save with debouncing (saves 2 seconds after last edit)
+     * DISABLED: Auto-save causes UI locking issues during editing
      */
     triggerAutoSave() {
-        console.log(`[Sequencer] triggerAutoSave() called for: ${this.name}`);
+        // DISABLED - autosave interferes with keyboard navigation
+        // console.log(`[Sequencer] triggerAutoSave() called for: ${this.name} (DISABLED)`);
+        return;
 
         // Clear existing timer
         if (this.autoSaveTimer) {
