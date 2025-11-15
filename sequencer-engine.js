@@ -524,6 +524,9 @@ export class SequencerEngine {
      * Play notes for a specific row
      */
     playRow(row) {
+        // Collect all notes for this row
+        const notesToPlay = [];
+
         for (let track = 0; track < this.pattern.tracks; track++) {
             const entry = this.pattern.getEntry(row, track);
             if (!entry || entry.isEmpty()) continue;
@@ -551,8 +554,17 @@ export class SequencerEngine {
             // Determine program/instrument
             const program = entry.program || this.trackPrograms[track];
 
-            // Send note on
-            this.playNote(track, midiNote, velocity, program);
+            notesToPlay.push({ track, midiNote, velocity, program });
+        }
+
+        // Sort notes by program number (DESCENDING) so highest program gets sent first
+        // This ensures that when multiple notes play on same row, the LAST program change
+        // (lowest number) is what's active, allowing proper polyphony
+        notesToPlay.sort((a, b) => b.program - a.program);
+
+        // Now play all notes in sorted order
+        for (const note of notesToPlay) {
+            this.playNote(note.track, note.midiNote, note.velocity, note.program);
         }
     }
 
