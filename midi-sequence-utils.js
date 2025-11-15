@@ -93,25 +93,31 @@ export function chunkData(data, chunkSize = 256) {
  *
  * @param {number} deviceId - Target device ID (0-127)
  * @param {number} slot - Sequence slot number (0-15)
- * @param {number} program - Program/pad number (0-31) to assign this track to
+ * @param {number} program - Program/pad number (0-31=PROG 1-32, 127=NO PROG)
+ *                           NOTE: For Samplecrate, 127 is stored as -1 (follow UI behavior)
  * @param {number} totalChunks - Total number of chunks
  * @param {number} fileSize - Total file size in bytes
  * @returns {Uint8Array} - SysEx message
  */
 export function buildUploadStartMessage(deviceId, slot, program, totalChunks, fileSize) {
-    return new Uint8Array([
+    const message = new Uint8Array([
         0xF0,                           // SysEx start
         0x7D,                           // Manufacturer ID (Educational/Research)
         deviceId & 0x7F,                // Device ID
         0x42,                           // Command: SEQUENCE_TRACK_UPLOAD (FIXED: was 0x80)
         0x00,                           // Subcommand: START
         slot & 0x0F,                    // Slot (0-15)
-        program & 0x7F,                 // Program/pad (0-31)
+        program & 0x7F,                 // Program/pad (0-31 or 127)
         totalChunks & 0x7F,             // Total chunks (lower 7 bits)
         fileSize & 0x7F,                // File size LSB
         (fileSize >> 7) & 0x7F,         // File size MSB
         0xF7                            // SysEx end
     ]);
+
+    console.log(`[MIDI Upload] START message: deviceId=${deviceId}, slot=${slot}, program=${program}, chunks=${totalChunks}, size=${fileSize}`);
+    console.log(`[MIDI Upload] START SysEx bytes: ${Array.from(message).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
+
+    return message;
 }
 
 /**
@@ -410,7 +416,8 @@ function waitForAck(controller, expectedSubcommand, expectedSlot, timeoutMs = 20
  * @param {MeisterController} controller - Controller instance (for receiving ACKs via SysEx handlers)
  * @param {number} deviceId - Target device ID (0-127)
  * @param {number} slot - Sequence slot number (0-15)
- * @param {number} program - Program/pad number (0-31) to assign this track to
+ * @param {number} program - Program/pad number (0-31=PROG 1-32, 127=NO PROG)
+ *                           NOTE: For Samplecrate, 127 is stored as -1 (follow UI behavior)
  * @param {Uint8Array} midiFileData - Complete MIDI file data
  * @param {Object} callbacks - Progress callbacks
  * @param {Function} callbacks.onProgress - Called with (currentChunk, totalChunks)
