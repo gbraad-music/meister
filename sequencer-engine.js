@@ -584,10 +584,6 @@ export class SequencerEngine {
      * Play a note on a specific track
      */
     playNote(track, midiNote, velocity, program) {
-        // Stop previous note on THIS track only (allows per-track monophonic playback)
-        // This doesn't interfere with other tracks playing polyphonically
-        this.stopTrackNote(track);
-
         // Get target device - use track-specific binding if set, otherwise fall back to global deviceId
         const trackDeviceBinding = this.trackDeviceBindings[track];
         let device = null;
@@ -618,6 +614,10 @@ export class SequencerEngine {
         // Determine MIDI channel - use device's base channel for all tracks
         // Samplecrate doesn't use multi-channel, it uses program changes on a single channel
         let midiChannel = device.midiChannel;
+
+        // CRITICAL: Stop previous note on THIS track BEFORE changing program
+        // This ensures note-off is sent with the correct program for that note
+        this.stopTrackNote(track);
 
         // ALWAYS send Program Change before EVERY note
         // UI stores: 0 = no program, 1-32 = user-facing "PROG 1" to "PROG 32"
