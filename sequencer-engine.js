@@ -268,6 +268,11 @@ export class SequencerEngine {
 
         console.log(`[Sequencer] startPlayback - syncToGlobalClock=${this.syncToGlobalClock}, syncToMIDIClock=${this.syncToMIDIClock}, syncToSPP=${this.syncToSPP}`);
 
+        // Update pad colors to show green for PLAY pads
+        if (this.controller.updatePadColors) {
+            this.controller.updatePadColors();
+        }
+
         // Send MIDI start if configured
         if (this.sendStartStop && this.controller.midiOutput) {
             this.controller.midiOutput.send([0xFA]); // MIDI Start
@@ -374,6 +379,11 @@ export class SequencerEngine {
         if (!this.playing) return;
 
         this.playing = false;
+
+        // Update pad colors to show red for STOP pads
+        if (this.controller.updatePadColors) {
+            this.controller.updatePadColors();
+        }
 
         // Clear ALL timers to prevent multiple timers running!
         if (this.rafHandle) {
