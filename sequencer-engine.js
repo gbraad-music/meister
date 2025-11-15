@@ -590,16 +590,11 @@ export class SequencerEngine {
             return;
         }
 
-        // Determine MIDI channel
-        // For multi-timbral devices (like Samplecrate), each track needs its own channel
-        // Otherwise tracks will interfere with each other's program changes
-        let midiChannel = device.midiChannel + track; // Track 0 = base channel, Track 1 = base+1, etc.
-        if (midiChannel > 15) {
-            console.warn(`[Sequencer] Track ${track}: MIDI channel ${midiChannel} exceeds 15, wrapping to ${midiChannel % 16}`);
-            midiChannel = midiChannel % 16;
-        }
+        // Determine MIDI channel - use device's base channel for all tracks
+        // Samplecrate doesn't use multi-channel, it uses program changes on a single channel
+        let midiChannel = device.midiChannel;
 
-        // Always send Program Change before note (required for multi-timbral devices like Samplecrate)
+        // Always send Program Change before EVERY note (required for Samplecrate)
         // UI stores: 0 = no program, 1-32 = user-facing "PROG 1" to "PROG 32"
         // Wire protocol: 0 = Regroove, 1-31 = Samplecrate slots 1-31
         // So we need to send program-1 when program > 0
