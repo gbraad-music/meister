@@ -633,8 +633,13 @@ export class SequencerEngine {
         const noteOn = 0x90 | midiChannel;
         midiOutput.send([noteOn, midiNote, velocity]);
 
-        // Track active note
-        this.activeNotes.set(track, { note: midiNote, channel: midiChannel, output: midiOutput });
+        // Track active note with its program so we can send note-off with correct program
+        this.activeNotes.set(track, {
+            note: midiNote,
+            channel: midiChannel,
+            output: midiOutput,
+            program: program  // Store program for this note
+        });
     }
 
     /**
@@ -644,6 +649,15 @@ export class SequencerEngine {
         const activeNote = this.activeNotes.get(track);
         if (!activeNote) return;
 
+        // Send program change back to the note's original program before sending note-off
+        // This ensures note-off is sent with the correct program context
+        if (activeNote.program > 0 && activeNote.program <= 32) {
+            const wireProgram = (activeNote.program - 1) & 0x7F;
+            const programChange = 0xC0 | activeNote.channel;
+            activeNote.output.send([programChange, wireProgram]);
+        }
+
+        // Now send note-off
         const noteOff = 0x80 | activeNote.channel;
         activeNote.output.send([noteOff, activeNote.note, 0]);
 
