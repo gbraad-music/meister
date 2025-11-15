@@ -1378,6 +1378,26 @@ class MeisterController {
                         padElement.setAttribute('color', color);
                     }
                 }
+
+                // For sequencer actions (700-702), add scene name to sublabel
+                if (padConfig.action >= 700 && padConfig.action <= 702 && padConfig.parameter) {
+                    const sceneId = padConfig.parameter;
+                    const scene = this.sceneManager?.scenes.get(sceneId);
+                    if (scene) {
+                        const sceneName = `[${scene.name}]`;
+                        sublabel = sublabel ? `${sublabel}\n${sceneName}` : sceneName;
+                    }
+                }
+
+                // For device sequencer actions (720-724), add device name to sublabel
+                if (padConfig.action >= 720 && padConfig.action <= 724 && padConfig.deviceId) {
+                    const device = this.deviceManager?.getDevice(padConfig.deviceId);
+                    if (device) {
+                        const slot = padConfig.parameter & 0xFF;
+                        const deviceInfo = `[${device.name} #${slot}]`;
+                        sublabel = sublabel ? `${sublabel}\n${deviceInfo}` : deviceInfo;
+                    }
+                }
             }
 
             // Set sublabel after all modifications
@@ -1888,11 +1908,27 @@ class MeisterController {
             const label = padConfig.label || '';
             let color = null;
 
-            // Check for PLAY pad
-            if (label.includes('PLAY')) {
+            // Check for sequencer PLAY/STOP actions (700-702)
+            if (padConfig.action === 700 || padConfig.action === 702) {
+                // ACTION_SEQUENCER_PLAY or ACTION_SEQUENCER_PLAY_STOP
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    color = scene.sequencerInstance.engine.playing ? 'green' : null;
+                }
+            } else if (padConfig.action === 701) {
+                // ACTION_SEQUENCER_STOP
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    color = !scene.sequencerInstance.engine.playing ? 'red' : null;
+                }
+            }
+            // Check for PLAY pad (Regroove)
+            else if (label.includes('PLAY')) {
                 color = deviceState.playing ? 'green' : null;
             }
-            // Check for STOP pad
+            // Check for STOP pad (Regroove)
             else if (label.includes('STOP')) {
                 color = !deviceState.playing ? 'red' : null;
             }
