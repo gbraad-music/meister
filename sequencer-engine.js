@@ -601,15 +601,19 @@ export class SequencerEngine {
         if (program > 0 && program <= 32) {
             const programChange = 0xC0 | midiChannel;
             const wireProgram = (program - 1) & 0x7F; // Convert UI 1-32 to wire 0-31
-            console.log(`[Sequencer] Track ${track} (CH ${midiChannel}): Sending Program Change ${wireProgram} (UI: PROG ${program})`);
             midiOutput.send([programChange, wireProgram]);
-        }
 
-        // Send note on with high-precision timestamp
-        const noteOn = 0x90 | midiChannel;
-        const sendTime = performance.now();
-        console.log(`[Sequencer] Track ${track} (CH ${midiChannel}): Note On ${midiNote} vel ${velocity} (program: ${program})`);
-        midiOutput.send([noteOn, midiNote, velocity]);
+            // CRITICAL: Wait 5ms for program change to take effect before sending note
+            // Without this delay, notes may trigger with the previous program
+            setTimeout(() => {
+                const noteOn = 0x90 | midiChannel;
+                midiOutput.send([noteOn, midiNote, velocity]);
+            }, 5);
+        } else {
+            // No program change needed - send note immediately
+            const noteOn = 0x90 | midiChannel;
+            midiOutput.send([noteOn, midiNote, velocity]);
+        }
 
         // Track active note
         this.activeNotes.set(track, { note: midiNote, channel: midiChannel, output: midiOutput });
