@@ -471,6 +471,7 @@ export class SequencerScene {
             programDec.addEventListener('click', () => {
                 this.engine.trackPrograms[track] = Math.max(0, (this.engine.trackPrograms[track] || 0) - 1);
                 this.updateTrackHeaders();
+                this.triggerAutoSave(); // Save program change
                 console.log(`[Sequencer] Track ${track + 1} program: ${this.engine.trackPrograms[track]}`);
             });
             programControl.appendChild(programDec);
@@ -864,6 +865,9 @@ export class SequencerScene {
                 this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
                 this.updateTrackerGrid();
 
+                // Auto-save after MIDI input
+                this.triggerAutoSave();
+
                 // Don't preview MIDI input notes - user already hears them from controller
                 // and previewing creates infinite loops if MIDI output routes back to input
             };
@@ -1077,6 +1081,9 @@ export class SequencerScene {
 
         // Preview the note audibly (SHIFT+UP/DOWN)
         this.previewNote(entry);
+
+        // Auto-save after edit
+        this.triggerAutoSave();
     }
 
     incrementOctave(direction) {
@@ -1396,6 +1403,10 @@ export class SequencerScene {
             }
 
             this.updateTrackerGrid();
+
+            // Auto-save after fill
+            this.triggerAutoSave();
+
             const separator = selectedNote.includes('#') ? '' : '-';
             console.log(`[Sequencer] Filled track ${track} with ${selectedNote}${separator}${selectedOctave} every ${selectedInterval} rows from row ${this.cursorRow}`);
         });
@@ -3041,32 +3052,19 @@ export class SequencerScene {
 
     /**
      * Trigger auto-save with debouncing (saves 2 seconds after last edit)
-     * DISABLED: Auto-save causes UI locking issues during editing
      */
     triggerAutoSave() {
-        // DISABLED - autosave interferes with keyboard navigation
-        // console.log(`[Sequencer] triggerAutoSave() called for: ${this.name} (DISABLED)`);
-        return;
-
         // Clear existing timer
         if (this.autoSaveTimer) {
             clearTimeout(this.autoSaveTimer);
-            console.log(`[Sequencer] Cleared previous auto-save timer`);
         }
 
         // Set new timer to save after 2 seconds of inactivity
         this.autoSaveTimer = setTimeout(() => {
-            console.log(`[Sequencer] Auto-save timer fired!`);
             if (this.controller.sceneEditor) {
-                console.log(`[Sequencer] Calling saveScenesToStorage()...`);
                 this.controller.sceneEditor.saveScenesToStorage();
-                console.log(`[Sequencer] ✓ Auto-saved sequencer data: ${this.name}`);
-            } else {
-                console.error(`[Sequencer] ERROR: sceneEditor not found on controller!`);
             }
         }, 2000);
-
-        console.log(`[Sequencer] Auto-save scheduled in 2 seconds`);
     }
 
     toJSON() {
