@@ -254,11 +254,8 @@ export class SequencerEngine {
             }
         }
 
-        // Restart playback timer if playing
-        if (this.playing && !this.syncToSPP) {
-            this.stopPlayback();
-            this.startPlayback();
-        }
+        // No restart needed - timing will adjust on next tick
+        // The new msPerRow will be used automatically in the timer loop
     }
 
     /**

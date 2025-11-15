@@ -521,11 +521,17 @@ class MeisterController {
             this.saveConfig();
         });
 
+        // Open tempo slider popup on click (touch-friendly!)
+        document.getElementById('clock-bpm').addEventListener('click', (e) => {
+            e.target.blur(); // Prevent keyboard popup on mobile
+            this.openTempoSlider();
+        });
+
         document.getElementById('clock-bpm').addEventListener('change', (e) => {
             this.clockBPM = parseInt(e.target.value) || 120;
             if (this.clockMaster) {
-                this.stopClock();
-                this.startClock();
+                // Update BPM dynamically without restarting clock
+                this.updateClockBPM(this.clockBPM);
             }
 
             // Sync sequencer BPM if active
@@ -2350,6 +2356,68 @@ class MeisterController {
         // Note: We do NOT send MIDI Stop (0xFC) here
         // Only stop sending clock pulses
         // This allows the slave to continue running if desired
+    }
+
+    updateClockBPM(bpm) {
+        // Update BPM dynamically without stopping/restarting
+        if (this.clockWorker && this.clockInterval) {
+            this.clockWorker.postMessage({ cmd: 'setBPM', bpm: bpm });
+            console.log(`[MIDI Clock] BPM updated to ${bpm} (seamless transition)`);
+        }
+        // No fallback needed - if not using worker, clock isn't running
+    }
+
+    openTempoSlider() {
+        const overlay = document.getElementById('tempo-slider-overlay');
+        const tempoFader = document.getElementById('global-tempo-fader');
+        const display = document.getElementById('tempo-display-value');
+        const closeBtn = document.getElementById('close-tempo-slider');
+
+        // Set initial values
+        tempoFader.setAttribute('bpm', this.clockBPM);
+        display.textContent = this.clockBPM;
+
+        // Show overlay
+        overlay.classList.add('active');
+
+        // Handle tempo changes from fader (live updates)
+        const handleTempoChange = (e) => {
+            const bpm = e.detail.bpm;
+            display.textContent = bpm;
+            this.clockBPM = bpm;
+            document.getElementById('clock-bpm').value = bpm;
+
+            // Update clock dynamically
+            if (this.clockMaster) {
+                this.updateClockBPM(bpm);
+            }
+
+            // Sync sequencer BPM if active
+            if (this.sceneManager) {
+                const currentScene = this.sceneManager.scenes.get(this.sceneManager.currentScene);
+                if (currentScene && currentScene.type === 'sequencer' && currentScene.sequencerInstance) {
+                    currentScene.sequencerInstance.engine.bpm = bpm;
+                    currentScene.sequencerInstance.engine.msPerRow = currentScene.sequencerInstance.engine.calculateMsPerRow();
+
+                    const seqBpmInput = document.getElementById('seq-bpm-input');
+                    if (seqBpmInput) {
+                        seqBpmInput.value = bpm;
+                    }
+                }
+            }
+        };
+
+        const handleClose = () => {
+            overlay.classList.remove('active');
+            tempoFader.removeEventListener('tempo-change', handleTempoChange);
+            tempoFader.removeEventListener('tempo-reset', handleTempoChange);
+            closeBtn.removeEventListener('click', handleClose);
+            this.saveConfig();
+        };
+
+        tempoFader.addEventListener('tempo-change', handleTempoChange);
+        tempoFader.addEventListener('tempo-reset', handleTempoChange); // Handle reset button too
+        closeBtn.addEventListener('click', handleClose);
     }
 
     createSequencerButtons() {
