@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v257';
+const CACHE_NAME = 'meister-v260';
 const ASSETS = [
     './',
     './index.html',
@@ -20,6 +20,9 @@ const ASSETS = [
     './effects-fader.js',
     './sequencer-engine.js',
     './sequencer-scene.js',
+    './fill-dialog.js',
+    './midi-sequence-utils.js',
+    './non-blocking-dialog.js',
     // Device management
     './regroove-state.js',
     './device-manager.js',

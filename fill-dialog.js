@@ -125,19 +125,53 @@ export function showFillDialog(sequencer, track, cursorRow, cursorTrack, engine,
 
     window.nbDialog.show(content);
 
+    console.log('[Fill] Dialog shown, setting up event listeners...');
+
     // Track selected values
     let selectedNote = defaultNote;
     let selectedOctave = defaultOctave;
     let selectedInterval = 4;
     let selectedVelocity = 100;
 
+    console.log('[Fill] Initial values:', { selectedNote, selectedOctave, selectedInterval, selectedVelocity });
+
+    // Helper function to preview the currently selected note
+    const previewNote = () => {
+        console.log('[Fill Preview] Function called');
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const noteIndex = noteNames.indexOf(selectedNote);
+        if (noteIndex === -1) {
+            console.error('[Fill Preview] Invalid note:', selectedNote);
+            return;
+        }
+
+        const midiNote = (selectedOctave * 12) + noteIndex;
+        if (midiNote < 0 || midiNote > 127) {
+            console.error('[Fill Preview] MIDI note out of range:', midiNote);
+            return;
+        }
+
+        const program = engine.trackPrograms[cursorTrack] || 0;
+        console.log(`[Fill Preview] Playing: track=${cursorTrack}, note=${selectedNote}${selectedOctave}, MIDI=${midiNote}, vel=${selectedVelocity}, prog=${program}`);
+        engine.playNote(cursorTrack, midiNote, selectedVelocity, program);
+        console.log('[Fill Preview] playNote() called');
+    };
+
     // Note button handlers
-    document.querySelectorAll('.fill-note-btn').forEach(btn => {
+    const noteButtons = document.querySelectorAll('.fill-note-btn');
+    console.log('[Fill] Found', noteButtons.length, 'note buttons');
+    noteButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
+            console.log('[Fill] Note button clicked:', btn.dataset.note);
             e.stopPropagation();
             selectedNote = btn.dataset.note;
             document.querySelectorAll('.fill-note-btn').forEach(b => b.style.background = '#333');
             btn.style.background = '#4a9eff';
+<<<<<<< HEAD
+=======
+            console.log('[Fill] About to call previewNote()');
+            previewNote(); // Preview the note
+>>>>>>> b90b665 (Trigger autosave)
         });
     });
 
