@@ -71,6 +71,10 @@ export function integrateActionSystem(controller) {
         if (actionConfig.action && actionConfig.action !== InputAction.ACTION_NONE) {
             // New action system
             const event = new InputEvent(actionConfig.action, actionConfig.parameter, 127);
+            // Attach deviceId if present (for device sequencer actions)
+            if (padConfig.deviceId) {
+                event.deviceId = padConfig.deviceId;
+            }
             this.actionDispatcher.handleEvent(event);
             return;
         }
