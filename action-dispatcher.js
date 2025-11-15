@@ -691,92 +691,97 @@ export class ActionDispatcher {
 
     /**
      * Play a sequence on a device (Samplecrate)
-     * @param {number} deviceId - Device ID (not array index!)
+     * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      * @param {boolean} loop - Loop mode (true=LOOP, false=ONESHOT)
      */
-    playDeviceSequencer(deviceId, slot, loop = true) {
+    playDeviceSequencer(deviceIndex, slot, loop = true) {
         if (!this.controller.deviceManager) {
             console.error('[Action] DeviceManager not available');
             return;
         }
 
-        // deviceId is the actual device ID, not an array index
-        const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
-        if (!device) {
-            console.error(`[Action] Device ID ${deviceId} not found`);
+        // Get device at this index in the list
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
             return;
         }
 
+        const device = devices[deviceIndex];
         const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
         if (!midiOutput) {
             console.error(`[Action] No MIDI output for device: ${device.name}`);
             return;
         }
 
-        const message = buildPlaybackControlMessage(deviceId, slot, 'play', loop);
+        // Use device's CURRENT deviceId (may have changed in settings!)
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
         midiOutput.send(message);
-        console.log(`[Action] Playing sequence: device=${device.name} (ID ${deviceId}), slot=${slot}, loop=${loop}`);
+        console.log(`[Action] Playing sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}, loop=${loop}`);
     }
 
     /**
      * Stop a sequence on a device (Samplecrate)
-     * @param {number} deviceId - Device ID (not array index!)
+     * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
-    stopDeviceSequencer(deviceId, slot) {
+    stopDeviceSequencer(deviceIndex, slot) {
         if (!this.controller.deviceManager) {
             console.error('[Action] DeviceManager not available');
             return;
         }
 
-        // deviceId is the actual device ID, not an array index
-        const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
-        if (!device) {
-            console.error(`[Action] Device ID ${deviceId} not found`);
+        // Get device at this index in the list
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
             return;
         }
 
+        const device = devices[deviceIndex];
         const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
         if (!midiOutput) {
             console.error(`[Action] No MIDI output for device: ${device.name}`);
             return;
         }
 
-        const message = buildPlaybackControlMessage(deviceId, slot, 'stop');
+        // Use device's CURRENT deviceId (may have changed in settings!)
+        const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
         midiOutput.send(message);
-        console.log(`[Action] Stopping sequence: device=${device.name} (ID ${deviceId}), slot=${slot}`);
+        console.log(`[Action] Stopping sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}`);
     }
 
     /**
      * Toggle play/stop of a sequence on a device
-     * @param {number} deviceId - Device ID (not array index!)
+     * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
-    toggleDeviceSequencer(deviceId, slot) {
+    toggleDeviceSequencer(deviceIndex, slot) {
         // For now, just send play with loop
         // TODO: Track playback state to toggle properly
-        this.playDeviceSequencer(deviceId, slot, true);
+        this.playDeviceSequencer(deviceIndex, slot, true);
     }
 
     /**
      * Mute a sequence on a device
-     * @param {number} deviceId - Device ID (not array index!)
+     * @param {number} deviceIndex - Index in device list (0, 1, 2...)
      * @param {number} slot - Slot number (0-15)
      */
-    muteDeviceSequencer(deviceId, slot) {
+    muteDeviceSequencer(deviceIndex, slot) {
         if (!this.controller.deviceManager) {
             console.error('[Action] DeviceManager not available');
             return;
         }
 
-        // deviceId is the actual device ID, not an array index
-        const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
-        if (!device) {
-            console.error(`[Action] Device ID ${deviceId} not found`);
+        // Get device at this index in the list
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
             return;
         }
 
+        const device = devices[deviceIndex];
         const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
         if (!midiOutput) {
             console.error(`[Action] No MIDI output for device: ${device.name}`);
@@ -784,9 +789,10 @@ export class ActionDispatcher {
         }
 
         // Toggle mute (send true, device should toggle)
-        const message = buildMuteMessage(deviceId, slot, true);
+        // Use device's CURRENT deviceId (may have changed in settings!)
+        const message = buildMuteMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling mute: device=${device.name} (ID ${deviceId}), slot=${slot}`);
+        console.log(`[Action] Toggling mute: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), slot=${slot}`);
     }
 
     /**
