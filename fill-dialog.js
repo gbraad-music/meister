@@ -125,19 +125,23 @@ export function showFillDialog(sequencer, track, cursorRow, cursorTrack, engine,
 
     window.nbDialog.show(content);
 
-    console.log('[Fill] Dialog shown, setting up event listeners...');
-
     // Track selected values
     let selectedNote = defaultNote;
     let selectedOctave = defaultOctave;
     let selectedInterval = 4;
     let selectedVelocity = 100;
 
-    console.log('[Fill] Initial values:', { selectedNote, selectedOctave, selectedInterval, selectedVelocity });
+    // Use setTimeout to ensure DOM is ready after nbDialog.show()
+    setTimeout(() => {
+        // Get dialog container
+        const dialogContainer = document.getElementById('nb-dialog-container');
+        if (!dialogContainer) {
+            console.error('[Fill] Dialog container not found!');
+            return;
+        }
 
     // Helper function to preview the currently selected note
     const previewNote = () => {
-        console.log('[Fill Preview] Function called');
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         const noteIndex = noteNames.indexOf(selectedNote);
         if (noteIndex === -1) {
@@ -152,68 +156,62 @@ export function showFillDialog(sequencer, track, cursorRow, cursorTrack, engine,
         }
 
         const program = engine.trackPrograms[cursorTrack] || 0;
-        console.log(`[Fill Preview] Playing: track=${cursorTrack}, note=${selectedNote}${selectedOctave}, MIDI=${midiNote}, vel=${selectedVelocity}, prog=${program}`);
         engine.playNote(cursorTrack, midiNote, selectedVelocity, program);
-        console.log('[Fill Preview] playNote() called');
     };
 
-    // Note button handlers
-    const noteButtons = document.querySelectorAll('.fill-note-btn');
-    console.log('[Fill] Found', noteButtons.length, 'note buttons');
+    // Note button handlers - query from dialog container
+    const noteButtons = dialogContainer.querySelectorAll('.fill-note-btn');
     noteButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-            console.log('[Fill] Note button clicked:', btn.dataset.note);
             e.stopPropagation();
             selectedNote = btn.dataset.note;
-            document.querySelectorAll('.fill-note-btn').forEach(b => b.style.background = '#333');
+            dialogContainer.querySelectorAll('.fill-note-btn').forEach(b => b.style.background = '#333');
             btn.style.background = '#4a9eff';
-<<<<<<< HEAD
-=======
-            console.log('[Fill] About to call previewNote()');
             previewNote(); // Preview the note
->>>>>>> b90b665 (Trigger autosave)
         });
     });
 
     // Octave button handlers
-    document.querySelectorAll('.fill-octave-btn').forEach(btn => {
+    dialogContainer.querySelectorAll('.fill-octave-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             selectedOctave = parseInt(btn.dataset.octave);
-            document.querySelectorAll('.fill-octave-btn').forEach(b => b.style.background = '#333');
+            dialogContainer.querySelectorAll('.fill-octave-btn').forEach(b => b.style.background = '#333');
             btn.style.background = '#4a9eff';
+            previewNote(); // Preview the note
         });
     });
 
     // Interval button handlers
-    document.querySelectorAll('.fill-interval-btn').forEach(btn => {
+    dialogContainer.querySelectorAll('.fill-interval-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             selectedInterval = parseInt(btn.dataset.interval);
-            document.querySelectorAll('.fill-interval-btn').forEach(b => b.style.background = '#333');
+            dialogContainer.querySelectorAll('.fill-interval-btn').forEach(b => b.style.background = '#333');
             btn.style.background = '#4a9eff';
         });
     });
 
     // Velocity button handlers
-    document.querySelectorAll('.fill-velocity-btn').forEach(btn => {
+    dialogContainer.querySelectorAll('.fill-velocity-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             selectedVelocity = parseInt(btn.dataset.velocity);
-            document.querySelectorAll('.fill-velocity-btn').forEach(b => b.style.background = '#333');
+            dialogContainer.querySelectorAll('.fill-velocity-btn').forEach(b => b.style.background = '#333');
             btn.style.background = '#4a9eff';
+            previewNote(); // Preview the note with new velocity
         });
     });
 
     // OK button
-    document.getElementById('fill-ok').addEventListener('click', (e) => {
+    dialogContainer.querySelector('#fill-ok').addEventListener('click', (e) => {
         e.stopPropagation();
         window.nbDialog.hide();
         updateCallback(selectedNote, selectedOctave, selectedInterval, selectedVelocity);
     });
 
     // Cancel button
-    document.getElementById('fill-cancel').addEventListener('click', (e) => {
+    dialogContainer.querySelector('#fill-cancel').addEventListener('click', (e) => {
         e.stopPropagation();
         window.nbDialog.hide();
     });
@@ -228,4 +226,6 @@ export function showFillDialog(sequencer, track, cursorRow, cursorTrack, engine,
         }
     };
     document.addEventListener('keydown', handleEscape);
+
+    }, 0); // End setTimeout - ensure DOM is ready
 }
