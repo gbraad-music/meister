@@ -594,26 +594,31 @@ export class SequencerEngine {
         // Samplecrate doesn't use multi-channel, it uses program changes on a single channel
         let midiChannel = device.midiChannel;
 
-        // Always send Program Change before EVERY note (required for Samplecrate)
+        // Send Program Change ONLY if it changed from last program
+        // Track last program per device
+        if (!this.lastProgramPerDevice) {
+            this.lastProgramPerDevice = new Map();
+        }
+        const deviceKey = `${device.id}-${midiChannel}`;
+        const lastProgram = this.lastProgramPerDevice.get(deviceKey);
+
         // UI stores: 0 = no program, 1-32 = user-facing "PROG 1" to "PROG 32"
         // Wire protocol: 0 = Regroove, 1-31 = Samplecrate slots 1-31
         // So we need to send program-1 when program > 0
         if (program > 0 && program <= 32) {
-            const programChange = 0xC0 | midiChannel;
             const wireProgram = (program - 1) & 0x7F; // Convert UI 1-32 to wire 0-31
-            midiOutput.send([programChange, wireProgram]);
 
-            // CRITICAL: Wait 5ms for program change to take effect before sending note
-            // Without this delay, notes may trigger with the previous program
-            setTimeout(() => {
-                const noteOn = 0x90 | midiChannel;
-                midiOutput.send([noteOn, midiNote, velocity]);
-            }, 5);
-        } else {
-            // No program change needed - send note immediately
-            const noteOn = 0x90 | midiChannel;
-            midiOutput.send([noteOn, midiNote, velocity]);
+            // Only send program change if it's different from last program
+            if (wireProgram !== lastProgram) {
+                const programChange = 0xC0 | midiChannel;
+                midiOutput.send([programChange, wireProgram]);
+                this.lastProgramPerDevice.set(deviceKey, wireProgram);
+            }
         }
+
+        // Send note immediately (no delay needed since we only change program when needed)
+        const noteOn = 0x90 | midiChannel;
+        midiOutput.send([noteOn, midiNote, velocity]);
 
         // Track active note
         this.activeNotes.set(track, { note: midiNote, channel: midiChannel, output: midiOutput });
