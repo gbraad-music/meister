@@ -176,6 +176,12 @@ export class SceneEditor {
             document.getElementById('pad-scene-polling-interval-value').textContent = value + 'ms';
         });
 
+        // Split scene polling interval slider
+        document.getElementById('split-scene-polling-interval')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('split-scene-polling-interval-value').textContent = value + 'ms';
+        });
+
         // Save effects scene
         document.getElementById('save-effects-scene')?.addEventListener('click', () => {
             this.saveEffectsScene();
@@ -998,6 +1004,14 @@ export class SceneEditor {
                 document.getElementById('split-scene-pad-layout').value = scene.padLayout || '4x4';
                 document.getElementById('split-scene-pad-side').value = scene.padSide || 'left';
 
+                // Set polling interval
+                const pollingInterval = scene.pollInterval || 250;
+                const slider = document.getElementById('split-scene-polling-interval');
+                if (slider) {
+                    slider.value = pollingInterval;
+                    document.getElementById('split-scene-polling-interval-value').textContent = pollingInterval + 'ms';
+                }
+
                 // Load existing fader slots
                 this.splitFaderSlots = scene.slots || this.getDefaultSplitFaders(5);
 
@@ -1010,6 +1024,13 @@ export class SceneEditor {
             document.getElementById('split-scene-name').value = 'Split Scene';
             document.getElementById('split-scene-pad-layout').value = '4x4';
             document.getElementById('split-scene-pad-side').value = 'left';
+
+            // Set default polling interval
+            const slider = document.getElementById('split-scene-polling-interval');
+            if (slider) {
+                slider.value = 250;
+                document.getElementById('split-scene-polling-interval-value').textContent = '250ms';
+            }
 
             // Initialize with default faders
             this.splitFaderSlots = this.getDefaultSplitFaders(5);
@@ -1185,6 +1206,7 @@ export class SceneEditor {
 
         const padLayout = document.getElementById('split-scene-pad-layout').value;
         const padSide = document.getElementById('split-scene-pad-side').value;
+        const pollInterval = parseInt(document.getElementById('split-scene-polling-interval').value) || 250;
 
         // Get existing scene to preserve pads
         const existingScene = this.sceneManager.scenes.get(this.currentSceneId);
@@ -1210,7 +1232,7 @@ export class SceneEditor {
             pads: existingPads, // Preserve existing pad configurations
             slots: slots, // Use configured faders
             pollDevices: [0],
-            pollInterval: 250,
+            pollInterval: pollInterval,
             render: () => this.sceneManager.renderSplitScene(sceneId)
         };
 

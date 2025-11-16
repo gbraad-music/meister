@@ -1909,7 +1909,6 @@ export class SceneManager {
 
             // Update pan (convert from 0-127 to -100..100)
             const panValue = this.convertPanToUI(programData.pan);
-            console.log(`[Program${programNum}] Pan wire=${programData.pan} → UI=${panValue} (should be 64→0)`);
             fader.setAttribute('pan', panValue.toString());
 
             // Update mute state
@@ -1932,7 +1931,6 @@ export class SceneManager {
 
             // Update master pan (convert from 0-127 to -100..100)
             const panValue = this.convertPanToUI(programState.master.pan);
-            console.log(`[Master] Pan wire=${programState.master.pan} → UI=${panValue} (should be 64→0)`);
             mixFader.setAttribute('pan', panValue.toString());
 
             // Update master mute
@@ -2091,12 +2089,23 @@ export class SceneManager {
         const scene = this.scenes.get(this.currentScene);
         // console.log(`[Scene] Starting polling for devices [${deviceIds.join(', ')}] every ${intervalMs}ms`);
 
+        // Check if scene has PROGRAM faders (slider/split scenes with program faders)
+        const hasProgramFaders = scene && ['slider', 'split'].includes(scene.type);
+
         // Request state immediately for all devices
         deviceIds.forEach(deviceId => {
             this.requestPlayerState(deviceId);
-            // Also request FX state for effects scenes
+            // Request FX state for effects scenes
             if (scene && scene.type === 'effects') {
                 this.requestFxState(deviceId, scene.programId || 0);
+            }
+            // Request program state for scenes with PROGRAM faders
+            // Note: deviceId is numeric (0, 1, 2...), need to convert to device string ID
+            if (hasProgramFaders && this.controller.actionDispatcher && this.controller.deviceManager) {
+                const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
+                if (device) {
+                    this.controller.actionDispatcher.queryDeviceProgramState(device.id);
+                }
             }
         });
 
@@ -2104,9 +2113,17 @@ export class SceneManager {
         this.pollInterval = setInterval(() => {
             deviceIds.forEach(deviceId => {
                 this.requestPlayerState(deviceId);
-                // Also request FX state for effects scenes
+                // Request FX state for effects scenes
                 if (scene && scene.type === 'effects') {
                     this.requestFxState(deviceId, scene.programId || 0);
+                }
+                // Request program state for scenes with PROGRAM faders
+                // Note: deviceId is numeric (0, 1, 2...), need to convert to device string ID
+                if (hasProgramFaders && this.controller.actionDispatcher && this.controller.deviceManager) {
+                    const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
+                    if (device) {
+                        this.controller.actionDispatcher.queryDeviceProgramState(device.id);
+                    }
                 }
             });
         }, intervalMs);

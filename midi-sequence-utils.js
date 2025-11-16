@@ -480,10 +480,6 @@ export function parseProgramStateResponse(data) {
         });
     }
 
-    // Log raw pan values from device
-    console.log(`[ProgramState] Raw master pan from device: ${masterPan}`);
-    console.log(`[ProgramState] Raw program 0 pan from device: ${programPans[0]}`);
-
     return {
         version,
         master: {

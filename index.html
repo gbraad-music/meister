@@ -1686,6 +1686,17 @@
                 </div>
 
                 <div class="setting-group">
+                    <label class="setting-label">POLLING INTERVAL</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="range" id="split-scene-polling-interval" min="100" max="2000" step="50" value="250" style="flex: 1;">
+                        <span id="split-scene-polling-interval-value" style="min-width: 60px; text-align: right; color: #aaa;">250ms</span>
+                    </div>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        How often to poll devices when this scene is active. Lower = more responsive, higher = less MIDI traffic.
+                    </div>
+                </div>
+
+                <div class="setting-group">
                     <label class="setting-label">FADER SLOTS</label>
                     <div style="color: #888; font-size: 0.75em; margin-bottom: 8px;">
                         Click slots to configure faders
