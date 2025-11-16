@@ -219,6 +219,8 @@ class MeisterController {
 
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
+            // Commented out to reduce console spam - uncomment for debugging
+            // console.log(`[Meister] Received PLAYER_STATE_RESPONSE from device ${deviceId}, routing to regrooveState`);
             this.regrooveState.handlePlayerStateResponse(deviceId, payload);
         }
 
@@ -309,8 +311,7 @@ class MeisterController {
                     this.midiOutput = this.midiAccess.outputs.get(savedOutputId);
                     this.updateConnectionStatus(true);
 
-                    // Start state polling for restored connection
-                    this.startStatePolling();
+                    // Note: State polling is now managed by scene manager, not globally
                     console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
                 }
             }
@@ -348,8 +349,11 @@ class MeisterController {
                     this.startClock();
                 }
 
-                // Start state polling
-                this.startStatePolling();
+                // Note: State polling is now managed by scene manager, not globally
+                // Trigger scene switch to start polling if scene manager exists
+                if (this.sceneManager) {
+                    this.sceneManager.switchScene(this.sceneManager.currentScene);
+                }
             } else {
                 this.midiOutput = null;
                 this.updateConnectionStatus(false);
@@ -589,22 +593,7 @@ class MeisterController {
             this.saveConfig();
         });
 
-        // Polling interval control
-        document.getElementById('polling-interval')?.addEventListener('input', (e) => {
-            const value = parseInt(e.target.value);
-            document.getElementById('polling-interval-value').textContent = value + 'ms';
-
-            // Update polling interval
-            this.regrooveState.pollingIntervalMs = value;
-
-            // Restart polling if currently active
-            if (this.regrooveState.statePollingInterval) {
-                this.regrooveState.stopPolling();
-                this.regrooveState.startPolling(this.regrooveState.targetDeviceIds);
-            }
-
-            this.saveConfig();
-        });
+        // Global polling interval control removed - polling is now per-scene
 
         // Show status bar on mouse movement
         let statusTimeout;
@@ -3075,12 +3064,7 @@ class MeisterController {
                 document.getElementById('clock-bpm').value = this.clockBPM;
                 document.getElementById('receive-spp').checked = this.receiveSPP;
 
-                // Update polling interval UI
-                const pollingSlider = document.getElementById('polling-interval');
-                if (pollingSlider) {
-                    pollingSlider.value = this.regrooveState.pollingIntervalMs;
-                    document.getElementById('polling-interval-value').textContent = this.regrooveState.pollingIntervalMs + 'ms';
-                }
+                // Global polling interval UI removed - polling is now per-scene
 
                 const sequencer = document.getElementById('position-sequencer');
                 sequencer.style.display = this.receiveSPP ? 'flex' : 'none';

@@ -203,7 +203,7 @@ class RegrooveStateManager {
             this.playerState = deviceState;
         }
 
-        // Update connection timestamp
+        // Update connection timestamp (for debugging only)
         this.lastStateUpdate = Date.now();
         if (!this.isConnectedToRegroove) {
             this.isConnectedToRegroove = true;
@@ -213,8 +213,7 @@ class RegrooveStateManager {
             }
         }
 
-        // Start watchdog if not already running
-        this.startConnectionWatchdog();
+        // Note: Connection watchdog removed - we just keep polling until responses come back
 
         // Notify callback
         if (this.onStateUpdate) {
@@ -222,31 +221,8 @@ class RegrooveStateManager {
         }
     }
 
-    // Connection watchdog - detect when state updates stop
-    startConnectionWatchdog() {
-        if (this.connectionWatchdog) {
-            return; // Already running
-        }
-
-        this.connectionWatchdog = setInterval(() => {
-            if (this.lastStateUpdate && (Date.now() - this.lastStateUpdate > this.stateTimeoutMs)) {
-                if (this.isConnectedToRegroove) {
-                    this.isConnectedToRegroove = false;
-                    console.log('[RegrooveState] Connection lost - no state updates');
-                    if (this.onConnectionChange) {
-                        this.onConnectionChange(false);
-                    }
-                }
-            }
-        }, 1000); // Check every second
-    }
-
-    stopConnectionWatchdog() {
-        if (this.connectionWatchdog) {
-            clearInterval(this.connectionWatchdog);
-            this.connectionWatchdog = null;
-        }
-    }
+    // Connection watchdog removed - we just keep polling until responses come back
+    // No need to timeout and stop processing - cable disconnects happen!
 
     // Device State Query Methods
     getDeviceState(deviceId) {
@@ -447,7 +423,6 @@ class RegrooveStateManager {
     // Cleanup
     destroy() {
         this.stopPolling();
-        this.stopConnectionWatchdog();
         this.clearAllState();
     }
 }

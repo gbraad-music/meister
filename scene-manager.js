@@ -275,12 +275,6 @@ export class SceneManager {
         document.getElementById('effects-scene-editor-overlay')?.classList.remove('active');
         document.getElementById('pad-scene-editor-overlay')?.classList.remove('active');
 
-        // Stop polling for previous scene
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-
         // Render the scene
         scene.render();
 
@@ -294,19 +288,25 @@ export class SceneManager {
         // Resolve device IDs from bindings at runtime (so they update when device IDs change)
         const resolvedDeviceIds = this.resolveSceneDeviceIds(scene);
 
-        // Start polling if this scene has devices to poll
-        if (resolvedDeviceIds.length > 0 && scene.pollInterval) {
-            // Stop global polling to avoid duplicate requests
-            // console.log(`[Scene] Using scene-specific polling (${scene.pollInterval}ms), stopping global polling`);
+        // Start polling for this scene using regrooveState
+        if (resolvedDeviceIds.length > 0) {
+            // Scene has device bindings - start polling for those devices
+            const pollInterval = scene.pollInterval || 500; // Default to 500ms if not specified
+            console.log(`[Scene] "${scene.name}" polling devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
+
+            if (this.controller.regrooveState && this.controller.midiOutput) {
+                // Update polling interval
+                this.controller.regrooveState.pollingIntervalMs = pollInterval;
+                // Start polling through regrooveState
+                this.controller.regrooveState.startPolling(resolvedDeviceIds);
+            } else {
+                console.warn(`[Scene] Cannot start polling: regrooveState=${!!this.controller.regrooveState}, midiOutput=${!!this.controller.midiOutput}`);
+            }
+        } else {
+            // Scene has no device bindings - stop polling
+            console.log(`[Scene] "${scene.name}" has no device bindings, stopping polling`);
             if (this.controller.regrooveState) {
                 this.controller.regrooveState.stopPolling();
-            }
-            this.startDevicePolling(resolvedDeviceIds, scene.pollInterval);
-        } else {
-            // No scene-specific polling - restart global polling
-            // console.log(`[Scene] No scene-specific polling, using global polling (${this.controller.regrooveState?.pollingIntervalMs || 500}ms)`);
-            if (this.controller.regrooveState && this.controller.midiOutput) {
-                this.controller.startStatePolling();
             }
         }
 
@@ -341,12 +341,40 @@ export class SceneManager {
             }
         }
 
-        // For slider scenes with slots containing device bindings
+        // For slider/split scenes with slots containing device bindings
         if (scene.slots) {
             const uniqueDeviceIds = new Set();
             scene.slots.forEach(slot => {
                 if (slot && slot.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(slot.deviceBinding);
+                    if (device) {
+                        uniqueDeviceIds.add(device.deviceId);
+                    }
+                }
+            });
+            deviceIds.push(...Array.from(uniqueDeviceIds));
+        }
+
+        // For grid scenes with pads containing device bindings
+        if (scene.pads) {
+            const uniqueDeviceIds = new Set();
+            scene.pads.forEach(pad => {
+                if (pad && pad.deviceBinding) {
+                    const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
+                    if (device) {
+                        uniqueDeviceIds.add(device.deviceId);
+                    }
+                }
+            });
+            deviceIds.push(...Array.from(uniqueDeviceIds));
+        }
+
+        // For built-in 'pads' scene, check global config pads
+        if (scene.type === 'grid' && this.controller.config && this.controller.config.pads) {
+            const uniqueDeviceIds = new Set();
+            this.controller.config.pads.forEach(pad => {
+                if (pad && pad.deviceBinding) {
+                    const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
                     if (device) {
                         uniqueDeviceIds.add(device.deviceId);
                     }
@@ -2092,79 +2120,7 @@ export class SceneManager {
         });
     }
 
-    /**
-     * Start polling devices for player state
-     */
-    startDevicePolling(deviceIds, intervalMs) {
-        if (!Array.isArray(deviceIds) || deviceIds.length === 0) return;
-
-        const scene = this.scenes.get(this.currentScene);
-        // console.log(`[Scene] Starting polling for devices [${deviceIds.join(', ')}] every ${intervalMs}ms`);
-
-        // Check if scene has PROGRAM faders (slider/split scenes with program faders)
-        const hasProgramFaders = scene && ['slider', 'split'].includes(scene.type);
-
-        // Request state immediately for all devices
-        deviceIds.forEach(deviceId => {
-            this.requestPlayerState(deviceId);
-            // Request FX state for effects scenes
-            if (scene && scene.type === 'effects') {
-                this.requestFxState(deviceId, scene.programId || 0);
-            }
-            // Request program state for scenes with PROGRAM faders
-            // Note: deviceId is numeric (0, 1, 2...), need to convert to device string ID
-            if (hasProgramFaders && this.controller.actionDispatcher && this.controller.deviceManager) {
-                const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
-                if (device) {
-                    this.controller.actionDispatcher.queryDeviceProgramState(device.id);
-                }
-            }
-        });
-
-        // Then poll at interval
-        this.pollInterval = setInterval(() => {
-            deviceIds.forEach(deviceId => {
-                this.requestPlayerState(deviceId);
-                // Request FX state for effects scenes
-                if (scene && scene.type === 'effects') {
-                    this.requestFxState(deviceId, scene.programId || 0);
-                }
-                // Request program state for scenes with PROGRAM faders
-                // Note: deviceId is numeric (0, 1, 2...), need to convert to device string ID
-                if (hasProgramFaders && this.controller.actionDispatcher && this.controller.deviceManager) {
-                    const device = this.controller.deviceManager.getDeviceByDeviceId(deviceId);
-                    if (device) {
-                        this.controller.actionDispatcher.queryDeviceProgramState(device.id);
-                    }
-                }
-            });
-        }, intervalMs);
-    }
-
-    /**
-     * Request player state from device via SysEx
-     */
-    requestPlayerState(deviceId) {
-        if (!this.controller.midiOutput) return;
-
-        // SysEx: F0 7D <device_id> 60 F7
-        // 0x60 = SYSEX_CMD_GET_PLAYER_STATE
-        const sysex = [0xF0, 0x7D, deviceId, 0x60, 0xF7];
-        this.controller.midiOutput.send(sysex);
-    }
-
-    /**
-     * Request FX state from device via SysEx
-     */
-    requestFxState(deviceId, programId) {
-        if (!this.controller.midiOutput) return;
-
-        // Commented out to reduce console spam - uncomment for debugging
-        // console.log(`[Scene] Requesting FX state for device ${deviceId} program ${programId}`);
-
-        // Use controller's sendSysExFxGetAllState method
-        this.controller.sendSysExFxGetAllState(deviceId, programId);
-    }
+    // Old scene-specific polling methods removed - now using regrooveState.startPolling() exclusively
 
     /**
      * Render piano keyboard scene
