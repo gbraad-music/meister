@@ -323,6 +323,23 @@ export function buildGetSequenceStateMessage(deviceId) {
 }
 
 /**
+ * Build SysEx message for getting program state (Samplecrate mixer)
+ * Command: 0x64 (GET_PROGRAM_STATE)
+ *
+ * @param {number} deviceId - Target device ID (0-127)
+ * @returns {Uint8Array} - SysEx message
+ */
+export function buildGetProgramStateMessage(deviceId) {
+    return new Uint8Array([
+        0xF0,                           // SysEx start
+        0x7D,                           // Manufacturer ID
+        deviceId & 0x7F,                // Device ID
+        0x64,                           // Command: GET_PROGRAM_STATE
+        0xF7                            // SysEx end
+    ]);
+}
+
+/**
  * Parse SEQUENCE_STATE_RESPONSE (0x63) from Samplecrate
  * Returns state for all 16 sequence slots
  *
@@ -385,6 +402,93 @@ export function parseSequenceStateResponse(data) {
         numSlots,
         startMode,
         slots
+    };
+}
+
+/**
+ * Parse PROGRAM_STATE_RESPONSE (0x65) from Samplecrate
+ * Returns mixer state for all 32 programs plus master
+ *
+ * @param {Uint8Array} data - SysEx message data
+ * @returns {Object|null} - Parsed program state or null if invalid
+ */
+export function parseProgramStateResponse(data) {
+    // Format: F0 7D <dev> 65 <76 bytes of state> F7
+    // Total: 4 header + 76 data + 1 end = 81 bytes
+
+    if (data.length < 81) {
+        console.warn(`[ProgramState] Message too short: ${data.length} bytes (expected 81)`);
+        return null;
+    }
+
+    if (data[0] !== 0xF0 || data[1] !== 0x7D || data[3] !== 0x65) {
+        return null; // Not a program state response
+    }
+
+    // Check version - must be Samplecrate format (0x20-0x3F)
+    const version = data[4];
+    if (version < 0x20 || version >= 0x40) {
+        console.warn(`[ProgramState] Invalid version: 0x${version.toString(16)} (expected 0x20-0x3F for Samplecrate)`);
+        return null;
+    }
+
+    // Header (4 bytes)
+    const masterVolume = data[5];
+    const masterFlags = data[6];
+    const masterMute = (masterFlags & 0x01) !== 0;
+    const masterPan = data[7];
+
+    // Program state
+    const numPrograms = data[8];
+
+    // Program mute bits (4 bytes for 32 programs)
+    const muteByte0 = data[9];
+    const muteByte1 = data[10];
+    const muteByte2 = data[11];
+    const muteByte3 = data[12];
+
+    // Parse program volumes (32 bytes)
+    const programVolumes = [];
+    for (let i = 0; i < numPrograms; i++) {
+        programVolumes.push(data[13 + i]);
+    }
+
+    // Parse program panning (32 bytes)
+    const programPans = [];
+    for (let i = 0; i < numPrograms; i++) {
+        programPans.push(data[45 + i]);
+    }
+
+    // Parse mute states for each program
+    const programMutes = [];
+    for (let i = 0; i < numPrograms; i++) {
+        const byteIndex = Math.floor(i / 8);
+        const bitIndex = i % 8;
+        const muteByte = [muteByte0, muteByte1, muteByte2, muteByte3][byteIndex];
+        const muted = (muteByte & (1 << bitIndex)) !== 0;
+        programMutes.push(muted);
+    }
+
+    // Build program array
+    const programs = [];
+    for (let i = 0; i < numPrograms; i++) {
+        programs.push({
+            program: i,
+            volume: programVolumes[i],
+            pan: programPans[i],
+            muted: programMutes[i]
+        });
+    }
+
+    return {
+        version,
+        master: {
+            volume: masterVolume,
+            mute: masterMute,
+            pan: masterPan
+        },
+        numPrograms,
+        programs
     };
 }
 

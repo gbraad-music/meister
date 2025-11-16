@@ -9,7 +9,9 @@ import {
     buildMuteMessage,
     buildSoloMessage,
     buildGetSequenceStateMessage,
-    parseSequenceStateResponse
+    parseSequenceStateResponse,
+    buildGetProgramStateMessage,
+    parseProgramStateResponse
 } from './midi-sequence-utils.js';
 
 /**
@@ -22,6 +24,8 @@ export class ActionDispatcher {
         this.macros = new Map(); // macro_id -> array of actions
         // Track device sequencer playback state: deviceId -> Set of playing slots (0-15)
         this.deviceSequencerState = new Map();
+        // Track device program mixer state: deviceId -> {master, programs}
+        this.deviceProgramState = new Map();
         // Periodic state polling
         this.statePollingInterval = null;
         this.statePollingIntervalMs = 2000; // Poll every 2 seconds
@@ -1114,6 +1118,54 @@ export class ActionDispatcher {
     }
 
     /**
+     * Handle PROGRAM_STATE_RESPONSE (0x65) from device (Samplecrate mixer)
+     * Updates internal mixer state
+     * @param {string} deviceId - Device string ID
+     * @param {Uint8Array} data - SysEx message data
+     */
+    handleProgramStateResponse(deviceId, data) {
+        const state = parseProgramStateResponse(data);
+        if (!state) {
+            console.warn('[Action] Failed to parse program state response');
+            return;
+        }
+
+        // Store program state for this device
+        this.deviceProgramState.set(deviceId, {
+            master: state.master,
+            programs: state.programs
+        });
+
+        // TODO: Update device mixer UI (when implemented)
+        console.log(`[Action] Device ${deviceId} program state updated: ${state.numPrograms} programs, master vol=${state.master.volume}`);
+    }
+
+    /**
+     * Query program state (mixer) from a specific device (Samplecrate)
+     * @param {string} deviceId - Device string ID
+     */
+    queryDeviceProgramState(deviceId) {
+        if (!this.controller.deviceManager) {
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildGetProgramStateMessage(device.deviceId);
+        midiOutput.send(message);
+    }
+
+    /**
      * Query sequence state from all devices
      */
     queryAllDeviceStates() {
@@ -1124,6 +1176,8 @@ export class ActionDispatcher {
         const devices = this.controller.deviceManager.getAllDevices();
         for (const device of devices) {
             this.queryDeviceSequenceState(device.id);
+            // Also query program state (Samplecrate mixer)
+            this.queryDeviceProgramState(device.id);
         }
     }
 

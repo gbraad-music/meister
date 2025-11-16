@@ -829,7 +829,9 @@ export class SceneEditor {
             if (!confirmed) return;
             this.sceneManager.scenes.delete(this.currentSceneId);
             this.saveScenesToStorage();
-            this.refreshScenesList();
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
             this.closeEffectsSceneEditor();
         });
 
@@ -1219,7 +1221,9 @@ export class SceneEditor {
         this.saveScenesToStorage();
 
         // Refresh scenes list
-        this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
         if (this.sceneManager.controller.settingsUI) {
             this.sceneManager.controller.settingsUI.refreshScenesList();
         }
@@ -1280,7 +1284,9 @@ export class SceneEditor {
         this.saveScenesToStorage();
 
         // Refresh scenes list
-        this.refreshScenesList();
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
 
         // Close editor
         this.closePianoSceneEditor();
@@ -1299,7 +1305,9 @@ export class SceneEditor {
             if (!confirmed) return;
             this.sceneManager.scenes.delete(this.currentSceneId);
             this.saveScenesToStorage();
-            this.refreshScenesList();
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
             this.closePianoSceneEditor();
         });
     }
@@ -1551,7 +1559,9 @@ export class SceneEditor {
             this.saveScenesToStorage();
 
             // Refresh scenes list
-            this.refreshScenesList();
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
             if (this.sceneManager.controller.settingsUI) {
                 this.sceneManager.controller.settingsUI.refreshScenesList();
             }

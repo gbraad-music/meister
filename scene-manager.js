@@ -1033,8 +1033,8 @@ export class SceneManager {
 
         if (column.type === 'MIX') {
                 fader = document.createElement('mix-fader');
-                // Include device name in label
-                const label = deviceName ? `${column.label}\n${deviceName}` : column.label;
+                // Include device name in label (smaller, grey font like sequencer)
+                const label = deviceName ? `${column.label}<br><span style="font-size: 0.8em; opacity: 0.7;">${deviceName}</span>` : column.label;
                 fader.setAttribute('label', label);
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
@@ -1205,7 +1205,10 @@ export class SceneManager {
                 // Samplecrate program fader
                 fader = document.createElement('program-fader');
                 fader.setAttribute('program', column.program || '0');
-                fader.setAttribute('label', column.label || `PROG ${column.program || 0}`);
+                // Include device name in label (smaller, grey font like sequencer)
+                const programLabel = column.label || `PROG ${column.program || 0}`;
+                const label = deviceName ? `${programLabel}<br><span style="font-size: 0.8em; opacity: 0.7;">${deviceName}</span>` : programLabel;
+                fader.setAttribute('label', label);
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');
                 fader.setAttribute('fx', 'false');
@@ -1309,7 +1312,7 @@ export class SceneManager {
                 const seqName = seqScene ? seqScene.name : 'Unknown';
 
                 fader = document.createElement('mix-fader');
-                fader.setAttribute('label', `${seqName}\nMaster`);
+                fader.setAttribute('label', `Master<br><span style="font-size: 0.8em; opacity: 0.7;">${seqName}</span>`);
                 fader.dataset.sequencerScene = column.sequencerScene;
                 fader.setAttribute('volume', '100');
                 fader.setAttribute('pan', '0');

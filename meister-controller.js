@@ -206,8 +206,8 @@ class MeisterController {
         //     console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
         // }
 
-        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x62 = GET_SEQUENCE_STATE, 0x63 = SEQUENCE_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
-        if (command !== 0x60 && command !== 0x61 && command !== 0x62 && command !== 0x63 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
+        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x62 = GET_SEQUENCE_STATE, 0x63 = SEQUENCE_STATE_RESPONSE, 0x64 = GET_PROGRAM_STATE, 0x65 = PROGRAM_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
+        if (command !== 0x60 && command !== 0x61 && command !== 0x62 && command !== 0x63 && command !== 0x64 && command !== 0x65 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
@@ -230,6 +230,17 @@ class MeisterController {
                 this.actionDispatcher.handleSequenceStateResponse(device.id, data);
             } else {
                 console.warn(`[SysEx] Received sequence state from unknown device ${deviceId}`);
+            }
+        }
+
+        // PROGRAM_STATE_RESPONSE = 0x65 (Samplecrate mixer state)
+        if (command === 0x65 && this.actionDispatcher) {
+            // Find device by deviceId number
+            const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
+            if (device) {
+                this.actionDispatcher.handleProgramStateResponse(device.id, data);
+            } else {
+                console.warn(`[SysEx] Received program state from unknown device ${deviceId}`);
             }
         }
 
