@@ -20,7 +20,7 @@ export class DeviceManager {
         const device = {
             id: id,
             name: config.name || 'Unnamed Device',
-            type: config.type || 'regroove', // 'regroove' or 'samplecrate'
+            type: config.type || 'generic', // 'generic', 'regroove', or 'samplecrate'
             midiChannel: config.midiChannel ?? 0,
             deviceId: config.deviceId ?? 0,
             color: config.color || '#cc4444',

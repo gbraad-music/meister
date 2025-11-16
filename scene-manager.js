@@ -329,7 +329,7 @@ export class SceneManager {
         // For effects/piano scenes with deviceBinding
         if (scene.deviceBinding) {
             const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
-            if (device) {
+            if (device && device.type !== 'generic') {
                 deviceIds.push(device.deviceId);
             }
         }
@@ -340,7 +340,7 @@ export class SceneManager {
             scene.slots.forEach(slot => {
                 if (slot && slot.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(slot.deviceBinding);
-                    if (device) {
+                    if (device && device.type !== 'generic') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -354,7 +354,7 @@ export class SceneManager {
             scene.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    if (device) {
+                    if (device && device.type !== 'generic') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -368,7 +368,7 @@ export class SceneManager {
             this.controller.config.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    if (device) {
+                    if (device && device.type !== 'generic') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
