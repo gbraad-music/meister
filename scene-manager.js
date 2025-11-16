@@ -396,6 +396,9 @@ export class SceneManager {
             // Set current scene ID to 'pads' so pad editor saves to global config
             this.controller.currentPadSceneId = 'pads';
 
+            // Clear scene pads config (use global config instead)
+            this.controller.scenePadsConfig = null;
+
             // Sync the scene's layout to controller config so createPads uses correct layout
             if (scene && scene.layout) {
                 this.controller.config.gridLayout = scene.layout;

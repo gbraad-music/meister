@@ -1189,9 +1189,17 @@ export class ActionDispatcher {
 
         const devices = this.controller.deviceManager.getAllDevices();
         for (const device of devices) {
-            this.queryDeviceSequenceState(device.id);
-            // Also query program state (Samplecrate mixer)
-            this.queryDeviceProgramState(device.id);
+            // Only query sequence state for devices with sequencers
+            // (Regroove doesn't have sequencers, SampleCrate does)
+            if (device.type === 'samplecrate' || device.hasSequencer) {
+                this.queryDeviceSequenceState(device.id);
+            }
+
+            // Only query program state for SampleCrate devices (mixer state)
+            // Regroove uses PLAYER_STATE (0x60) instead, which is polled by regrooveState
+            if (device.type === 'samplecrate') {
+                this.queryDeviceProgramState(device.id);
+            }
         }
     }
 

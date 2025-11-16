@@ -483,26 +483,16 @@ class MeisterController {
             const dataParam = selectedOption.getAttribute('data-param');
 
             const routingParams = document.getElementById('pad-routing-input-params');
-            const seqTrackParams = document.getElementById('pad-sequencer-track-params');
-            const deviceSeqParams = document.getElementById('pad-device-seq-params');
 
-            // Hide all parameter fields by default
-            routingParams.style.display = 'none';
-            seqTrackParams.style.display = 'none';
-            deviceSeqParams.style.display = 'none';
+            // Hide all parameter fields by default (only if they exist)
+            if (routingParams) routingParams.style.display = 'none';
 
             // Show routing params for ACTION_SWITCH_INPUT_ROUTE (602) with custom param
             if (actionId === '602' && dataParam === 'custom') {
-                routingParams.style.display = 'block';
-                this.populateRoutingInputs();
-            }
-            // Show sequencer track params for ACTION_SEQUENCER_TRACK_MUTE/SOLO (710, 711) with custom param
-            else if ((actionId === '710' || actionId === '711') && dataParam === 'custom') {
-                seqTrackParams.style.display = 'block';
-            }
-            // Show device sequencer params for device sequencer actions (720-724) with custom param
-            else if (parseInt(actionId) >= 720 && parseInt(actionId) <= 724 && dataParam === 'custom') {
-                deviceSeqParams.style.display = 'block';
+                if (routingParams) {
+                    routingParams.style.display = 'block';
+                    this.populateRoutingInputs();
+                }
             }
         });
 
@@ -651,6 +641,9 @@ class MeisterController {
 
         // Populate note selector buttons
         this.populateNoteSelectorButtons();
+
+        // Populate SysEx channel dropdown (CH1-CH64)
+        this.populateSysExChannelDropdown();
 
         // Get pad config from the correct location (split scene vs default pads)
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
@@ -894,6 +887,20 @@ class MeisterController {
         }
     }
 
+    populateSysExChannelDropdown() {
+        const select = document.getElementById('pad-sysex-channel');
+        if (!select) return;
+
+        // Build options: CH1-CH64 (display) mapping to 0-63 (wire value)
+        select.innerHTML = '';
+        for (let i = 0; i < 64; i++) {
+            const option = document.createElement('option');
+            option.value = i; // Wire value (0-63)
+            option.textContent = `CH${i + 1}`; // Display as CH1-CH64
+            select.appendChild(option);
+        }
+    }
+
     populateNoteSelectorButtons() {
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         const octaves = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1131,6 +1138,31 @@ class MeisterController {
         const mmcField = document.getElementById('pad-mmc-field');
         const deviceField = document.getElementById('pad-device-field');
 
+        // Hide all parameter fields first (they will be shown by specific handlers if needed)
+        const routingParams = document.getElementById('pad-routing-input-params');
+        const seqTrackParams = document.getElementById('pad-sequencer-track-params');
+        const deviceSeqParams = document.getElementById('pad-device-seq-params');
+        const seqSceneField = document.getElementById('pad-sequencer-scene-field');
+        const seqTrackField = document.getElementById('pad-sequencer-track-field');
+        const deviceSeqField = document.getElementById('pad-device-sequencer-field');
+        const slotField = document.getElementById('pad-device-sequencer-slot-field');
+        const sysexJumpParams = document.getElementById('pad-sysex-jump-params');
+        const sysexFileParams = document.getElementById('pad-sysex-file-params');
+        const sysexChannelParams = document.getElementById('pad-sysex-channel-params');
+        const mmcLocateParams = document.getElementById('pad-mmc-locate-params');
+
+        if (routingParams) routingParams.style.display = 'none';
+        if (seqTrackParams) seqTrackParams.style.display = 'none';
+        if (deviceSeqParams) deviceSeqParams.style.display = 'none';
+        if (seqSceneField) seqSceneField.style.display = 'none';
+        if (seqTrackField) seqTrackField.style.display = 'none';
+        if (deviceSeqField) deviceSeqField.style.display = 'none';
+        if (slotField) slotField.style.display = 'none';
+        if (sysexJumpParams) sysexJumpParams.style.display = 'none';
+        if (sysexFileParams) sysexFileParams.style.display = 'none';
+        if (sysexChannelParams) sysexChannelParams.style.display = 'none';
+        if (mmcLocateParams) mmcLocateParams.style.display = 'none';
+
         regrooveField.style.display = messageType === 'regroove' ? 'block' : 'none';
         actionField.style.display = messageType === 'action' ? 'block' : 'none';
         sequencerField.style.display = messageType === 'sequencer' ? 'block' : 'none';
@@ -1142,6 +1174,26 @@ class MeisterController {
 
         // Hide device binding for Action System (MIDI, Routing) and Sequencer - those are Meister actions, not device-specific
         deviceField.style.display = (messageType === 'action' || messageType === 'sequencer') ? 'none' : 'block';
+
+        // If message type is sysex, check current sysex action and show appropriate parameters
+        if (messageType === 'sysex') {
+            const sysexAction = document.getElementById('pad-sysex-action')?.value;
+            if (sysexAction === 'jump_to_order_row' && sysexJumpParams) {
+                sysexJumpParams.style.display = 'block';
+            } else if (sysexAction === 'file_load' && sysexFileParams) {
+                sysexFileParams.style.display = 'block';
+            } else if ((sysexAction === 'channel_mute' || sysexAction === 'channel_solo') && sysexChannelParams) {
+                sysexChannelParams.style.display = 'block';
+            }
+        }
+
+        // If message type is mmc, check current mmc command and show appropriate parameters
+        if (messageType === 'mmc') {
+            const mmcCommand = document.getElementById('pad-mmc-command')?.value;
+            if (mmcCommand === 'locate' && mmcLocateParams) {
+                mmcLocateParams.style.display = 'block';
+            }
+        }
     }
 
     updateSecondaryPadEditorFields(messageType) {
@@ -1809,14 +1861,17 @@ class MeisterController {
     }
 
     handlePadPress(detail, padElement, padIndex) {
-        // Resolve device binding to device ID
-        let deviceId = null;
+        // Resolve device binding to BOTH string ID (for Note/CC) and numeric device ID (for SysEx)
+        let deviceStringId = null; // String ID like "device-1762582928232" (for Note/CC channel lookup)
+        let deviceId = null;       // Numeric SysEx device ID 0-15 (for SysEx commands)
+
         if (padElement && padElement.dataset.deviceBinding) {
             const deviceManager = this.deviceManager;
             if (deviceManager) {
                 const device = deviceManager.getDevice(padElement.dataset.deviceBinding);
                 if (device) {
-                    deviceId = device.id; // Use string ID for getDevice() lookup, not numeric deviceId
+                    deviceStringId = device.id;       // String ID for Note/CC
+                    deviceId = device.deviceId;       // Numeric ID for SysEx
                 }
             }
         }
@@ -1825,6 +1880,7 @@ class MeisterController {
         if (deviceId === null && this.deviceManager) {
             const defaultDevice = this.deviceManager.getDefaultDevice();
             if (defaultDevice) {
+                deviceStringId = defaultDevice.id;
                 deviceId = defaultDevice.deviceId;
             }
         }
@@ -1968,43 +2024,44 @@ class MeisterController {
             }
             this.sendMMC(detail.mmc, mmcParams, deviceId);
         } else if (detail.cc !== undefined && detail.cc !== null) {
-            // Use device-aware sending for CC (Regroove actions)
+            // Use device-aware sending for CC (Regroove actions) - uses numeric deviceId for SysEx
             if (this.sendRegrooveCC && deviceId !== null) {
                 this.sendRegrooveCC(parseInt(detail.cc), 127, deviceId);
             } else {
                 this.sendCC(parseInt(detail.cc), 127);
             }
         } else if (detail.note !== undefined && detail.note !== null) {
+            // Use string ID for Note messages (needs MIDI channel lookup)
             const noteProgram = detail.noteProgram !== undefined ? parseInt(detail.noteProgram) : null;
-            console.log(`[Pad Click] Sending note ${detail.note}, program=${noteProgram}, deviceId="${deviceId}"`);
-            this.sendNote(parseInt(detail.note), 127, noteProgram, deviceId);
+            console.log(`[Pad Click] Sending note ${detail.note}, program=${noteProgram}, deviceStringId="${deviceStringId}"`);
+            this.sendNote(parseInt(detail.note), 127, noteProgram, deviceStringId);
         }
     }
 
     handlePadRelease(detail, padElement, padIndex) {
-        // Resolve device binding to device ID (same as handlePadPress)
-        let deviceId = null;
+        // Resolve device binding to string ID for Note Off (same as handlePadPress)
+        let deviceStringId = null;
         if (padElement && padElement.dataset.deviceBinding) {
             const deviceManager = this.deviceManager;
             if (deviceManager) {
                 const device = deviceManager.getDevice(padElement.dataset.deviceBinding);
                 if (device) {
-                    deviceId = device.id; // Use string ID for getDevice() lookup
+                    deviceStringId = device.id; // Use string ID for getDevice() lookup
                 }
             }
         }
 
         // If no device binding, use default device
-        if (deviceId === null && this.deviceManager) {
+        if (deviceStringId === null && this.deviceManager) {
             const defaultDevice = this.deviceManager.getDefaultDevice();
             if (defaultDevice) {
-                deviceId = defaultDevice.id;
+                deviceStringId = defaultDevice.id;
             }
         }
 
         // Send Note Off (velocity 0)
         if (detail.note !== undefined && detail.note !== null) {
-            this.sendNoteOff(parseInt(detail.note), deviceId);
+            this.sendNoteOff(parseInt(detail.note), deviceStringId);
         }
     }
 
@@ -2071,19 +2128,12 @@ class MeisterController {
     }
 
     startStatePolling() {
-        console.log('[Meister] State polling DISABLED for MIDI clock stability testing');
+        console.log('[Meister] Starting state polling...');
 
-        // Initialize regrooveState with MIDI send callback (but don't start polling)
+        // Initialize regrooveState with MIDI send callback
         this.regrooveState.init((deviceId, command, data) => {
             this.sendSysEx(deviceId, command, data);
         });
-
-        // TEMPORARILY DISABLED - State polling can block MIDI clock
-        // TODO: Re-enable with optimized async processing
-        return;
-
-        /* Original code commented out:
-        console.log('[Meister] Starting state polling...');
 
         // Collect all device IDs to poll
         const deviceIds = new Set();
@@ -2109,7 +2159,6 @@ class MeisterController {
         const deviceIdArray = Array.from(deviceIds);
         console.log(`[Meister] Starting polling for devices: [${deviceIdArray.join(', ')}]`);
         this.regrooveState.startPolling(deviceIdArray);
-        */
     }
 
     stopStatePolling() {

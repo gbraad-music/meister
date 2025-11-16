@@ -20,6 +20,7 @@ export class DeviceManager {
         const device = {
             id: id,
             name: config.name || 'Unnamed Device',
+            type: config.type || 'regroove', // 'regroove' or 'samplecrate'
             midiChannel: config.midiChannel ?? 0,
             deviceId: config.deviceId ?? 0,
             color: config.color || '#cc4444',
@@ -30,7 +31,7 @@ export class DeviceManager {
         this.saveDevices();
         this.refreshDeviceList();
 
-        console.log(`[Devices] Added/updated device: ${device.name} (Ch ${device.midiChannel}, ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'})`);
+        console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, Ch ${device.midiChannel}, ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'})`);
     }
 
     /**
@@ -241,6 +242,7 @@ export class DeviceManager {
                 document.getElementById('device-midi-channel').value = device.midiChannel;
                 document.getElementById('device-sysex-id').value = device.deviceId;
                 document.getElementById('device-midi-output').value = device.midiOutputId || '';
+                document.getElementById('device-type').value = device.type || 'regroove';
                 document.getElementById('delete-device').style.display = 'inline-block';
             }
         } else {
@@ -249,6 +251,7 @@ export class DeviceManager {
             document.getElementById('device-midi-channel').value = 0;
             document.getElementById('device-sysex-id').value = 0;
             document.getElementById('device-midi-output').value = '';
+            document.getElementById('device-type').value = 'regroove';
             document.getElementById('delete-device').style.display = 'none';
         }
 
@@ -303,11 +306,13 @@ export class DeviceManager {
         const midiChannel = parseInt(document.getElementById('device-midi-channel').value);
         const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
         const midiOutputId = document.getElementById('device-midi-output').value || null;
+        const deviceType = document.getElementById('device-type').value || 'regroove';
 
         const id = this.editingDeviceId || `device-${Date.now()}`;
 
         this.addDevice(id, {
             name: name,
+            type: deviceType,
             midiChannel: midiChannel,
             deviceId: sysexDeviceId,
             midiOutputId: midiOutputId

@@ -1097,9 +1097,11 @@
                 </div>
                 <div id="pad-sysex-channel-params" style="display: none; margin-top: 10px;">
                     <label class="setting-label">CHANNEL</label>
-                    <input type="number" id="pad-sysex-channel" min="0" max="63" value="0" style="width: 100%;">
+                    <select id="pad-sysex-channel" style="width: 100%;">
+                        <!-- Populated by JavaScript with CH1-CH64 -->
+                    </select>
                     <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
-                        Channel index (0-63)
+                        Channel to mute/solo
                     </div>
                 </div>
             </div>
@@ -1603,6 +1605,17 @@
                     <select id="device-midi-output" style="width: 100%;">
                         <option value="">-- Select MIDI Output --</option>
                     </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">DEVICE TYPE</label>
+                    <select id="device-type" style="width: 100%;">
+                        <option value="regroove">Regroove (uses PLAYER_STATE 0x60)</option>
+                        <option value="samplecrate">SampleCrate (uses PROGRAM_STATE 0x64)</option>
+                    </select>
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Device type determines which state queries are sent
+                    </div>
                 </div>
 
                 <div class="button-group">
