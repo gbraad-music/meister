@@ -75,18 +75,14 @@ class MeisterController {
     async init() {
         this.loadConfig(); // Load config FIRST so midiOutputId is available
         await this.setupMIDI();
+
+        // Initialize regrooveState with MIDI send callback
+        this.regrooveState.init((deviceId, command, data) => {
+            this.sendSysEx(deviceId, command, data);
+        });
+
         this.setupUI();
         this.createPads();
-
-        // Query device sequencer states after initialization and start polling
-        setTimeout(() => {
-            if (this.actionDispatcher) {
-                console.log('[Meister] Querying initial device sequencer states...');
-                this.actionDispatcher.queryAllDeviceStates();
-                // Start periodic polling
-                this.actionDispatcher.startStatePolling();
-            }
-        }, 500);
     }
 
     async setupMIDI() {
@@ -363,8 +359,10 @@ class MeisterController {
                     this.stopClock();
                 }
 
-                // Stop state polling
-                this.stopStatePolling();
+                // Stop state polling (handled by scene manager via regrooveState)
+                if (this.regrooveState) {
+                    this.regrooveState.stopPolling();
+                }
             }
         });
 
@@ -1621,9 +1619,8 @@ class MeisterController {
                     } else {
                         console.warn(`[Pad ${index}] Device binding "${padConfig.deviceBinding}" not found`);
                     }
-                } else {
-                    console.warn(`[Pad ${index}] DeviceManager not initialized yet`);
                 }
+                // Note: DeviceManager may not be initialized yet on first render - that's OK, pads get re-rendered later
             }
 
             // Action system (new)
@@ -2116,43 +2113,7 @@ class MeisterController {
         }
     }
 
-    startStatePolling() {
-        console.log('[Meister] Starting state polling...');
-
-        // Initialize regrooveState with MIDI send callback
-        this.regrooveState.init((deviceId, command, data) => {
-            this.sendSysEx(deviceId, command, data);
-        });
-
-        // Collect all device IDs to poll
-        const deviceIds = new Set();
-
-        // Add all device manager devices
-        if (this.deviceManager) {
-            const devices = this.deviceManager.getAllDevices();
-            console.log(`[Meister] Device manager has ${devices.length} devices:`, devices.map(d => `${d.name} (ID ${d.deviceId})`));
-            devices.forEach(device => {
-                deviceIds.add(device.deviceId);
-            });
-        } else {
-            console.warn('[Meister] Device manager not initialized yet');
-        }
-
-        // If no devices in device manager, fall back to regrooveDeviceId or 0
-        if (deviceIds.size === 0) {
-            console.log('[Meister] No devices found, using default device 0');
-            deviceIds.add(this.regrooveDeviceId || 0);
-        }
-
-        // Start polling all devices
-        const deviceIdArray = Array.from(deviceIds);
-        console.log(`[Meister] Starting polling for devices: [${deviceIdArray.join(', ')}]`);
-        this.regrooveState.startPolling(deviceIdArray);
-    }
-
-    stopStatePolling() {
-        this.regrooveState.stopPolling();
-    }
+    // startStatePolling() and stopStatePolling() removed - polling is now handled entirely by scene manager
 
     replacePlaceholders(text) {
         if (!text) return text;

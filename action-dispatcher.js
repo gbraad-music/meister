@@ -1182,48 +1182,6 @@ export class ActionDispatcher {
     /**
      * Query sequence state from all devices
      */
-    queryAllDeviceStates() {
-        if (!this.controller.deviceManager) {
-            return;
-        }
-
-        const devices = this.controller.deviceManager.getAllDevices();
-        for (const device of devices) {
-            // Only query sequence state for devices with sequencers
-            // (Regroove doesn't have sequencers, SampleCrate does)
-            if (device.type === 'samplecrate' || device.hasSequencer) {
-                this.queryDeviceSequenceState(device.id);
-            }
-
-            // Only query program state for SampleCrate devices (mixer state)
-            // Regroove uses PLAYER_STATE (0x60) instead, which is polled by regrooveState
-            if (device.type === 'samplecrate') {
-                this.queryDeviceProgramState(device.id);
-            }
-        }
-    }
-
-    /**
-     * Start periodic polling of device sequencer states
-     */
-    startStatePolling() {
-        // Stop existing polling if any
-        this.stopStatePolling();
-
-        console.log(`[Action] Starting device state polling (interval: ${this.statePollingIntervalMs}ms)`);
-        this.statePollingInterval = setInterval(() => {
-            this.queryAllDeviceStates();
-        }, this.statePollingIntervalMs);
-    }
-
-    /**
-     * Stop periodic polling of device sequencer states
-     */
-    stopStatePolling() {
-        if (this.statePollingInterval) {
-            clearInterval(this.statePollingInterval);
-            this.statePollingInterval = null;
-            console.log('[Action] Stopped device state polling');
-        }
-    }
+    // queryAllDeviceStates(), startStatePolling(), and stopStatePolling() removed
+    // All polling is now handled by scene manager via regrooveState
 }
