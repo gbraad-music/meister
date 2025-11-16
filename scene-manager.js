@@ -1722,7 +1722,8 @@ export class SceneManager {
             if (isInputFader) {
                 // Update INPUT fader
                 if (deviceState.inputVolume !== undefined) {
-                    mixFader.setAttribute('volume', deviceState.inputVolume.toString());
+                    const volumePercent = Math.round((deviceState.inputVolume / 127) * 100);
+                    mixFader.setAttribute('volume', volumePercent.toString());
                 }
                 if (deviceState.inputMute !== undefined) {
                     mixFader.setAttribute('muted', deviceState.inputMute ? 'true' : 'false');
@@ -1746,7 +1747,8 @@ export class SceneManager {
             } else {
                 // Update MASTER/MIX fader
                 if (deviceState.masterVolume !== undefined) {
-                    mixFader.setAttribute('volume', deviceState.masterVolume.toString());
+                    const volumePercent = Math.round((deviceState.masterVolume / 127) * 100);
+                    mixFader.setAttribute('volume', volumePercent.toString());
                     mixFader.setAttribute('muted', deviceState.masterMute ? 'true' : 'false');
                 }
                 if (deviceState.masterPan !== undefined) {
@@ -1792,7 +1794,8 @@ export class SceneManager {
 
             // Update volume if available
             if (deviceState.channelVolumes && deviceState.channelVolumes[channel] !== undefined) {
-                fader.setAttribute('volume', deviceState.channelVolumes[channel].toString());
+                const volumePercent = Math.round((deviceState.channelVolumes[channel] / 127) * 100);
+                fader.setAttribute('volume', volumePercent.toString());
             }
 
             // Update pan if available
@@ -1863,7 +1866,8 @@ export class SceneManager {
 
             // Update volume if available
             if (deviceState.channelVolumes && deviceState.channelVolumes[program] !== undefined) {
-                fader.setAttribute('volume', deviceState.channelVolumes[program].toString());
+                const volumePercent = Math.round((deviceState.channelVolumes[program] / 127) * 100);
+                fader.setAttribute('volume', volumePercent.toString());
             }
 
             // Update pan if available
@@ -1904,8 +1908,9 @@ export class SceneManager {
             const programData = programState.programs[programNum];
             if (!programData) return;
 
-            // Update volume (0-127)
-            fader.setAttribute('volume', programData.volume.toString());
+            // Update volume (convert wire 0-127 to percentage 0-100)
+            const volumePercent = Math.round((programData.volume / 127) * 100);
+            fader.setAttribute('volume', volumePercent.toString());
 
             // Update pan (convert from 0-127 to -100..100)
             const panValue = this.convertPanToUI(programData.pan);
@@ -1926,8 +1931,9 @@ export class SceneManager {
                 return;
             }
 
-            // Update master volume (0-127)
-            mixFader.setAttribute('volume', programState.master.volume.toString());
+            // Update master volume (convert wire 0-127 to percentage 0-100)
+            const volumePercent = Math.round((programState.master.volume / 127) * 100);
+            mixFader.setAttribute('volume', volumePercent.toString());
 
             // Update master pan (convert from 0-127 to -100..100)
             const panValue = this.convertPanToUI(programState.master.pan);

@@ -190,7 +190,11 @@ class MixFader extends BaseFader {
         // ALWAYS just update sliders directly, never re-render for volume/pan changes
         if (name === 'volume') {
             const slider = this.shadowRoot?.getElementById('volume-slider');
-            if (slider) slider.setAttribute('value', newValue);
+            if (slider) {
+                // Convert percentage (0-100) to wire format (0-127) for slider
+                const wireValue = Math.round((parseInt(newValue) / 100) * 127);
+                slider.setAttribute('value', wireValue);
+            }
             return;
         }
 
@@ -259,15 +263,16 @@ class MixFader extends BaseFader {
         });
 
         volumeSlider?.addEventListener('input', (e) => {
-            const value = e.detail?.value ?? e.target?.value;
-            this.setAttribute('volume', value);
+            const wireValue = e.detail?.value ?? e.target?.value; // Slider sends 0-127
+            const percentValue = Math.round((wireValue / 127) * 100); // Convert to 0-100 percentage
+            this.setAttribute('volume', percentValue); // Store as percentage
             // Mark that we're actively changing the volume
             this.dataset.volumeChanging = 'true';
             clearTimeout(this._volumeChangeTimeout);
             this._volumeChangeTimeout = setTimeout(() => {
                 delete this.dataset.volumeChanging;
             }, 300); // 300ms debounce to prevent state updates during drag
-            this.dispatchEvent(new CustomEvent('volume-change', { detail: { value: parseInt(value) } }));
+            this.dispatchEvent(new CustomEvent('volume-change', { detail: { value: parseInt(wireValue) } })); // Send wire value
         });
 
         muteBtn?.addEventListener('click', () => {
@@ -298,7 +303,11 @@ class ChannelFader extends BaseFader {
         // ALWAYS just update sliders directly, never re-render for volume/pan changes
         if (name === 'volume') {
             const slider = this.shadowRoot?.getElementById('volume-slider');
-            if (slider) slider.setAttribute('value', newValue);
+            if (slider) {
+                // Convert percentage (0-100) to wire format (0-127) for slider
+                const wireValue = Math.round((parseInt(newValue) / 100) * 127);
+                slider.setAttribute('value', wireValue);
+            }
             return;
         }
 
@@ -366,8 +375,9 @@ class ChannelFader extends BaseFader {
         });
 
         volumeSlider?.addEventListener('input', (e) => {
-            const value = e.detail?.value ?? e.target?.value;
-            this.setAttribute('volume', value);
+            const wireValue = e.detail?.value ?? e.target?.value; // Slider sends 0-127
+            const percentValue = Math.round((wireValue / 127) * 100); // Convert to 0-100 percentage
+            this.setAttribute('volume', percentValue); // Store as percentage
             // Mark that we're actively changing the volume
             this.dataset.volumeChanging = 'true';
             clearTimeout(this._volumeChangeTimeout);
@@ -375,7 +385,7 @@ class ChannelFader extends BaseFader {
                 delete this.dataset.volumeChanging;
             }, 300); // 300ms debounce to prevent state updates during drag
             this.dispatchEvent(new CustomEvent('volume-change', {
-                detail: { channel, value: parseInt(value) }
+                detail: { channel, value: parseInt(wireValue) } // Send wire value to backend
             }));
         });
 
@@ -555,7 +565,11 @@ class ProgramFader extends BaseFader {
         // ALWAYS just update sliders directly, never re-render for volume/pan changes
         if (name === 'volume') {
             const slider = this.shadowRoot?.getElementById('volume-slider');
-            if (slider) slider.setAttribute('value', newValue);
+            if (slider) {
+                // Convert percentage (0-100) to wire format (0-127) for slider
+                const wireValue = Math.round((parseInt(newValue) / 100) * 127);
+                slider.setAttribute('value', wireValue);
+            }
             return;
         }
 
@@ -623,8 +637,9 @@ class ProgramFader extends BaseFader {
         });
 
         volumeSlider?.addEventListener('input', (e) => {
-            const value = e.detail?.value ?? e.target?.value;
-            this.setAttribute('volume', value);
+            const wireValue = e.detail?.value ?? e.target?.value; // Slider sends 0-127
+            const percentValue = Math.round((wireValue / 127) * 100); // Convert to 0-100 percentage
+            this.setAttribute('volume', percentValue); // Store as percentage
 
             // Mark that we're actively changing the volume
             this.dataset.volumeChanging = 'true';
@@ -634,7 +649,7 @@ class ProgramFader extends BaseFader {
             }, 300); // 300ms debounce
 
             this.dispatchEvent(new CustomEvent('volume-change', {
-                detail: { program, value: parseInt(value) },
+                detail: { program, value: parseInt(wireValue) }, // Send wire value
                 bubbles: true,
                 composed: true
             }));
