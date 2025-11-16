@@ -214,6 +214,8 @@ class RegroovePad extends HTMLElement {
         this.addEventListener('mousedown', (e) => {
             // Don't trigger on Ctrl key (used for drag)
             if (e.ctrlKey) return;
+            // Don't trigger on right-click (button 2, used for editing)
+            if (e.button !== 0) return;
             this.handlePress(e.shiftKey);
         });
         this.addEventListener('touchstart', (e) => {
