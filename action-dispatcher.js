@@ -388,7 +388,19 @@ export class ActionDispatcher {
                 if (meetsThreshold) {
                     const note = event.parameter;
                     const velocity = event.value;
-                    this.controller.sendMidiNote(note, velocity);
+                    const noteProgram = event.noteProgram !== undefined ? event.noteProgram : null;
+
+                    // Resolve device ID from deviceBinding if present
+                    let deviceId = null;
+                    if (event.deviceBinding && this.controller.deviceManager) {
+                        const device = this.controller.deviceManager.getDevice(event.deviceBinding);
+                        if (device) {
+                            deviceId = device.id; // String ID for getDevice() lookup
+                            console.log(`[ActionDispatcher] Note action using device: ${device.name} (ID: ${deviceId}, Ch: ${device.midiChannel + 1})`);
+                        }
+                    }
+
+                    this.controller.sendNote(note, velocity, noteProgram, deviceId);
                 }
                 break;
 

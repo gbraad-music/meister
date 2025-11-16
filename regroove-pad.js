@@ -211,6 +211,8 @@ class RegroovePad extends HTMLElement {
         // Don't add listeners to empty pads
         if (pad.classList.contains('empty')) return;
 
+        const isNotePad = this.getAttribute('note') !== null;
+
         this.addEventListener('mousedown', (e) => {
             // Don't trigger on Ctrl key (used for drag)
             if (e.ctrlKey) return;
@@ -218,10 +220,29 @@ class RegroovePad extends HTMLElement {
             if (e.button !== 0) return;
             this.handlePress(e.shiftKey);
         });
+
+        // For note pads, add mouseup/touchend to send Note Off
+        if (isNotePad) {
+            this.addEventListener('mouseup', (e) => {
+                if (e.button === 0) this.handleRelease();
+            });
+            this.addEventListener('mouseleave', () => {
+                // Send Note Off if mouse leaves while pressed
+                if (this._active) this.handleRelease();
+            });
+        }
+
         this.addEventListener('touchstart', (e) => {
             e.preventDefault();
             this.handlePress(false);
         });
+
+        if (isNotePad) {
+            this.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.handleRelease();
+            });
+        }
     }
 
     handlePress(isShiftHeld = false) {
@@ -237,7 +258,14 @@ class RegroovePad extends HTMLElement {
 
         if (!hasCC && !hasNote && !hasMMC && !hasSysEx && !hasAction) return; // Empty pad
 
-        this.trigger();
+        // For note pads, keep active state until release (don't auto-release)
+        if (hasNote) {
+            this._active = true;
+            this.updateVisuals();
+        } else {
+            // For CC/MMC/SysEx, use auto-release behavior
+            this.trigger();
+        }
 
         // Use secondary action if Shift is held and secondary exists
         const useSecondary = isShiftHeld && (hasSecondaryCC || hasSecondaryNote || hasSecondaryMMC);
@@ -248,11 +276,31 @@ class RegroovePad extends HTMLElement {
             detail: {
                 cc: useSecondary ? this.getAttribute('secondary-cc') : this.getAttribute('cc'),
                 note: useSecondary ? this.getAttribute('secondary-note') : this.getAttribute('note'),
+                noteProgram: this.getAttribute('note-program'),
                 mmc: useSecondary ? this.getAttribute('secondary-mmc') : this.getAttribute('mmc'),
                 sysex: this.getAttribute('sysex'),
                 action: this.getAttribute('action'),
                 label: this.getAttribute('label') || '',
-                isSecondary: useSecondary
+                isSecondary: useSecondary,
+                isPress: true // Mark as press event
+            }
+        }));
+    }
+
+    handleRelease() {
+        // Deactivate pad
+        this._active = false;
+        this.updateVisuals();
+
+        // Dispatch release event (only for notes)
+        this.dispatchEvent(new CustomEvent('pad-release', {
+            bubbles: true,
+            composed: true,
+            detail: {
+                note: this.getAttribute('note'),
+                noteProgram: this.getAttribute('note-program'),
+                action: this.getAttribute('action'),
+                label: this.getAttribute('label') || ''
             }
         }));
     }

@@ -989,8 +989,32 @@
             </div>
 
             <div class="setting-group" id="pad-note-field" style="display: none;">
-                <label class="setting-label">NOTE NUMBER (0-127)</label>
-                <input type="number" id="pad-note" min="0" max="127" placeholder="60" style="width: 100%;">
+                <label class="setting-label">NOTE</label>
+                <div style="margin-bottom: 10px;">
+                    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;" id="pad-note-buttons">
+                        <!-- Note buttons will be populated here -->
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8em; color: #666;">OCTAVE</label>
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;" id="pad-octave-buttons">
+                        <!-- Octave buttons will be populated here -->
+                    </div>
+                </div>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Selected: <span id="pad-note-display" style="color: #4a9eff; font-weight: bold;">C-4 (60)</span>
+                </div>
+                <input type="hidden" id="pad-note" value="60">
+            </div>
+
+            <div class="setting-group" id="pad-note-program-field" style="display: none;">
+                <label class="setting-label">PROGRAM CHANGE (OPTIONAL)</label>
+                <select id="pad-note-program" style="width: 100%;">
+                    <option value="-1">No Program Change</option>
+                </select>
+                <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                    Send program change before note on
+                </div>
             </div>
 
             <div class="setting-group" id="pad-mmc-field" style="display: none;">

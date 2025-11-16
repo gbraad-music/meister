@@ -85,6 +85,14 @@ export function integrateActionSystem(controller) {
             const convertedAction = actionConfig.toLegacyAction();
             if (convertedAction !== InputAction.ACTION_NONE) {
                 const event = new InputEvent(actionConfig.action, actionConfig.parameter, 127);
+                // Attach deviceBinding if present (for device-specific routing)
+                if (padConfig.deviceBinding) {
+                    event.deviceBinding = padConfig.deviceBinding;
+                }
+                // Attach noteProgram if present (for program change before note)
+                if (padConfig.noteProgram !== undefined) {
+                    event.noteProgram = padConfig.noteProgram;
+                }
                 this.actionDispatcher.handleEvent(event);
                 return;
             }

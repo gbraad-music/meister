@@ -646,6 +646,12 @@ class MeisterController {
         // Populate device binding dropdown
         this.populatePadDeviceBindings();
 
+        // Populate note program change dropdown
+        this.populateNoteProgramDropdown();
+
+        // Populate note selector buttons
+        this.populateNoteSelectorButtons();
+
         // Get pad config from the correct location (split scene vs default pads)
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
         let pad = null;
@@ -781,7 +787,10 @@ class MeisterController {
                 }
             } else if (pad.note !== undefined && pad.note !== null) {
                 document.getElementById('pad-message-type').value = 'note';
-                document.getElementById('pad-note').value = pad.note || '';
+                const noteValue = parseInt(pad.note) || 60;
+                document.getElementById('pad-note').value = noteValue;
+                this.updatePadNoteSelection(noteValue); // Update button highlights
+                document.getElementById('pad-note-program').value = pad.noteProgram !== undefined ? pad.noteProgram : '-1';
             } else if (pad.sysex !== undefined) {
                 document.getElementById('pad-message-type').value = 'sysex';
                 document.getElementById('pad-sysex-action').value = pad.sysex || 'play';
@@ -869,6 +878,145 @@ class MeisterController {
             devices.map(device =>
                 `<option value="${device.id}">${device.name} (Ch ${device.midiChannel + 1}, ID ${device.deviceId})</option>`
             ).join('');
+    }
+
+    populateNoteProgramDropdown() {
+        const select = document.getElementById('pad-note-program');
+        if (!select) return;
+
+        // Build options: No Program Change (-1) + Programs 1-128 (wire: 0-127)
+        select.innerHTML = '<option value="-1">No Program Change</option>';
+        for (let i = 0; i <= 127; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `Program ${i + 1}`; // Display as 1-128 (user-facing)
+            select.appendChild(option);
+        }
+    }
+
+    populateNoteSelectorButtons() {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octaves = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        // Populate note buttons
+        const noteButtonsContainer = document.getElementById('pad-note-buttons');
+        if (noteButtonsContainer) {
+            noteButtonsContainer.innerHTML = noteNames.map(note => `
+                <button type="button" class="pad-note-btn" data-note="${note}" style="
+                    padding: 8px 4px;
+                    background: #2a2a2a;
+                    color: #aaa;
+                    border: 1px solid #444;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85em;
+                    font-weight: bold;
+                ">${note}</button>
+            `).join('');
+
+            // Add click handlers
+            noteButtonsContainer.querySelectorAll('.pad-note-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.selectPadNote(btn.dataset.note);
+                });
+            });
+        }
+
+        // Populate octave buttons
+        const octaveButtonsContainer = document.getElementById('pad-octave-buttons');
+        if (octaveButtonsContainer) {
+            octaveButtonsContainer.innerHTML = octaves.map(octave => `
+                <button type="button" class="pad-octave-btn" data-octave="${octave}" style="
+                    padding: 8px 4px;
+                    background: #2a2a2a;
+                    color: #aaa;
+                    border: 1px solid #444;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85em;
+                    font-weight: bold;
+                ">${octave}</button>
+            `).join('');
+
+            // Add click handlers
+            octaveButtonsContainer.querySelectorAll('.pad-octave-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.selectPadOctave(parseInt(btn.dataset.octave));
+                });
+            });
+        }
+
+        // Set initial selection (C-4 = MIDI note 60)
+        this.updatePadNoteSelection(60);
+    }
+
+    selectPadNote(noteName) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const noteIndex = noteNames.indexOf(noteName);
+        if (noteIndex === -1) return;
+
+        // Get current octave
+        const currentMidiNote = parseInt(document.getElementById('pad-note').value) || 60;
+        const currentOctave = Math.floor(currentMidiNote / 12);
+
+        // Calculate new MIDI note
+        const newMidiNote = (currentOctave * 12) + noteIndex;
+        if (newMidiNote >= 0 && newMidiNote <= 127) {
+            this.updatePadNoteSelection(newMidiNote);
+        }
+    }
+
+    selectPadOctave(octave) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        // Get current note
+        const currentMidiNote = parseInt(document.getElementById('pad-note').value) || 60;
+        const noteIndex = currentMidiNote % 12;
+
+        // Calculate new MIDI note
+        const newMidiNote = (octave * 12) + noteIndex;
+        if (newMidiNote >= 0 && newMidiNote <= 127) {
+            this.updatePadNoteSelection(newMidiNote);
+        }
+    }
+
+    updatePadNoteSelection(midiNote) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octave = Math.floor(midiNote / 12);
+        const noteIndex = midiNote % 12;
+        const noteName = noteNames[noteIndex];
+
+        // Update hidden input
+        document.getElementById('pad-note').value = midiNote;
+
+        // Update display
+        const display = document.getElementById('pad-note-display');
+        if (display) {
+            display.textContent = `${noteName}-${octave} (${midiNote})`;
+        }
+
+        // Update button highlights
+        document.querySelectorAll('.pad-note-btn').forEach(btn => {
+            if (btn.dataset.note === noteName) {
+                btn.style.background = '#4a9eff';
+                btn.style.color = '#fff';
+            } else {
+                btn.style.background = '#2a2a2a';
+                btn.style.color = '#aaa';
+            }
+        });
+
+        document.querySelectorAll('.pad-octave-btn').forEach(btn => {
+            if (parseInt(btn.dataset.octave) === octave) {
+                btn.style.background = '#4a9eff';
+                btn.style.color = '#fff';
+            } else {
+                btn.style.background = '#2a2a2a';
+                btn.style.color = '#aaa';
+            }
+        });
     }
 
     populateRoutingInputs() {
@@ -979,6 +1127,7 @@ class MeisterController {
         const sysexField = document.getElementById('pad-sysex-field');
         const ccField = document.getElementById('pad-cc-field');
         const noteField = document.getElementById('pad-note-field');
+        const noteProgramField = document.getElementById('pad-note-program-field');
         const mmcField = document.getElementById('pad-mmc-field');
         const deviceField = document.getElementById('pad-device-field');
 
@@ -988,6 +1137,7 @@ class MeisterController {
         sysexField.style.display = messageType === 'sysex' ? 'block' : 'none';
         ccField.style.display = messageType === 'cc' ? 'block' : 'none';
         noteField.style.display = messageType === 'note' ? 'block' : 'none';
+        noteProgramField.style.display = messageType === 'note' ? 'block' : 'none';
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
 
         // Hide device binding for Action System (MIDI, Routing) and Sequencer - those are Meister actions, not device-specific
@@ -1170,6 +1320,12 @@ class MeisterController {
             if (!isNaN(note) && note >= 0 && note <= 127) {
                 padConfig.note = note;
                 hasMessage = true;
+
+                // Optional program change
+                const program = parseInt(document.getElementById('pad-note-program').value);
+                if (!isNaN(program) && program >= 0 && program <= 127) {
+                    padConfig.noteProgram = program;
+                }
             }
         } else if (messageType === 'mmc') {
             const mmcCommand = document.getElementById('pad-mmc-command').value;
@@ -1258,6 +1414,7 @@ class MeisterController {
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
         console.log(`[Pad Save] Final padConfig for pad ${this.editingPadIndex}:`, JSON.stringify(padConfig, null, 2));
+        console.log(`[Pad Save] hasMessage = ${hasMessage}, messageType = ${messageType}`);
         console.log(`[Pad Save] Saving to: ${isCustomScene ? 'scene "' + this.currentPadSceneId + '"' : 'global config'}`);
 
         if (isCustomScene) {
@@ -1480,7 +1637,13 @@ class MeisterController {
 
             // Legacy message types
             if (padConfig.cc !== undefined) padElement.setAttribute('cc', padConfig.cc);
-            if (padConfig.note !== undefined) padElement.setAttribute('note', padConfig.note);
+            if (padConfig.note !== undefined) {
+                padElement.setAttribute('note', padConfig.note);
+                // Set note-program attribute if present
+                if (padConfig.noteProgram !== undefined) {
+                    padElement.setAttribute('note-program', padConfig.noteProgram);
+                }
+            }
             if (padConfig.mmc !== undefined) {
                 padElement.setAttribute('mmc', padConfig.mmc);
                 // Store MMC parameters in dataset
@@ -1509,6 +1672,13 @@ class MeisterController {
             padElement.addEventListener('pad-press', (e) => {
                 this.handlePadPress(e.detail, padElement, index);
             });
+
+            // Add pad-release listener for note pads
+            if (padConfig.note !== undefined) {
+                padElement.addEventListener('pad-release', (e) => {
+                    this.handlePadRelease(e.detail, padElement, index);
+                });
+            }
         }
 
         // Store pad index
@@ -1646,7 +1816,7 @@ class MeisterController {
             if (deviceManager) {
                 const device = deviceManager.getDevice(padElement.dataset.deviceBinding);
                 if (device) {
-                    deviceId = device.deviceId;
+                    deviceId = device.id; // Use string ID for getDevice() lookup, not numeric deviceId
                 }
             }
         }
@@ -1805,7 +1975,36 @@ class MeisterController {
                 this.sendCC(parseInt(detail.cc), 127);
             }
         } else if (detail.note !== undefined && detail.note !== null) {
-            this.sendNote(parseInt(detail.note), 127);
+            const noteProgram = detail.noteProgram !== undefined ? parseInt(detail.noteProgram) : null;
+            console.log(`[Pad Click] Sending note ${detail.note}, program=${noteProgram}, deviceId="${deviceId}"`);
+            this.sendNote(parseInt(detail.note), 127, noteProgram, deviceId);
+        }
+    }
+
+    handlePadRelease(detail, padElement, padIndex) {
+        // Resolve device binding to device ID (same as handlePadPress)
+        let deviceId = null;
+        if (padElement && padElement.dataset.deviceBinding) {
+            const deviceManager = this.deviceManager;
+            if (deviceManager) {
+                const device = deviceManager.getDevice(padElement.dataset.deviceBinding);
+                if (device) {
+                    deviceId = device.id; // Use string ID for getDevice() lookup
+                }
+            }
+        }
+
+        // If no device binding, use default device
+        if (deviceId === null && this.deviceManager) {
+            const defaultDevice = this.deviceManager.getDefaultDevice();
+            if (defaultDevice) {
+                deviceId = defaultDevice.id;
+            }
+        }
+
+        // Send Note Off (velocity 0)
+        if (detail.note !== undefined && detail.note !== null) {
+            this.sendNoteOff(parseInt(detail.note), deviceId);
         }
     }
 
@@ -1819,18 +2018,53 @@ class MeisterController {
         }
     }
 
-    sendNote(note, velocity = 127) {
+    sendNote(note, velocity = 127, program = null, deviceId = null) {
         if (this.midiOutput) {
-            const noteOn = 0x90 | this.midiChannel;
-            const noteOff = 0x80 | this.midiChannel;
+            // Get MIDI channel - use device's channel if deviceId provided, else global channel
+            let midiChannel = this.midiChannel;
+            console.log(`[sendNote] deviceId="${deviceId}", deviceManager=${!!this.deviceManager}`);
+            if (deviceId !== null && this.deviceManager) {
+                const device = this.deviceManager.getDevice(deviceId);
+                console.log(`[sendNote] Found device:`, device);
+                if (device) {
+                    midiChannel = device.midiChannel;
+                    console.log(`[sendNote] Using device channel: ${midiChannel + 1}`);
+                }
+            }
 
-            // Note On
+            // Send program change first if specified
+            if (program !== null && program >= 0 && program <= 127) {
+                const programChange = 0xC0 | midiChannel;
+                this.midiOutput.send([programChange, program]);
+                console.log(`Sent Program Change ${program + 1} on channel ${midiChannel + 1}`);
+            }
+
+            const noteOn = 0x90 | midiChannel;
+
+            // Note On only (Note Off will be sent on release)
             this.midiOutput.send([noteOn, note, velocity]);
-            // Note Off after 100ms
-            setTimeout(() => {
-                this.midiOutput.send([noteOff, note, 0]);
-            }, 100);
-            console.log(`Sent Note ${note}, velocity ${velocity} on channel ${this.midiChannel + 1}`);
+            console.log(`Sent Note On ${note}, velocity ${velocity} on channel ${midiChannel + 1}`);
+        } else {
+            console.warn('No MIDI output selected');
+        }
+    }
+
+    sendNoteOff(note, deviceId = null) {
+        if (this.midiOutput) {
+            // Get MIDI channel - use device's channel if deviceId provided, else global channel
+            let midiChannel = this.midiChannel;
+            if (deviceId !== null && this.deviceManager) {
+                const device = this.deviceManager.getDevice(deviceId);
+                if (device) {
+                    midiChannel = device.midiChannel;
+                }
+            }
+
+            const noteOff = 0x80 | midiChannel;
+
+            // Note Off (velocity 0)
+            this.midiOutput.send([noteOff, note, 0]);
+            console.log(`Sent Note Off ${note} on channel ${midiChannel + 1}`);
         } else {
             console.warn('No MIDI output selected');
         }
