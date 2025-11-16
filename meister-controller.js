@@ -1354,7 +1354,50 @@ class MeisterController {
             padElement._originalLabel = padConfig.label;
             padElement._originalSublabel = padConfig.sublabel;
 
-            if (padConfig.label) padElement.setAttribute('label', this.replacePlaceholders(padConfig.label));
+            // Set label with appropriate prefix for sequencer buttons
+            if (padConfig.label) {
+                let displayLabel = this.replacePlaceholders(padConfig.label);
+
+                // Local sequencer actions (700-702)
+                if (padConfig.action === 700) {
+                    // ACTION_SEQUENCER_PLAY
+                    displayLabel = `PLAY: ${displayLabel}`;
+                } else if (padConfig.action === 701) {
+                    // ACTION_SEQUENCER_STOP
+                    displayLabel = `STOP: ${displayLabel}`;
+                } else if (padConfig.action === 702 && padConfig.parameter) {
+                    // ACTION_SEQUENCER_PLAY_STOP (toggle) - always has color
+                    const sceneId = padConfig.parameter;
+                    const scene = this.sceneManager?.scenes.get(sceneId);
+                    if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                        const isPlaying = scene.sequencerInstance.engine.playing;
+                        const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                        displayLabel = `${statusLabel}: ${displayLabel}`;
+                        padElement.setAttribute('color', isPlaying ? 'green' : 'red');
+                    } else {
+                        // Default to PLAY/RED if scene not loaded yet
+                        displayLabel = `PLAY: ${displayLabel}`;
+                        padElement.setAttribute('color', 'red');
+                    }
+                }
+                // Device sequencer actions (720-722)
+                else if (padConfig.action === 720) {
+                    // ACTION_DEVICE_SEQ_PLAY
+                    displayLabel = `PLAY: ${displayLabel}`;
+                } else if (padConfig.action === 721) {
+                    // ACTION_DEVICE_SEQ_STOP
+                    displayLabel = `STOP: ${displayLabel}`;
+                } else if (padConfig.action === 722 && padConfig.deviceId) {
+                    // ACTION_DEVICE_SEQ_PLAY_STOP (toggle) - always has color
+                    const slot = padConfig.parameter & 0xFF;
+                    const isPlaying = this.actionDispatcher?.isDeviceSlotPlaying(padConfig.deviceId, slot) || false;
+                    const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                    displayLabel = `${statusLabel}: ${displayLabel}`;
+                    padElement.setAttribute('color', isPlaying ? 'green' : 'red');
+                }
+
+                padElement.setAttribute('label', displayLabel);
+            }
 
             // Build sublabel with device indicator if non-default device is bound
             let sublabel = padConfig.sublabel ? this.replacePlaceholders(padConfig.sublabel) : '';
@@ -1908,13 +1951,15 @@ class MeisterController {
                 let color = null;
 
                 // For play or toggle actions (720, 722), set color and label based on state
-                if (padConfig.action === 720 || padConfig.action === 722) {
+                if (padConfig.action === 720) {
+                    // ACTION_DEVICE_SEQ_PLAY - only green when playing
                     color = isPlaying ? 'green' : null;
-
-                    // For toggle actions (722), update label dynamically
-                    if (padConfig.action === 722) {
-                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
-                    }
+                } else if (padConfig.action === 722) {
+                    // ACTION_DEVICE_SEQ_PLAY_STOP (toggle) - always has color
+                    color = isPlaying ? 'green' : 'red';
+                    const baseName = padConfig.label || '';
+                    const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                    pad.setAttribute('label', `${statusLabel}: ${baseName}`);
                 } else if (padConfig.action === 721) {
                     // ACTION_DEVICE_SEQ_STOP
                     color = !isPlaying ? 'red' : null;
@@ -1939,18 +1984,24 @@ class MeisterController {
             let color = null;
 
             // ONLY handle local sequencer PLAY/STOP actions (700-702)
-            if (padConfig.action === 700 || padConfig.action === 702) {
-                // ACTION_SEQUENCER_PLAY or ACTION_SEQUENCER_PLAY_STOP
+            if (padConfig.action === 700) {
+                // ACTION_SEQUENCER_PLAY - only green when playing
                 const sceneId = padConfig.parameter;
                 const scene = this.sceneManager?.scenes.get(sceneId);
                 if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
                     const isPlaying = scene.sequencerInstance.engine.playing;
                     color = isPlaying ? 'green' : null;
-
-                    // For toggle actions (702), update label dynamically
-                    if (padConfig.action === 702) {
-                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
-                    }
+                }
+            } else if (padConfig.action === 702) {
+                // ACTION_SEQUENCER_PLAY_STOP (toggle) - always has color
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    const isPlaying = scene.sequencerInstance.engine.playing;
+                    color = isPlaying ? 'green' : 'red';
+                    const baseName = padConfig.label || '';
+                    const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                    pad.setAttribute('label', `${statusLabel}: ${baseName}`);
                 }
             } else if (padConfig.action === 701) {
                 // ACTION_SEQUENCER_STOP
@@ -2008,18 +2059,24 @@ class MeisterController {
             let color = null;
 
             // Check for sequencer PLAY/STOP actions (700-702)
-            if (padConfig.action === 700 || padConfig.action === 702) {
-                // ACTION_SEQUENCER_PLAY or ACTION_SEQUENCER_PLAY_STOP
+            if (padConfig.action === 700) {
+                // ACTION_SEQUENCER_PLAY - only green when playing
                 const sceneId = padConfig.parameter;
                 const scene = this.sceneManager?.scenes.get(sceneId);
                 if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
                     const isPlaying = scene.sequencerInstance.engine.playing;
                     color = isPlaying ? 'green' : null;
-
-                    // For toggle actions (702), update label dynamically
-                    if (padConfig.action === 702) {
-                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
-                    }
+                }
+            } else if (padConfig.action === 702) {
+                // ACTION_SEQUENCER_PLAY_STOP (toggle) - always has color
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    const isPlaying = scene.sequencerInstance.engine.playing;
+                    color = isPlaying ? 'green' : 'red';
+                    const baseName = padConfig.label || '';
+                    const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                    pad.setAttribute('label', `${statusLabel}: ${baseName}`);
                 }
             } else if (padConfig.action === 701) {
                 // ACTION_SEQUENCER_STOP
@@ -2035,13 +2092,15 @@ class MeisterController {
                 const isPlaying = this.actionDispatcher?.isDeviceSlotPlaying(padConfig.deviceId, slot) || false;
 
                 // For play or toggle actions (720, 722), set color and label based on state
-                if (padConfig.action === 720 || padConfig.action === 722) {
+                if (padConfig.action === 720) {
+                    // ACTION_DEVICE_SEQ_PLAY - only green when playing
                     color = isPlaying ? 'green' : null;
-
-                    // For toggle actions (722), update label dynamically
-                    if (padConfig.action === 722) {
-                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
-                    }
+                } else if (padConfig.action === 722) {
+                    // ACTION_DEVICE_SEQ_PLAY_STOP (toggle) - always has color
+                    color = isPlaying ? 'green' : 'red';
+                    const baseName = padConfig.label || '';
+                    const statusLabel = isPlaying ? 'STOP' : 'PLAY';
+                    pad.setAttribute('label', `${statusLabel}: ${baseName}`);
                 } else if (padConfig.action === 721) {
                     // ACTION_DEVICE_SEQ_STOP
                     color = !isPlaying ? 'red' : null;

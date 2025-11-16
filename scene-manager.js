@@ -284,6 +284,13 @@ export class SceneManager {
         // Render the scene
         scene.render();
 
+        // Query device sequencer states immediately for the new scene
+        if (this.controller.actionDispatcher) {
+            setTimeout(() => {
+                this.controller.actionDispatcher.queryAllDeviceStates();
+            }, 100);
+        }
+
         // Resolve device IDs from bindings at runtime (so they update when device IDs change)
         const resolvedDeviceIds = this.resolveSceneDeviceIds(scene);
 

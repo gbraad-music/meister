@@ -342,23 +342,15 @@ export function parseSequenceStateResponse(data) {
         return null; // Not a sequence state response
     }
 
-    // Dump raw message for debugging
-    console.log(`[SequenceState] Raw SysEx (${data.length} bytes):`,
-        Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
-
     // State data starts at byte 4
     const version = data[4];
     const numSlots = data[5];
     const startMode = data[6];
     // data[7] is reserved
 
-    console.log(`[SequenceState] Header: version=${version}, numSlots=${numSlots}, startMode=${startMode}`);
-
     // Mute bits (bytes 8-9, 2 bytes for 16 slots)
     const muteByte0 = data[8];
     const muteByte1 = data[9];
-
-    console.log(`[SequenceState] Mute bits: byte0=0x${muteByte0.toString(16).padStart(2, '0')}, byte1=0x${muteByte1.toString(16).padStart(2, '0')}`);
 
     // Parse slot states
     const slots = [];
