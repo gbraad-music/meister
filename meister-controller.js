@@ -77,6 +77,16 @@ class MeisterController {
         await this.setupMIDI();
         this.setupUI();
         this.createPads();
+
+        // Query device sequencer states after initialization and start polling
+        setTimeout(() => {
+            if (this.actionDispatcher) {
+                console.log('[Meister] Querying initial device sequencer states...');
+                this.actionDispatcher.queryAllDeviceStates();
+                // Start periodic polling
+                this.actionDispatcher.startStatePolling();
+            }
+        }, 500);
     }
 
     async setupMIDI() {
@@ -196,8 +206,8 @@ class MeisterController {
         //     console.log(`[SysEx] Received PLAYER_STATE_RESPONSE from device ${deviceId}, length: ${payload.length} bytes`);
         // }
 
-        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
-        if (command !== 0x60 && command !== 0x61 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
+        // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x62 = GET_SEQUENCE_STATE, 0x63 = SEQUENCE_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
+        if (command !== 0x60 && command !== 0x61 && command !== 0x62 && command !== 0x63 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
             console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
@@ -210,6 +220,17 @@ class MeisterController {
         // PLAYER_STATE_RESPONSE = 0x61
         if (command === 0x61) {
             this.regrooveState.handlePlayerStateResponse(deviceId, payload);
+        }
+
+        // SEQUENCE_STATE_RESPONSE = 0x63
+        if (command === 0x63 && this.actionDispatcher) {
+            // Find device by deviceId number
+            const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
+            if (device) {
+                this.actionDispatcher.handleSequenceStateResponse(device.id, data);
+            } else {
+                console.warn(`[SysEx] Received sequence state from unknown device ${deviceId}`);
+            }
         }
 
         // FX_STATE_RESPONSE = 0x7F
@@ -1873,6 +1894,84 @@ class MeisterController {
         return `${inputName}\n→ ${targetName}`;
     }
 
+    updateDeviceSequencerPads() {
+        // Update ONLY device sequencer pads (actions 720-724), not local sequencer pads
+        this.pads.forEach((pad, index) => {
+            const padConfig = this.scenePadsConfig ? this.scenePadsConfig[index] : this.config.pads[index];
+            if (!padConfig) return;
+
+            // ONLY handle device sequencer actions (720-724)
+            if (padConfig.action >= 720 && padConfig.action <= 724 && padConfig.deviceId) {
+                const slot = padConfig.parameter & 0xFF;
+                const isPlaying = this.actionDispatcher?.isDeviceSlotPlaying(padConfig.deviceId, slot) || false;
+
+                let color = null;
+
+                // For play or toggle actions (720, 722), set color and label based on state
+                if (padConfig.action === 720 || padConfig.action === 722) {
+                    color = isPlaying ? 'green' : null;
+
+                    // For toggle actions (722), update label dynamically
+                    if (padConfig.action === 722) {
+                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
+                    }
+                } else if (padConfig.action === 721) {
+                    // ACTION_DEVICE_SEQ_STOP
+                    color = !isPlaying ? 'red' : null;
+                }
+
+                // Apply color to pad
+                if (color) {
+                    pad.setAttribute('color', color);
+                } else {
+                    pad.removeAttribute('color');
+                }
+            }
+        });
+    }
+
+    updateLocalSequencerPads() {
+        // Update ONLY local Meister sequencer pads (actions 700-702), not device sequencer pads
+        this.pads.forEach((pad, index) => {
+            const padConfig = this.scenePadsConfig ? this.scenePadsConfig[index] : this.config.pads[index];
+            if (!padConfig) return;
+
+            let color = null;
+
+            // ONLY handle local sequencer PLAY/STOP actions (700-702)
+            if (padConfig.action === 700 || padConfig.action === 702) {
+                // ACTION_SEQUENCER_PLAY or ACTION_SEQUENCER_PLAY_STOP
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    const isPlaying = scene.sequencerInstance.engine.playing;
+                    color = isPlaying ? 'green' : null;
+
+                    // For toggle actions (702), update label dynamically
+                    if (padConfig.action === 702) {
+                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
+                    }
+                }
+            } else if (padConfig.action === 701) {
+                // ACTION_SEQUENCER_STOP
+                const sceneId = padConfig.parameter;
+                const scene = this.sceneManager?.scenes.get(sceneId);
+                if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
+                    color = !scene.sequencerInstance.engine.playing ? 'red' : null;
+                }
+            }
+
+            // Only update if this is a local sequencer pad
+            if (padConfig.action >= 700 && padConfig.action <= 702) {
+                if (color) {
+                    pad.setAttribute('color', color);
+                } else {
+                    pad.removeAttribute('color');
+                }
+            }
+        });
+    }
+
     updatePadColors() {
         // Update all pads based on player state
         this.pads.forEach((pad, index) => {
@@ -1914,7 +2013,13 @@ class MeisterController {
                 const sceneId = padConfig.parameter;
                 const scene = this.sceneManager?.scenes.get(sceneId);
                 if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
-                    color = scene.sequencerInstance.engine.playing ? 'green' : null;
+                    const isPlaying = scene.sequencerInstance.engine.playing;
+                    color = isPlaying ? 'green' : null;
+
+                    // For toggle actions (702), update label dynamically
+                    if (padConfig.action === 702) {
+                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
+                    }
                 }
             } else if (padConfig.action === 701) {
                 // ACTION_SEQUENCER_STOP
@@ -1922,6 +2027,24 @@ class MeisterController {
                 const scene = this.sceneManager?.scenes.get(sceneId);
                 if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
                     color = !scene.sequencerInstance.engine.playing ? 'red' : null;
+                }
+            }
+            // Check for device sequencer PLAY/STOP actions (720-724)
+            else if (padConfig.action >= 720 && padConfig.action <= 724 && padConfig.deviceId) {
+                const slot = padConfig.parameter & 0xFF;
+                const isPlaying = this.actionDispatcher?.isDeviceSlotPlaying(padConfig.deviceId, slot) || false;
+
+                // For play or toggle actions (720, 722), set color and label based on state
+                if (padConfig.action === 720 || padConfig.action === 722) {
+                    color = isPlaying ? 'green' : null;
+
+                    // For toggle actions (722), update label dynamically
+                    if (padConfig.action === 722) {
+                        pad.setAttribute('label', isPlaying ? 'STOP' : 'PLAY');
+                    }
+                } else if (padConfig.action === 721) {
+                    // ACTION_DEVICE_SEQ_STOP
+                    color = !isPlaying ? 'red' : null;
                 }
             }
             // Check for PLAY pad (Regroove)

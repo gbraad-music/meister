@@ -4,7 +4,13 @@
  */
 
 import { InputAction, ActionCategory, getActionCategory } from './input-actions.js';
-import { buildPlaybackControlMessage, buildMuteMessage, buildSoloMessage } from './midi-sequence-utils.js';
+import {
+    buildPlaybackControlMessage,
+    buildMuteMessage,
+    buildSoloMessage,
+    buildGetSequenceStateMessage,
+    parseSequenceStateResponse
+} from './midi-sequence-utils.js';
 
 /**
  * ActionDispatcher
@@ -14,6 +20,11 @@ export class ActionDispatcher {
     constructor(controller) {
         this.controller = controller;
         this.macros = new Map(); // macro_id -> array of actions
+        // Track device sequencer playback state: deviceId -> Set of playing slots (0-15)
+        this.deviceSequencerState = new Map();
+        // Periodic state polling
+        this.statePollingInterval = null;
+        this.statePollingIntervalMs = 2000; // Poll every 2 seconds
     }
 
     /**
@@ -748,7 +759,19 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId number (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
         midiOutput.send(message);
+
+        // Track playback state
+        if (!this.deviceSequencerState.has(deviceId)) {
+            this.deviceSequencerState.set(deviceId, new Set());
+        }
+        this.deviceSequencerState.get(deviceId).add(slot);
+
         console.log(`[Action] Playing sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
+
+        // Query device state to sync
+        setTimeout(() => {
+            this.queryDeviceSequenceState(deviceId);
+        }, 100);
     }
 
     /**
@@ -780,7 +803,19 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'play', loop);
         midiOutput.send(message);
+
+        // Track playback state using device string ID
+        if (!this.deviceSequencerState.has(device.id)) {
+            this.deviceSequencerState.set(device.id, new Set());
+        }
+        this.deviceSequencerState.get(device.id).add(slot);
+
         console.log(`[Action] Playing sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
+
+        // Query device state to sync
+        setTimeout(() => {
+            this.queryDeviceSequenceState(device.id);
+        }, 100);
     }
 
     /**
@@ -808,7 +843,18 @@ export class ActionDispatcher {
 
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
         midiOutput.send(message);
+
+        // Track playback state
+        if (this.deviceSequencerState.has(deviceId)) {
+            this.deviceSequencerState.get(deviceId).delete(slot);
+        }
+
         console.log(`[Action] Stopping sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
+
+        // Query device state to sync
+        setTimeout(() => {
+            this.queryDeviceSequenceState(deviceId);
+        }, 100);
     }
 
     /**
@@ -839,7 +885,18 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildPlaybackControlMessage(device.deviceId, slot, 'stop');
         midiOutput.send(message);
+
+        // Track playback state using device string ID
+        if (this.deviceSequencerState.has(device.id)) {
+            this.deviceSequencerState.get(device.id).delete(slot);
+        }
+
         console.log(`[Action] Stopping sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}`);
+
+        // Query device state to sync
+        setTimeout(() => {
+            this.queryDeviceSequenceState(device.id);
+        }, 100);
     }
 
     /**
@@ -848,9 +905,14 @@ export class ActionDispatcher {
      * @param {number} slot - Slot number (0-15)
      */
     toggleDeviceSequencerByDeviceId(deviceId, slot) {
-        // For now, just send play with loop
-        // TODO: Track playback state to toggle properly
-        this.playDeviceSequencerByDeviceId(deviceId, slot, true);
+        // Check if slot is currently playing
+        const isPlaying = this.isDeviceSlotPlaying(deviceId, slot);
+
+        if (isPlaying) {
+            this.stopDeviceSequencerByDeviceId(deviceId, slot);
+        } else {
+            this.playDeviceSequencerByDeviceId(deviceId, slot, true);
+        }
     }
 
     /**
@@ -859,9 +921,28 @@ export class ActionDispatcher {
      * @param {number} slot - Slot number (0-15)
      */
     toggleDeviceSequencer(deviceIndex, slot) {
-        // For now, just send play with loop
-        // TODO: Track playback state to toggle properly
-        this.playDeviceSequencer(deviceIndex, slot, true);
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        // Get device at this index to get its string ID
+        const devices = this.controller.deviceManager.getAllDevices();
+        if (deviceIndex >= devices.length) {
+            console.error(`[Action] Device index ${deviceIndex} out of range (0-${devices.length - 1})`);
+            return;
+        }
+
+        const device = devices[deviceIndex];
+
+        // Check if slot is currently playing using device string ID
+        const isPlaying = this.isDeviceSlotPlaying(device.id, slot);
+
+        if (isPlaying) {
+            this.stopDeviceSequencer(deviceIndex, slot);
+        } else {
+            this.playDeviceSequencer(deviceIndex, slot, true);
+        }
     }
 
     /**
@@ -980,5 +1061,115 @@ export class ActionDispatcher {
         const message = buildSoloMessage(device.deviceId, slot, true);
         midiOutput.send(message);
         console.log(`[Action] Toggling solo: device=${device.name}, S${slot + 1}`);
+    }
+
+    /**
+     * Check if a device slot is currently playing
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     * @param {number} slot - Slot number (0-15)
+     * @returns {boolean} - True if playing, false otherwise
+     */
+    isDeviceSlotPlaying(deviceId, slot) {
+        if (!this.deviceSequencerState.has(deviceId)) {
+            return false;
+        }
+        return this.deviceSequencerState.get(deviceId).has(slot);
+    }
+
+    /**
+     * Query sequence state from a device
+     * Sends GET_SEQUENCE_STATE (0x62) command
+     * @param {string} deviceId - Device string ID (e.g., 'device-abc123')
+     */
+    queryDeviceSequenceState(deviceId) {
+        if (!this.controller.deviceManager) {
+            console.error('[Action] DeviceManager not available');
+            return;
+        }
+
+        const device = this.controller.deviceManager.getDevice(deviceId);
+        if (!device) {
+            console.error(`[Action] Device ${deviceId} not found`);
+            return;
+        }
+
+        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+        if (!midiOutput) {
+            console.error(`[Action] No MIDI output for device: ${device.name}`);
+            return;
+        }
+
+        const message = buildGetSequenceStateMessage(device.deviceId);
+        midiOutput.send(message);
+        console.log(`[Action] Querying sequence state from device: ${device.name}`);
+    }
+
+    /**
+     * Handle SEQUENCE_STATE_RESPONSE (0x63) from device
+     * Updates internal state and button displays
+     * @param {string} deviceId - Device string ID
+     * @param {Uint8Array} data - SysEx message data
+     */
+    handleSequenceStateResponse(deviceId, data) {
+        const state = parseSequenceStateResponse(data);
+        if (!state) {
+            console.warn('[Action] Failed to parse sequence state response');
+            return;
+        }
+
+        console.log(`[Action] Received sequence state for device ${deviceId}:`, state);
+
+        // Update device sequencer state
+        const playingSlots = new Set();
+        for (const slotState of state.slots) {
+            if (slotState.playing) {
+                playingSlots.add(slotState.slot);
+            }
+        }
+
+        this.deviceSequencerState.set(deviceId, playingSlots);
+
+        // Update ONLY device sequencer button states (not local sequencer pads)
+        this.controller.updateDeviceSequencerPads();
+
+        console.log(`[Action] Device ${deviceId} playing slots:`, Array.from(playingSlots).map(s => `S${s + 1}`).join(', ') || 'none');
+    }
+
+    /**
+     * Query sequence state from all devices
+     */
+    queryAllDeviceStates() {
+        if (!this.controller.deviceManager) {
+            return;
+        }
+
+        const devices = this.controller.deviceManager.getAllDevices();
+        for (const device of devices) {
+            this.queryDeviceSequenceState(device.id);
+        }
+    }
+
+    /**
+     * Start periodic polling of device sequencer states
+     */
+    startStatePolling() {
+        // Stop existing polling if any
+        this.stopStatePolling();
+
+        console.log(`[Action] Starting device state polling (interval: ${this.statePollingIntervalMs}ms)`);
+        this.statePollingInterval = setInterval(() => {
+            this.queryAllDeviceStates();
+        }, this.statePollingIntervalMs);
+    }
+
+    /**
+     * Stop periodic polling of device sequencer states
+     */
+    stopStatePolling() {
+        if (this.statePollingInterval) {
+            clearInterval(this.statePollingInterval);
+            this.statePollingInterval = null;
+            console.log('[Action] Stopped device state polling');
+        }
     }
 }

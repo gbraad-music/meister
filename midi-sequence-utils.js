@@ -189,7 +189,7 @@ export function buildPlaybackControlMessage(deviceId, slot, action, loop = true)
             0x7D,                           // Manufacturer ID
             deviceId & 0x7F,                // Device ID
             0x44,                           // Command: SEQUENCE_TRACK_PLAY (FIXED: was 0x82)
-            slot & 0x0F,                    // Slot
+            slot & 0x0F,                    // Slot (0-15 per spec)
             loop ? 0x01 : 0x00,             // Loop mode: 0=ONESHOT, 1=LOOP
             0xF7                            // SysEx end
         ]);
@@ -200,7 +200,7 @@ export function buildPlaybackControlMessage(deviceId, slot, action, loop = true)
             0x7D,                           // Manufacturer ID
             deviceId & 0x7F,                // Device ID
             0x45,                           // Command: SEQUENCE_TRACK_STOP (FIXED: was 0x83)
-            slot & 0x0F,                    // Slot
+            slot & 0x0F,                    // Slot (0-15 per spec)
             0xF7                            // SysEx end
         ]);
     } else {
@@ -223,7 +223,7 @@ export function buildMuteMessage(deviceId, slot, mute) {
         0x7D,                           // Manufacturer ID
         deviceId & 0x7F,                // Device ID
         0x46,                           // Command: SEQUENCE_TRACK_MUTE (FIXED: was 0x84)
-        slot & 0x0F,                    // Slot
+        slot & 0x0F,                    // Slot (0-15 per spec)
         mute ? 0x01 : 0x00,             // Mute: 0=UNMUTE, 1=MUTE
         0xF7                            // SysEx end
     ]);
@@ -244,7 +244,7 @@ export function buildSoloMessage(deviceId, slot, solo) {
         0x7D,                           // Manufacturer ID
         deviceId & 0x7F,                // Device ID
         0x47,                           // Command: SEQUENCE_TRACK_SOLO (FIXED: was 0x85)
-        slot & 0x0F,                    // Slot
+        slot & 0x0F,                    // Slot (0-15 per spec)
         solo ? 0x01 : 0x00,             // Solo: 0=UNSOLO, 1=SOLO
         0xF7                            // SysEx end
     ]);
@@ -303,6 +303,103 @@ export function buildListSlotsMessage(deviceId) {
         0x4B,                           // Command: SEQUENCE_TRACK_LIST (FIXED: was 0x89)
         0xF7                            // SysEx end
     ]);
+}
+
+/**
+ * Build SysEx message for getting complete sequence state
+ * Command: 0x62 (GET_SEQUENCE_STATE)
+ *
+ * @param {number} deviceId - Target device ID (0-127)
+ * @returns {Uint8Array} - SysEx message
+ */
+export function buildGetSequenceStateMessage(deviceId) {
+    return new Uint8Array([
+        0xF0,                           // SysEx start
+        0x7D,                           // Manufacturer ID
+        deviceId & 0x7F,                // Device ID
+        0x62,                           // Command: GET_SEQUENCE_STATE
+        0xF7                            // SysEx end
+    ]);
+}
+
+/**
+ * Parse SEQUENCE_STATE_RESPONSE (0x63) from Samplecrate
+ * Returns state for all 16 sequence slots
+ *
+ * @param {Uint8Array} data - SysEx message data
+ * @returns {Object|null} - Parsed sequence state or null if invalid
+ */
+export function parseSequenceStateResponse(data) {
+    // Format: F0 7D <dev> 63 <70 bytes of state> F7
+    // Total: 4 header + 70 data + 1 end = 75 bytes
+
+    if (data.length < 75) {
+        console.warn(`[SequenceState] Message too short: ${data.length} bytes (expected 75)`);
+        return null;
+    }
+
+    if (data[0] !== 0xF0 || data[1] !== 0x7D || data[3] !== 0x63) {
+        return null; // Not a sequence state response
+    }
+
+    // Dump raw message for debugging
+    console.log(`[SequenceState] Raw SysEx (${data.length} bytes):`,
+        Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+    // State data starts at byte 4
+    const version = data[4];
+    const numSlots = data[5];
+    const startMode = data[6];
+    // data[7] is reserved
+
+    console.log(`[SequenceState] Header: version=${version}, numSlots=${numSlots}, startMode=${startMode}`);
+
+    // Mute bits (bytes 8-9, 2 bytes for 16 slots)
+    const muteByte0 = data[8];
+    const muteByte1 = data[9];
+
+    console.log(`[SequenceState] Mute bits: byte0=0x${muteByte0.toString(16).padStart(2, '0')}, byte1=0x${muteByte1.toString(16).padStart(2, '0')}`);
+
+    // Parse slot states
+    const slots = [];
+    for (let i = 0; i < 16; i++) {
+        const flagsByte = data[10 + i];  // Bytes 10-25 (slot flags, 16 bytes)
+        const program = data[26 + i];     // Bytes 26-41 (program assignments, 16 bytes)
+        const phrase = data[42 + i];      // Bytes 42-57 (current phrase, 16 bytes)
+        const totalPhrases = data[58 + i]; // Bytes 58-73 (total phrases, 16 bytes)
+
+        // Extract mute state from mute bits
+        const muteByteIndex = i < 8 ? muteByte0 : muteByte1;
+        const muteBitIndex = i % 8;
+        const muted = (muteByteIndex & (1 << muteBitIndex)) !== 0;
+
+        const slotState = {
+            slot: i,
+            loaded: (flagsByte & 0x01) !== 0,
+            playing: (flagsByte & 0x02) !== 0,
+            looping: (flagsByte & 0x10) !== 0,
+            muted: muted,
+            program: program === 0x7F ? null : program,
+            phrase: phrase === 0x7F ? null : phrase,
+            totalPhrases: totalPhrases === 0 || totalPhrases === 0x7F ? null : totalPhrases
+        };
+
+        // Log playing/loaded slots
+        if (slotState.loaded || slotState.playing) {
+            console.log(`[SequenceState] S${i + 1} (slot ${i}): flags=0x${flagsByte.toString(16).padStart(2, '0')} ` +
+                `loaded=${slotState.loaded}, playing=${slotState.playing}, looping=${slotState.looping}, ` +
+                `program=${slotState.program}, muted=${slotState.muted}`);
+        }
+
+        slots.push(slotState);
+    }
+
+    return {
+        version,
+        numSlots,
+        startMode,
+        slots
+    };
 }
 
 /**
