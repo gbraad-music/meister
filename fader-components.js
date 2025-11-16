@@ -206,7 +206,8 @@ class MixFader extends BaseFader {
 
     render() {
         const label = this.getAttribute('label') || 'MIX';
-        const volume = parseInt(this.getAttribute('volume') || '100');
+        const volumePercent = parseInt(this.getAttribute('volume') || '100'); // 0-100 percentage
+        const volume = Math.round((volumePercent / 100) * 127); // Convert to 0-127 for slider
         const pan = parseInt(this.getAttribute('pan') || '0');
         const fxAttr = this.getAttribute('fx') || 'false';
         const muted = this.getAttribute('muted') === 'true';
@@ -313,7 +314,8 @@ class ChannelFader extends BaseFader {
 
     render() {
         const channel = parseInt(this.getAttribute('channel') || '0');
-        const volume = parseInt(this.getAttribute('volume') || '100');
+        const volumePercent = parseInt(this.getAttribute('volume') || '100'); // 0-100 percentage
+        const volume = Math.round((volumePercent / 100) * 127); // Convert to 0-127 for slider
         const pan = parseInt(this.getAttribute('pan') || '0');
         const solo = this.getAttribute('solo') === 'true';
         const muted = this.getAttribute('muted') === 'true';
@@ -570,7 +572,8 @@ class ProgramFader extends BaseFader {
     render() {
         const program = parseInt(this.getAttribute('program') || '0');
         const label = this.getAttribute('label') || `PROG ${program}`;
-        const volume = parseInt(this.getAttribute('volume') || '100');
+        const volumePercent = parseInt(this.getAttribute('volume') || '100'); // 0-100 percentage
+        const volume = Math.round((volumePercent / 100) * 127); // Convert to 0-127 for slider
         const pan = parseInt(this.getAttribute('pan') || '0');
         const fx = this.getAttribute('fx') === 'true';
         const muted = this.getAttribute('muted') === 'true';
