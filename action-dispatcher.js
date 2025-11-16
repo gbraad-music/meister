@@ -1136,8 +1136,10 @@ export class ActionDispatcher {
             programs: state.programs
         });
 
-        // TODO: Update device mixer UI (when implemented)
-        console.log(`[Action] Device ${deviceId} program state updated: ${state.numPrograms} programs, master vol=${state.master.volume}`);
+        // Update program faders in current scene
+        if (this.controller.sceneManager) {
+            this.controller.sceneManager.updateProgramFadersFromState(deviceId, state);
+        }
     }
 
     /**

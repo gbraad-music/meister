@@ -992,6 +992,28 @@ export class SceneManager {
     }
 
     /**
+     * Convert MIDI pan value (0-127, center=64) to UI value (-100 to 100, center=0)
+     * Handles asymmetry: MIDI has 0-64 (65 values) and 64-127 (64 values)
+     */
+    convertPanToUI(pan) {
+        // Map 0-63 to -100 to -1, and 64-127 to 0 to 100
+        return pan < 64
+            ? Math.round((pan - 64) * 100 / 64)
+            : Math.round((pan - 64) * 100 / 63);
+    }
+
+    /**
+     * Convert UI pan value (-100 to 100, center=0) to MIDI value (0-127, center=64)
+     * Handles asymmetry: -100 to -1 maps to 0-63 (64 values), 0 to 100 maps to 64-127 (64 values)
+     */
+    convertPanToWire(uiPan) {
+        // Map -100 to -1 to 0-63, and 0 to 100 to 64-127
+        return uiPan < 0
+            ? Math.round(64 + (uiPan * 64 / 100))
+            : Math.round(64 + (uiPan * 63 / 100));
+    }
+
+    /**
      * Create a fader element based on column configuration
      */
     createFader(column) {
@@ -1055,7 +1077,7 @@ export class SceneManager {
                 fader.addEventListener('pan-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
-                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    const panValue = this.convertPanToWire(e.detail.value);
                     // console.log(`[Dev${deviceId} Mix] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleMasterPan(deviceId, panValue);
                 });
@@ -1102,7 +1124,7 @@ export class SceneManager {
                 fader.addEventListener('pan-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
-                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    const panValue = this.convertPanToWire(e.detail.value);
                     // console.log(`[Dev${deviceId} CH${e.detail.channel}] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleChannelPan(deviceId, e.detail.channel, panValue);
                 });
@@ -1145,7 +1167,7 @@ export class SceneManager {
                 fader.addEventListener('pan-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
-                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    const panValue = this.convertPanToWire(e.detail.value);
                     // console.log(`[Dev${deviceId} Input] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleInputPan(deviceId, panValue);
                 });
@@ -1226,7 +1248,7 @@ export class SceneManager {
                 fader.addEventListener('pan-change', (e) => {
                     const deviceId = parseInt(fader.dataset.deviceId || 0);
                     // Convert from -100..100 to 0..127 (64 = center)
-                    const panValue = Math.round(((e.detail.value + 100) / 200) * 127);
+                    const panValue = this.convertPanToWire(e.detail.value);
                     // console.log(`[Dev${deviceId} PROG${e.detail.program}] Pan: ${e.detail.value} -> ${panValue}`);
                     this.handleProgramPan(deviceId, e.detail.program, panValue);
                 });
@@ -1707,7 +1729,7 @@ export class SceneManager {
                 }
                 if (deviceState.inputPan !== undefined) {
                     // Convert from 0..127 to -100..100 (64 = center = 0)
-                    const panValue = Math.round(((deviceState.inputPan / 127) * 200) - 100);
+                    const panValue = this.convertPanToUI(deviceState.inputPan);
                     mixFader.setAttribute('pan', panValue.toString());
                 }
                 // Update FX routing state - INPUT fader: yellow if route=3, red if route=1/2, off if route=0
@@ -1729,7 +1751,7 @@ export class SceneManager {
                 }
                 if (deviceState.masterPan !== undefined) {
                     // Convert from 0..127 to -100..100 (64 = center = 0)
-                    const panValue = Math.round(((deviceState.masterPan / 127) * 200) - 100);
+                    const panValue = this.convertPanToUI(deviceState.masterPan);
                     mixFader.setAttribute('pan', panValue.toString());
                 }
                 // Update FX routing state - MASTER fader: yellow if route=1, red if route=2/3, off if route=0
@@ -1776,7 +1798,7 @@ export class SceneManager {
             // Update pan if available
             if (deviceState.channelPans && deviceState.channelPans[channel] !== undefined) {
                 // Convert from 0..127 to -100..100 (64 = center = 0)
-                const panValue = Math.round(((deviceState.channelPans[channel] / 127) * 200) - 100);
+                const panValue = this.convertPanToUI(deviceState.channelPans[channel]);
                 fader.setAttribute('pan', panValue.toString());
             }
         });
@@ -1847,9 +1869,74 @@ export class SceneManager {
             // Update pan if available
             if (deviceState.channelPans && deviceState.channelPans[program] !== undefined) {
                 // Convert from 0..127 to -100..100 (64 = center = 0)
-                const panValue = Math.round(((deviceState.channelPans[program] / 127) * 200) - 100);
+                const panValue = this.convertPanToUI(deviceState.channelPans[program]);
                 fader.setAttribute('pan', panValue.toString());
             }
+        });
+    }
+
+    /**
+     * Update program faders from Samplecrate program state (0x65 response)
+     */
+    updateProgramFadersFromState(deviceId, programState) {
+        const scene = this.scenes.get(this.currentScene);
+        if (!scene || !['slider', 'split'].includes(scene.type)) return;
+
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        // Get device by deviceId (string ID)
+        const device = this.controller.deviceManager?.getDevice(deviceId);
+        if (!device) return;
+
+        // Update PROGRAM faders for this device
+        const programFaders = container.querySelectorAll('program-fader');
+        programFaders.forEach(fader => {
+            const faderDeviceBinding = fader.dataset.deviceBinding;
+            if (faderDeviceBinding !== deviceId) return; // Skip faders for other devices
+
+            // Check if user is currently changing the volume
+            if (fader.dataset.volumeChanging === 'true') {
+                return; // Skip update while user is adjusting volume
+            }
+
+            const programNum = parseInt(fader.getAttribute('program'));
+            const programData = programState.programs[programNum];
+            if (!programData) return;
+
+            // Update volume (0-127)
+            fader.setAttribute('volume', programData.volume.toString());
+
+            // Update pan (convert from 0-127 to -100..100)
+            const panValue = this.convertPanToUI(programData.pan);
+            console.log(`[Program${programNum}] Pan wire=${programData.pan} → UI=${panValue} (should be 64→0)`);
+            fader.setAttribute('pan', panValue.toString());
+
+            // Update mute state
+            fader.setAttribute('muted', programData.muted.toString());
+        });
+
+        // Update MASTER fader for this device (if showing master volume)
+        const mixFaders = container.querySelectorAll('mix-fader');
+        mixFaders.forEach(mixFader => {
+            const faderDeviceBinding = mixFader.dataset.deviceBinding;
+            if (faderDeviceBinding !== deviceId) return;
+
+            // Check if user is currently changing the volume
+            if (mixFader.dataset.volumeChanging === 'true') {
+                return;
+            }
+
+            // Update master volume (0-127)
+            mixFader.setAttribute('volume', programState.master.volume.toString());
+
+            // Update master pan (convert from 0-127 to -100..100)
+            const panValue = this.convertPanToUI(programState.master.pan);
+            console.log(`[Master] Pan wire=${programState.master.pan} → UI=${panValue} (should be 64→0)`);
+            mixFader.setAttribute('pan', panValue.toString());
+
+            // Update master mute
+            mixFader.setAttribute('muted', programState.master.mute.toString());
         });
     }
 
