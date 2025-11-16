@@ -376,12 +376,6 @@ export function parseSequenceStateResponse(data) {
             totalPhrases: totalPhrases === 0 || totalPhrases === 0x7F ? null : totalPhrases
         };
 
-        // Log playing/loaded slots
-        if (slotState.loaded || slotState.playing) {
-            console.log(`[SequenceState] S${i + 1} (slot ${i}): flags=0x${flagsByte.toString(16).padStart(2, '0')} ` +
-                `loaded=${slotState.loaded}, playing=${slotState.playing}, looping=${slotState.looping}, ` +
-                `program=${slotState.program}, muted=${slotState.muted}`);
-        }
 
         slots.push(slotState);
     }

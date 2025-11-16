@@ -469,13 +469,9 @@ export class ActionDispatcher {
             case InputAction.ACTION_SEQUENCER_PLAY:
                 {
                     const sceneId = event.parameter;
-                    console.log(`[Action 700] SEQUENCER_PLAY triggered - sceneId="${sceneId}"`);
                     const scene = this.controller.sceneManager.scenes.get(sceneId);
-                    console.log(`[Action 700] Found scene:`, scene);
                     if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
-                        console.log(`[Action 700] ✓ Starting sequencer playback...`);
                         scene.sequencerInstance.engine.startPlayback();
-                        console.log(`[Action 700] ✓ Sequencer ${sceneId} started`);
                     } else {
                         console.error(`[Action 700] ERROR: Cannot start sequencer - scene=${scene}, type=${scene?.type}, instance=${scene?.sequencerInstance}`);
                     }
@@ -488,7 +484,6 @@ export class ActionDispatcher {
                     const scene = this.controller.sceneManager.scenes.get(sceneId);
                     if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
                         scene.sequencerInstance.engine.stopPlayback();
-                        console.log(`[Action] Sequencer ${sceneId} stopped`);
                     }
                 }
                 break;
@@ -500,10 +495,8 @@ export class ActionDispatcher {
                     if (scene && scene.type === 'sequencer' && scene.sequencerInstance) {
                         if (scene.sequencerInstance.engine.playing) {
                             scene.sequencerInstance.engine.stopPlayback();
-                            console.log(`[Action] Sequencer ${sceneId} stopped`);
                         } else {
                             scene.sequencerInstance.engine.startPlayback();
-                            console.log(`[Action] Sequencer ${sceneId} started`);
                         }
                     }
                 }
@@ -520,7 +513,6 @@ export class ActionDispatcher {
                         const [sceneId, scene] = sequencers[sceneIndex];
                         if (scene.sequencerInstance) {
                             scene.sequencerInstance.engine.toggleMute(trackIndex);
-                            console.log(`[Action] Sequencer ${sceneId} track ${trackIndex} mute toggled`);
                         }
                     }
                 }
@@ -537,7 +529,6 @@ export class ActionDispatcher {
                         const [sceneId, scene] = sequencers[sceneIndex];
                         if (scene.sequencerInstance) {
                             scene.sequencerInstance.engine.toggleSolo(trackIndex);
-                            console.log(`[Action] Sequencer ${sceneId} track ${trackIndex} solo toggled`);
                         }
                     }
                 }
@@ -766,7 +757,6 @@ export class ActionDispatcher {
         }
         this.deviceSequencerState.get(deviceId).add(slot);
 
-        console.log(`[Action] Playing sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
 
         // Query device state to sync
         setTimeout(() => {
@@ -810,7 +800,6 @@ export class ActionDispatcher {
         }
         this.deviceSequencerState.get(device.id).add(slot);
 
-        console.log(`[Action] Playing sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}, loop=${loop}`);
 
         // Query device state to sync
         setTimeout(() => {
@@ -849,7 +838,6 @@ export class ActionDispatcher {
             this.deviceSequencerState.get(deviceId).delete(slot);
         }
 
-        console.log(`[Action] Stopping sequence: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
 
         // Query device state to sync
         setTimeout(() => {
@@ -891,7 +879,6 @@ export class ActionDispatcher {
             this.deviceSequencerState.get(device.id).delete(slot);
         }
 
-        console.log(`[Action] Stopping sequence: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}`);
 
         // Query device state to sync
         setTimeout(() => {
@@ -970,7 +957,6 @@ export class ActionDispatcher {
 
         const message = buildMuteMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling mute: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -1002,7 +988,6 @@ export class ActionDispatcher {
         // Use device's CURRENT deviceId (may have changed in settings!)
         const message = buildMuteMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling mute: device=${device.name} (index ${deviceIndex}, deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -1030,7 +1015,6 @@ export class ActionDispatcher {
 
         const message = buildSoloMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling solo: device=${device.name} (deviceId ${device.deviceId}), S${slot + 1}`);
     }
 
     /**
@@ -1060,7 +1044,6 @@ export class ActionDispatcher {
         // Toggle solo (send true, device should toggle)
         const message = buildSoloMessage(device.deviceId, slot, true);
         midiOutput.send(message);
-        console.log(`[Action] Toggling solo: device=${device.name}, S${slot + 1}`);
     }
 
     /**
@@ -1101,7 +1084,6 @@ export class ActionDispatcher {
 
         const message = buildGetSequenceStateMessage(device.deviceId);
         midiOutput.send(message);
-        console.log(`[Action] Querying sequence state from device: ${device.name}`);
     }
 
     /**
@@ -1117,8 +1099,6 @@ export class ActionDispatcher {
             return;
         }
 
-        console.log(`[Action] Received sequence state for device ${deviceId}:`, state);
-
         // Update device sequencer state
         const playingSlots = new Set();
         for (const slotState of state.slots) {
@@ -1131,8 +1111,6 @@ export class ActionDispatcher {
 
         // Update ONLY device sequencer button states (not local sequencer pads)
         this.controller.updateDeviceSequencerPads();
-
-        console.log(`[Action] Device ${deviceId} playing slots:`, Array.from(playingSlots).map(s => `S${s + 1}`).join(', ') || 'none');
     }
 
     /**
