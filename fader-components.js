@@ -667,11 +667,100 @@ class ProgramFader extends BaseFader {
     }
 }
 
+/**
+ * CC Fader Component
+ * Generic MIDI CC fader for any CC number
+ */
+class CCFader extends BaseFader {
+    static get observedAttributes() {
+        return ['label', 'cc', 'value', 'min', 'max'];
+    }
+
+    connectedCallback() {
+        this.render();
+        this.setupEventListeners();
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue && this.shadowRoot) {
+            if (name === 'value') {
+                const slider = this.shadowRoot.querySelector('.fader-slider');
+                const valueDisplay = this.shadowRoot.querySelector('.fader-value');
+                if (slider) slider.value = newValue;
+                if (valueDisplay) valueDisplay.textContent = newValue;
+            }
+        }
+    }
+
+    render() {
+        const label = this.getAttribute('label') || 'CC';
+        const cc = this.getAttribute('cc') || '1';
+        const value = parseInt(this.getAttribute('value') || '64');
+        const min = parseInt(this.getAttribute('min') || '0');
+        const max = parseInt(this.getAttribute('max') || '127');
+
+        this.shadowRoot.innerHTML = `
+            <style>
+                ${this.getBaseStyles()}
+
+                .fader-value {
+                    font-size: 0.9em;
+                    color: #888;
+                    padding: 4px 8px;
+                    background: #0a0a0a;
+                    border-radius: 4px;
+                    min-width: 40px;
+                    text-align: center;
+                }
+
+                .cc-number {
+                    font-size: 0.7em;
+                    color: #666;
+                    margin-top: 4px;
+                }
+            </style>
+
+            <div class="fader-label">${label}</div>
+            <div class="fader-value">${value}</div>
+            <input type="range" class="fader-slider" min="${min}" max="${max}" value="${value}" orient="vertical">
+            <div class="cc-number">CC ${cc}</div>
+        `;
+    }
+
+    setupEventListeners() {
+        const slider = this.shadowRoot.querySelector('.fader-slider');
+        const valueDisplay = this.shadowRoot.querySelector('.fader-value');
+        const cc = parseInt(this.getAttribute('cc') || '1');
+
+        slider?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            valueDisplay.textContent = value;
+
+            // Mark as changing to prevent state updates from interfering
+            this.dataset.ccChanging = 'true';
+
+            this.dispatchEvent(new CustomEvent('cc-change', {
+                detail: { cc, value },
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        slider?.addEventListener('change', () => {
+            // Release the changing lock after user stops dragging
+            setTimeout(() => {
+                delete this.dataset.ccChanging;
+            }, 100);
+        });
+    }
+}
+
 // Register custom elements
 customElements.define('mix-fader', MixFader);
 customElements.define('channel-fader', ChannelFader);
 customElements.define('tempo-fader', TempoFader);
 customElements.define('stereo-fader', StereoFader);
 customElements.define('program-fader', ProgramFader);
+customElements.define('cc-fader', CCFader);
 
-export { MixFader, ChannelFader, TempoFader };
+export { MixFader, ChannelFader, TempoFader, CCFader };

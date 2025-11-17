@@ -172,6 +172,15 @@ class RegroovePad extends HTMLElement {
                     border-color: #000000;
                     cursor: default;
                 }
+
+                /* Slot for embedded knob */
+                ::slotted(pad-knob) {
+                    position: absolute;
+                    inset: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: auto;
+                }
             </style>
 
             <div class="pad ${isEmpty ? 'empty' : ''}">
@@ -179,6 +188,7 @@ class RegroovePad extends HTMLElement {
                     ${label ? `<div class="label">${label}</div>` : '<div class="label">•</div>'}
                     ${sublabel ? `<div class="sublabel">${sublabel}</div>` : ''}
                 ` : ''}
+                <slot></slot>
             </div>
         `;
 

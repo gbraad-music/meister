@@ -1392,6 +1392,39 @@ export class SceneManager {
                         }
                     }
                 });
+        } else if (column.type === 'CC_FADER') {
+                // Generic CC fader
+                fader = document.createElement('cc-fader');
+                const label = column.label || 'CC';
+                const labelWithDevice = deviceName ? `${label}<br><span style="font-size: 0.8em; opacity: 0.7;">${deviceName}</span>` : label;
+                fader.setAttribute('label', labelWithDevice);
+                fader.setAttribute('cc', column.cc || '1');
+                fader.setAttribute('value', column.value !== undefined ? column.value : '64');
+                fader.setAttribute('min', column.min !== undefined ? column.min : '0');
+                fader.setAttribute('max', column.max !== undefined ? column.max : '127');
+                fader.dataset.deviceBinding = column.deviceBinding || '';
+
+                // Event listener for CC changes
+                fader.addEventListener('cc-change', (e) => {
+                    const device = column.deviceBinding && this.controller.deviceManager
+                        ? this.controller.deviceManager.getDevice(column.deviceBinding)
+                        : null;
+
+                    if (device) {
+                        // Send CC to specific device
+                        const midiOutput = this.controller.deviceManager.getMidiOutput(device.id);
+                        if (midiOutput) {
+                            const statusByte = 0xB0 + device.midiChannel; // CC on device's channel
+                            midiOutput.send([statusByte, e.detail.cc, e.detail.value]);
+                        }
+                    } else {
+                        // Send CC to default output
+                        if (this.controller.midiOutput) {
+                            const statusByte = 0xB0; // CC on channel 1
+                            this.controller.midiOutput.send([statusByte, e.detail.cc, e.detail.value]);
+                        }
+                    }
+                });
         }
 
         return fader;

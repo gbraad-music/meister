@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v358';
+const CACHE_NAME = "meister-v363";
 const ASSETS = [
     './',
     './index.html',
@@ -23,6 +23,7 @@ const ASSETS = [
     './fill-dialog.js',
     './midi-sequence-utils.js',
     './non-blocking-dialog.js',
+    './pad-knob.js',
     // Device management
     './regroove-state.js',
     './device-manager.js',

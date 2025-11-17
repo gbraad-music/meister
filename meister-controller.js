@@ -403,6 +403,12 @@ class MeisterController {
             this.clearPad();
         });
 
+        // Knob enabled checkbox
+        document.getElementById('pad-knob-enabled').addEventListener('change', (e) => {
+            const knobConfig = document.getElementById('pad-knob-config');
+            knobConfig.style.display = e.target.checked ? 'block' : 'none';
+        });
+
         // Message type selector
         document.getElementById('pad-message-type').addEventListener('change', (e) => {
             const messageType = e.target.value;
@@ -823,6 +829,23 @@ class MeisterController {
             } else {
                 document.getElementById('pad-secondary-message-type').value = 'none';
                 this.updateSecondaryPadEditorFields('none');
+            }
+
+            // Load knob configuration if present
+            if (pad.ccKnob) {
+                document.getElementById('pad-knob-enabled').checked = true;
+                document.getElementById('pad-knob-cc').value = pad.ccKnob.cc || 1;
+                document.getElementById('pad-knob-min').value = pad.ccKnob.min !== undefined ? pad.ccKnob.min : 0;
+                document.getElementById('pad-knob-max').value = pad.ccKnob.max !== undefined ? pad.ccKnob.max : 127;
+                document.getElementById('pad-knob-value').value = pad.ccKnob.value !== undefined ? pad.ccKnob.value : 64;
+                document.getElementById('pad-knob-config').style.display = 'block';
+            } else {
+                document.getElementById('pad-knob-enabled').checked = false;
+                document.getElementById('pad-knob-cc').value = 1;
+                document.getElementById('pad-knob-min').value = 0;
+                document.getElementById('pad-knob-max').value = 127;
+                document.getElementById('pad-knob-value').value = 64;
+                document.getElementById('pad-knob-config').style.display = 'none';
             }
 
             document.getElementById('pad-editor-title').textContent = `EDIT PAD ${padIndex + 1}`;
@@ -1449,6 +1472,25 @@ class MeisterController {
             padConfig.deviceBinding = deviceBinding;
         }
 
+        // Add knob configuration if enabled
+        const knobEnabled = document.getElementById('pad-knob-enabled').checked;
+        if (knobEnabled) {
+            const knobCC = parseInt(document.getElementById('pad-knob-cc').value);
+            const knobMin = parseInt(document.getElementById('pad-knob-min').value);
+            const knobMax = parseInt(document.getElementById('pad-knob-max').value);
+            const knobValue = parseInt(document.getElementById('pad-knob-value').value);
+
+            if (!isNaN(knobCC) && !isNaN(knobMin) && !isNaN(knobMax) && !isNaN(knobValue)) {
+                padConfig.ccKnob = {
+                    
+                    cc: knobCC,
+                    min: knobMin,
+                    max: knobMax,
+                    value: knobValue
+                };
+            }
+        }
+
         // Check if we're editing a custom scene's pads or the default pads
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
@@ -1705,6 +1747,45 @@ class MeisterController {
             // Store device binding on the element
             if (padConfig.deviceBinding) {
                 padElement.dataset.deviceBinding = padConfig.deviceBinding;
+            }
+
+            // Add CC knob if configured
+            if (padConfig.ccKnob) {
+                const knob = document.createElement('pad-knob');
+                knob.setAttribute('label', padConfig.label || 'CC');
+                knob.setAttribute('cc', padConfig.ccKnob.cc || '1');
+                knob.setAttribute('value', padConfig.ccKnob.value !== undefined ? padConfig.ccKnob.value : '64');
+                knob.setAttribute('min', padConfig.ccKnob.min !== undefined ? padConfig.ccKnob.min : '0');
+                knob.setAttribute('max', padConfig.ccKnob.max !== undefined ? padConfig.ccKnob.max : '127');
+
+                // Handle CC changes from knob
+                knob.addEventListener('cc-change', (e) => {
+                    const device = padConfig.deviceBinding && this.deviceManager
+                        ? this.deviceManager.getDevice(padConfig.deviceBinding)
+                        : null;
+
+                    if (device) {
+                        // Send CC to specific device
+                        const midiOutput = this.deviceManager.getMidiOutput(device.id);
+                        if (midiOutput) {
+                            const statusByte = 0xB0 + device.midiChannel;
+                            midiOutput.send([statusByte, e.detail.cc, e.detail.value]);
+                        }
+                    } else {
+                        // Send CC to default output
+                        if (this.midiOutput) {
+                            const statusByte = 0xB0;
+                            this.midiOutput.send([statusByte, e.detail.cc, e.detail.value]);
+                        }
+                    }
+
+                    // Update stored value
+                    padConfig.ccKnob.value = e.detail.value;
+                    this.saveConfig();
+                });
+
+                // Append knob to pad element's shadow root
+                padElement.appendChild(knob);
             }
 
             padElement.addEventListener('pad-press', (e) => {

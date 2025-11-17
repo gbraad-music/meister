@@ -530,6 +530,7 @@
     </style>
     <script src="./non-blocking-dialog.js"></script>
     <script type="module" src="./regroove-pad.js"></script>
+    <script type="module" src="./pad-knob.js"></script>
     <script src="./regroove-state.js"></script>
     <script type="module" src="./meister-controller.js"></script>
 </head>
@@ -818,6 +819,7 @@
                     <option value="cc">Control Change (CC)</option>
                     <option value="note">Note On/Off</option>
                     <option value="mmc">MIDI Machine Control (MMC)</option>
+                    <option value="ccknob">CC Knob (Embedded)</option>
                 </select>
             </div>
 
@@ -1113,6 +1115,42 @@
                 </div>
             </div>
 
+            <!-- Embedded Knob (CC Knob) -->
+            <div style="border-top: 2px solid #1a1a1a; margin: 20px 0; padding-top: 20px;">
+                <div class="setting-group">
+                    <label class="setting-label">EMBEDDED CC KNOB</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="pad-knob-enabled" style="width: auto;">
+                        <label for="pad-knob-enabled" style="margin: 0; color: #888;">Add rotary knob to pad</label>
+                    </div>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Embeds a mini rotary knob inside the pad for CC control
+                    </div>
+                </div>
+
+                <div id="pad-knob-config" style="display: none;">
+                    <div class="setting-group">
+                        <label class="setting-label">CC NUMBER (0-127)</label>
+                        <input type="number" id="pad-knob-cc" min="0" max="127" value="1" style="width: 100%;">
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">MIN VALUE</label>
+                        <input type="number" id="pad-knob-min" min="0" max="127" value="0" style="width: 100%;">
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">MAX VALUE</label>
+                        <input type="number" id="pad-knob-max" min="0" max="127" value="127" style="width: 100%;">
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">INITIAL VALUE</label>
+                        <input type="number" id="pad-knob-value" min="0" max="127" value="64" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
             <!-- Secondary Action (Shift + Click) -->
             <div style="border-top: 2px solid #1a1a1a; margin: 20px 0; padding-top: 20px;">
                 <div class="setting-group">
@@ -1267,6 +1305,7 @@
                         <option value="PROGRAM">Program (Samplecrate)</option>
                         <option value="TEMPO">Tempo</option>
                         <option value="STEREO">Stereo Separation</option>
+                        <option value="CC_FADER">CC Fader (Generic MIDI CC)</option>
                         <option value="SEQUENCER_TRACK">Sequencer Track Volume</option>
                         <option value="SEQUENCER_MASTER">Sequencer Master Volume</option>
                     </select>
@@ -1275,6 +1314,21 @@
                 <div class="setting-group" id="fader-label-field" style="display: none;">
                     <label class="setting-label">LABEL</label>
                     <input type="text" id="fader-label" placeholder="Master" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-cc-field" style="display: none;">
+                    <label class="setting-label">CC NUMBER (0-127)</label>
+                    <input type="number" id="fader-cc" min="0" max="127" value="1" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-cc-min-field" style="display: none;">
+                    <label class="setting-label">MIN VALUE</label>
+                    <input type="number" id="fader-cc-min" min="0" max="127" value="0" style="width: 100%;">
+                </div>
+
+                <div class="setting-group" id="fader-cc-max-field" style="display: none;">
+                    <label class="setting-label">MAX VALUE</label>
+                    <input type="number" id="fader-cc-max" min="0" max="127" value="127" style="width: 100%;">
                 </div>
 
                 <div class="setting-group" id="fader-channel-field" style="display: none;">

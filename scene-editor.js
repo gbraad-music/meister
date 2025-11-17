@@ -354,6 +354,8 @@ export class SceneEditor {
                 return `TEMPO<br>${deviceName}`;
             case 'STEREO':
                 return `STEREO<br>${deviceName}`;
+            case 'CC_FADER':
+                return `${fader.label || 'CC'}<br>CC${fader.cc || 1}<br>${deviceName}`;
             case 'SEQUENCER_TRACK': {
                 const seqScene = fader.sequencerScene ? this.sceneManager.scenes.get(fader.sequencerScene) : null;
                 const seqName = seqScene ? seqScene.name : 'Unknown';
@@ -392,6 +394,9 @@ export class SceneEditor {
             document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
             document.getElementById('fader-sequencer-scene').value = fader.sequencerScene || '';
             document.getElementById('fader-sequencer-track').value = fader.sequencerTrack || 1;
+            document.getElementById('fader-cc').value = fader.cc || 1;
+            document.getElementById('fader-cc-min').value = fader.min ?? 0;
+            document.getElementById('fader-cc-max').value = fader.max ?? 127;
         } else {
             document.getElementById('fader-type').value = 'EMPTY';
             document.getElementById('fader-label').value = '';
@@ -399,6 +404,9 @@ export class SceneEditor {
             document.getElementById('fader-device-binding').value = '';
             document.getElementById('fader-sequencer-scene').value = '';
             document.getElementById('fader-sequencer-track').value = 1;
+            document.getElementById('fader-cc').value = 1;
+            document.getElementById('fader-cc-min').value = 0;
+            document.getElementById('fader-cc-max').value = 127;
         }
 
         this.updateFaderEditorFields(document.getElementById('fader-type').value);
@@ -459,13 +467,19 @@ export class SceneEditor {
         const deviceField = document.getElementById('fader-device-field');
         const sequencerField = document.getElementById('fader-sequencer-field');
         const sequencerTrackField = document.getElementById('fader-sequencer-track-field');
+        const ccField = document.getElementById('fader-cc-field');
+        const ccMinField = document.getElementById('fader-cc-min-field');
+        const ccMaxField = document.getElementById('fader-cc-max-field');
 
-        labelField.style.display = (type === 'MIX' || type === 'INPUT' || type === 'PROGRAM') ? 'block' : 'none';
+        labelField.style.display = (type === 'MIX' || type === 'INPUT' || type === 'PROGRAM' || type === 'CC_FADER') ? 'block' : 'none';
         channelField.style.display = type === 'CHANNEL' ? 'block' : 'none';
         programField.style.display = type === 'PROGRAM' ? 'block' : 'none';
         deviceField.style.display = (type !== 'EMPTY' && type !== 'SEQUENCER_TRACK' && type !== 'SEQUENCER_MASTER') ? 'block' : 'none';
         sequencerField.style.display = (type === 'SEQUENCER_TRACK' || type === 'SEQUENCER_MASTER') ? 'block' : 'none';
         sequencerTrackField.style.display = (type === 'SEQUENCER_TRACK') ? 'block' : 'none';
+        ccField.style.display = type === 'CC_FADER' ? 'block' : 'none';
+        ccMinField.style.display = type === 'CC_FADER' ? 'block' : 'none';
+        ccMaxField.style.display = type === 'CC_FADER' ? 'block' : 'none';
     }
 
     saveFader() {
@@ -487,10 +501,17 @@ export class SceneEditor {
             } else if (type === 'INPUT') {
                 fader.label = document.getElementById('fader-label').value || 'Input';
             } else if (type === 'CHANNEL') {
+                fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
             } else if (type === 'PROGRAM') {
                 fader.program = parseInt(document.getElementById('fader-program').value) || 0;
                 fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
                 fader.channel = parseInt(document.getElementById('fader-channel').value) || 0;
+            } else if (type === 'CC_FADER') {
+                fader.label = document.getElementById('fader-label').value || 'CC';
+                fader.cc = parseInt(document.getElementById('fader-cc').value) || 1;
+                fader.min = parseInt(document.getElementById('fader-cc-min').value) || 0;
+                fader.max = parseInt(document.getElementById('fader-cc-max').value) || 127;
+                fader.value = 64; // Default value
             } else if (type === 'SEQUENCER_TRACK') {
                 fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
                 fader.sequencerTrack = parseInt(document.getElementById('fader-sequencer-track').value) || 1;
@@ -1140,6 +1161,9 @@ export class SceneEditor {
             document.getElementById('fader-device-binding').value = fader.deviceBinding || '';
             document.getElementById('fader-sequencer-scene').value = fader.sequencerScene || '';
             document.getElementById('fader-sequencer-track').value = fader.sequencerTrack || 1;
+            document.getElementById('fader-cc').value = fader.cc || 1;
+            document.getElementById('fader-cc-min').value = fader.min ?? 0;
+            document.getElementById('fader-cc-max').value = fader.max ?? 127;
         } else {
             document.getElementById('fader-type').value = 'EMPTY';
             document.getElementById('fader-label').value = '';
@@ -1148,6 +1172,9 @@ export class SceneEditor {
             document.getElementById('fader-device-binding').value = '';
             document.getElementById('fader-sequencer-scene').value = '';
             document.getElementById('fader-sequencer-track').value = 1;
+            document.getElementById('fader-cc').value = 1;
+            document.getElementById('fader-cc-min').value = 0;
+            document.getElementById('fader-cc-max').value = 127;
         }
 
         this.updateFaderEditorFields(fader?.type || 'EMPTY');
@@ -1177,6 +1204,12 @@ export class SceneEditor {
             } else if (type === 'PROGRAM') {
                 fader.program = parseInt(document.getElementById('fader-program').value) || 0;
                 fader.label = document.getElementById('fader-label').value || 'PROG ' + fader.program;
+            } else if (type === 'CC_FADER') {
+                fader.label = document.getElementById('fader-label').value || 'CC';
+                fader.cc = parseInt(document.getElementById('fader-cc').value) || 1;
+                fader.min = parseInt(document.getElementById('fader-cc-min').value) || 0;
+                fader.max = parseInt(document.getElementById('fader-cc-max').value) || 127;
+                fader.value = 64; // Default value
             } else if (type === 'SEQUENCER_TRACK') {
                 fader.sequencerScene = document.getElementById('fader-sequencer-scene').value;
                 fader.sequencerTrack = parseInt(document.getElementById('fader-sequencer-track').value) || 1;
