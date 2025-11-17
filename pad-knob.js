@@ -13,7 +13,7 @@ class PadKnob extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['cc', 'value', 'min', 'max', 'label'];
+        return ['cc', 'value', 'min', 'max', 'label', 'sublabel'];
     }
 
     connectedCallback() {
@@ -31,6 +31,7 @@ class PadKnob extends HTMLElement {
 
     render() {
         const label = this.getAttribute('label') || 'CC';
+        const sublabel = this.getAttribute('sublabel') || '';
         const cc = this.getAttribute('cc') || '1';
         const value = parseInt(this.getAttribute('value') || '64');
         const min = parseInt(this.getAttribute('min') || '0');
@@ -63,6 +64,13 @@ class PadKnob extends HTMLElement {
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     text-align: center;
+                }
+
+                .knob-sublabel {
+                    font-size: 0.65em;
+                    color: #555;
+                    text-align: center;
+                    white-space: pre-line;
                 }
 
                 .knob-container {
@@ -129,6 +137,7 @@ class PadKnob extends HTMLElement {
                 <div class="knob-center"></div>
             </div>
             <div class="knob-value">${value}</div>
+            ${sublabel ? `<div class="knob-sublabel">${sublabel}</div>` : ''}
         `;
     }
 

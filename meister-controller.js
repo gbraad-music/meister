@@ -1753,6 +1753,7 @@ class MeisterController {
             if (padConfig.ccKnob) {
                 const knob = document.createElement('pad-knob');
                 knob.setAttribute('label', padConfig.label || 'CC');
+                knob.setAttribute('sublabel', sublabel || '');
                 knob.setAttribute('cc', padConfig.ccKnob.cc || '1');
                 knob.setAttribute('value', padConfig.ccKnob.value !== undefined ? padConfig.ccKnob.value : '64');
                 knob.setAttribute('min', padConfig.ccKnob.min !== undefined ? padConfig.ccKnob.min : '0');
