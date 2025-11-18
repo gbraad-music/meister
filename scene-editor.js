@@ -250,6 +250,10 @@ export class SceneEditor {
                     pollingSlider.value = this.sceneConfig.pollingInterval;
                     document.getElementById('scene-polling-interval-value').textContent = this.sceneConfig.pollingInterval + 'ms';
                 }
+                // Set display mode
+                const displayModeSelect = document.getElementById("scene-display-mode");
+                if (displayModeSelect) {
+                }
             }
         } else {
             // New scene
@@ -268,6 +272,10 @@ export class SceneEditor {
             if (pollingSlider) {
                 pollingSlider.value = 250;
                 document.getElementById('scene-polling-interval-value').textContent = '250ms';
+            }
+            // Set default display mode
+            const displayModeSelect = document.getElementById("scene-display-mode");
+            if (displayModeSelect) {
             }
         }
 
