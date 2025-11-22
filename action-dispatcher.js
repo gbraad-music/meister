@@ -684,9 +684,6 @@ export class ActionDispatcher {
     updateRoutingPadLabels(inputId) {
         if (!this.controller.pads || !this.controller.getRoutingDisplayInfo) return;
 
-        // Color cycling for routing targets: red, blue, green, yellow
-        const colors = ['red', 'blue', 'green', 'yellow'];
-
         // Iterate through all pads to find routing action pads
         this.controller.pads.forEach((padElement, index) => {
             const padConfig = this.controller.config.pads[index];
@@ -700,13 +697,27 @@ export class ActionDispatcher {
             const routingInfo = this.controller.getRoutingDisplayInfo(padParameter);
             if (!routingInfo) return;
 
-            // Get active target index to determine color
+            // Get active target and its color from device configuration
             let targetColor = null;
-            if (this.controller.inputRouter) {
+            if (this.controller.inputRouter && this.controller.deviceManager) {
                 const route = this.controller.inputRouter.getRoute(padParameter);
                 if (route && route.targets && route.targets.length > 0) {
                     const activeIndex = route.activeTargetIndex || 0;
-                    targetColor = colors[activeIndex % colors.length];
+                    const activeTarget = route.targets[activeIndex];
+
+                    // Get device color if in device mode
+                    if (route.mode === 'device' && activeTarget && activeTarget.deviceId) {
+                        const device = this.controller.deviceManager.getDevice(activeTarget.deviceId);
+                        if (device && device.color) {
+                            targetColor = device.color;
+                        }
+                    }
+
+                    // Fallback to default colors for pass-through mode or if device color not found
+                    if (!targetColor) {
+                        const fallbackColors = ['red', 'blue', 'green', 'yellow'];
+                        targetColor = fallbackColors[activeIndex % fallbackColors.length];
+                    }
                 }
             }
 

@@ -217,6 +217,14 @@ export class DeviceManager {
             this.deleteDeviceFromEditor();
         });
 
+        // Color picker change handler
+        document.getElementById('device-color')?.addEventListener('input', (e) => {
+            const colorValue = document.getElementById('device-color-value');
+            if (colorValue) {
+                colorValue.textContent = e.target.value;
+            }
+        });
+
         // Refresh list on load
         this.refreshDeviceList();
     }
@@ -243,6 +251,8 @@ export class DeviceManager {
                 document.getElementById('device-sysex-id').value = device.deviceId;
                 document.getElementById('device-midi-output').value = device.midiOutputId || '';
                 document.getElementById('device-type').value = device.type || 'regroove';
+                document.getElementById('device-color').value = device.color || '#cc4444';
+                document.getElementById('device-color-value').textContent = device.color || '#cc4444';
                 document.getElementById('delete-device').style.display = 'inline-block';
             }
         } else {
@@ -252,6 +262,8 @@ export class DeviceManager {
             document.getElementById('device-sysex-id').value = 0;
             document.getElementById('device-midi-output').value = '';
             document.getElementById('device-type').value = 'regroove';
+            document.getElementById('device-color').value = '#cc4444';
+            document.getElementById('device-color-value').textContent = '#cc4444';
             document.getElementById('delete-device').style.display = 'none';
         }
 
@@ -307,6 +319,7 @@ export class DeviceManager {
         const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
         const midiOutputId = document.getElementById('device-midi-output').value || null;
         const deviceType = document.getElementById('device-type').value || 'regroove';
+        const deviceColor = document.getElementById('device-color').value || '#cc4444';
 
         const id = this.editingDeviceId || `device-${Date.now()}`;
 
@@ -315,7 +328,8 @@ export class DeviceManager {
             type: deviceType,
             midiChannel: midiChannel,
             deviceId: sysexDeviceId,
-            midiOutputId: midiOutputId
+            midiOutputId: midiOutputId,
+            color: deviceColor
         });
 
         // If this is the first device, make it default
@@ -371,11 +385,25 @@ export class DeviceManager {
                 }
             }
 
+            // Device type labels
+            const typeLabels = {
+                'generic': 'Generic',
+                'regroove': 'Regroove',
+                'samplecrate': 'SampleCrate'
+            };
+            const typeLabel = typeLabels[device.type] || device.type;
+
             return `
                 <tr>
                     <td style="color: #ddd; font-weight: ${isDefault ? 'bold' : 'normal'};">
-                        ${device.name}
-                        ${isDefault ? '<span style="color: #4a9eff; font-size: 0.8em;"> (DEFAULT)</span>' : ''}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 12px; height: 12px; background: ${device.color || '#cc4444'}; border-radius: 2px; flex-shrink: 0;"></div>
+                            <div>
+                                ${device.name}
+                                ${isDefault ? '<span style="color: #4a9eff; font-size: 0.8em;"> (DEFAULT)</span>' : ''}
+                                <div style="font-size: 0.75em; color: #666; margin-top: 2px;">${typeLabel}</div>
+                            </div>
+                        </div>
                     </td>
                     <td style="text-align: center;">${device.midiChannel + 1}</td>
                     <td style="text-align: center;">${device.deviceId}</td>
