@@ -5,6 +5,7 @@
 
 import './fader-components.js';
 import './effects-fader.js';
+import './pad-knob.js';
 import { InputAction, InputEvent } from './input-actions.js';
 
 export class SceneManager {
@@ -173,6 +174,286 @@ export class SceneManager {
             render: () => this.renderPianoScene('piano')
         });
 
+        // Preserve custom name if scene was already loaded from storage
+        const existingControlGrid = this.scenes.get('control-grid');
+        const controlGridName = existingControlGrid?.name;
+
+        // Control Grid scene (flexible grid with multiple control types)
+        // Demo: DJ Double Deck layout
+        this.scenes.set('control-grid', {
+            name: controlGridName || 'DJ Decks',
+            type: 'control-grid',
+            enabled: true,
+            rows: 5,
+            cols: 12,
+            deviceBinding: null,  // Device binding for the scene (null = use default output)
+            cells: this.createDemoDoubleDeckCells(),
+            render: () => this.renderControlGridScene('control-grid')
+        });
+
+    }
+
+    /**
+     * Create demo double-deck DJ layout for control grid
+     */
+    createDemoDoubleDeckCells() {
+        const cells = [];
+
+        // Left deck pads (4x4 grid, cols 0-3, rows 0-3)
+        const leftDeckPads = [
+            { label: 'Cue A1', cc: 1, color: '#4a9eff' },
+            { label: 'Cue A2', cc: 2, color: '#4a9eff' },
+            { label: 'Cue A3', cc: 3, color: '#4a9eff' },
+            { label: 'Cue A4', cc: 4, color: '#4a9eff' },
+            { label: 'Loop A1', cc: 5, color: '#9a4aff' },
+            { label: 'Loop A2', cc: 6, color: '#9a4aff' },
+            { label: 'Loop A3', cc: 7, color: '#9a4aff' },
+            { label: 'Loop A4', cc: 8, color: '#9a4aff' },
+            { label: 'FX A1', cc: 9, color: '#4aff9a' },
+            { label: 'FX A2', cc: 10, color: '#4aff9a' },
+            { label: 'FX A3', cc: 11, color: '#4aff9a' },
+            { label: 'FX A4', cc: 12, color: '#4aff9a' },
+            { label: 'Play A', cc: 13, color: '#ff4a4a' },
+            { label: 'Sync A', cc: 14, color: '#ff9a4a' },
+            { label: 'Deck A', cc: 15, color: '#888' },
+            { label: 'Load A', cc: 16, color: '#888' },
+        ];
+
+        let padIndex = 0;
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const pad = leftDeckPads[padIndex++];
+                cells.push({
+                    row,
+                    col,
+                    rowSpan: 1,
+                    colSpan: 1,
+                    control: {
+                        type: 'pad',
+                        label: pad.label,
+                        color: pad.color,
+                        midiType: 'cc',
+                        midiChannel: 0,
+                        midiNumber: pad.cc,
+                        midiValue: 127
+                    }
+                });
+            }
+        }
+
+        // Deck A GAIN knob (col 4, row 0 - at the top)
+        cells.push({
+            row: 0,
+            col: 4,
+            rowSpan: 1,
+            colSpan: 1,
+            control: {
+                type: 'knob',
+                label: 'GAIN A',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 46,
+                midiValue: 100
+            }
+        });
+
+        // Deck A EQ knobs (col 4, rows 1-3)
+        const deckAEQ = [
+            { label: 'HIGH A', cc: 40, row: 1 },
+            { label: 'MID A', cc: 41, row: 2 },
+            { label: 'LOW A', cc: 42, row: 3 }
+        ];
+
+        deckAEQ.forEach(knob => {
+            cells.push({
+                row: knob.row,
+                col: 4,
+                rowSpan: 1,
+                colSpan: 1,
+                control: {
+                    type: 'knob',
+                    label: knob.label,
+                    midiType: 'cc',
+                    midiChannel: 0,
+                    midiNumber: knob.cc,
+                    midiValue: 64
+                }
+            });
+        });
+
+        // Deck A VOLUME fader (col 5, rows 0-3, vertical)
+        cells.push({
+            row: 0,
+            col: 5,
+            rowSpan: 4,
+            colSpan: 1,
+            control: {
+                type: 'fader',
+                faderType: 'cc-fader',
+                label: 'VOL A',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 17,
+                midiValue: 100
+            }
+        });
+
+        // Deck B VOLUME fader (col 6, rows 0-3, vertical)
+        cells.push({
+            row: 0,
+            col: 6,
+            rowSpan: 4,
+            colSpan: 1,
+            control: {
+                type: 'fader',
+                faderType: 'cc-fader',
+                label: 'VOL B',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 18,
+                midiValue: 100
+            }
+        });
+
+        // Deck B GAIN knob (col 7, row 0 - at the top)
+        cells.push({
+            row: 0,
+            col: 7,
+            rowSpan: 1,
+            colSpan: 1,
+            control: {
+                type: 'knob',
+                label: 'GAIN B',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 47,
+                midiValue: 100
+            }
+        });
+
+        // Deck B EQ knobs (col 7, rows 1-3)
+        const deckBEQ = [
+            { label: 'HIGH B', cc: 43, row: 1 },
+            { label: 'MID B', cc: 44, row: 2 },
+            { label: 'LOW B', cc: 45, row: 3 }
+        ];
+
+        deckBEQ.forEach(knob => {
+            cells.push({
+                row: knob.row,
+                col: 7,
+                rowSpan: 1,
+                colSpan: 1,
+                control: {
+                    type: 'knob',
+                    label: knob.label,
+                    midiType: 'cc',
+                    midiChannel: 0,
+                    midiNumber: knob.cc,
+                    midiValue: 64
+                }
+            });
+        });
+
+        // Bottom row (row 4): TEMPO sliders and crossfader
+
+        // Deck A TEMPO slider (horizontal, row 4, cols 0-3)
+        cells.push({
+            row: 4,
+            col: 0,
+            rowSpan: 1,
+            colSpan: 4,
+            control: {
+                type: 'fader',
+                faderType: 'cc-fader',
+                label: 'TEMPO A',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 48,
+                midiValue: 63,  // 125 BPM default mapped to MIDI range
+                horizontal: true
+            }
+        });
+
+        // Horizontal crossfader (row 4, cols 4-7)
+        cells.push({
+            row: 4,
+            col: 4,
+            rowSpan: 1,
+            colSpan: 4,
+            control: {
+                type: 'fader',
+                faderType: 'cc-fader',
+                label: 'X-FADE',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 19,
+                midiValue: 64,
+                horizontal: true
+            }
+        });
+
+        // Deck B TEMPO slider (horizontal, row 4, cols 8-11)
+        cells.push({
+            row: 4,
+            col: 8,
+            rowSpan: 1,
+            colSpan: 4,
+            control: {
+                type: 'fader',
+                faderType: 'cc-fader',
+                label: 'TEMPO B',
+                midiType: 'cc',
+                midiChannel: 0,
+                midiNumber: 49,
+                midiValue: 63,  // 125 BPM default mapped to MIDI range
+                horizontal: true
+            }
+        });
+
+        // Right deck pads (4x4 grid, cols 8-11, rows 0-3)
+        const rightDeckPads = [
+            { label: 'Cue B1', cc: 21, color: '#ff4a9a' },
+            { label: 'Cue B2', cc: 22, color: '#ff4a9a' },
+            { label: 'Cue B3', cc: 23, color: '#ff4a9a' },
+            { label: 'Cue B4', cc: 24, color: '#ff4a9a' },
+            { label: 'Loop B1', cc: 25, color: '#9a4aff' },
+            { label: 'Loop B2', cc: 26, color: '#9a4aff' },
+            { label: 'Loop B3', cc: 27, color: '#9a4aff' },
+            { label: 'Loop B4', cc: 28, color: '#9a4aff' },
+            { label: 'FX B1', cc: 29, color: '#4aff9a' },
+            { label: 'FX B2', cc: 30, color: '#4aff9a' },
+            { label: 'FX B3', cc: 31, color: '#4aff9a' },
+            { label: 'FX B4', cc: 32, color: '#4aff9a' },
+            { label: 'Play B', cc: 33, color: '#ff4a4a' },
+            { label: 'Sync B', cc: 34, color: '#ff9a4a' },
+            { label: 'Deck B', cc: 35, color: '#888' },
+            { label: 'Load B', cc: 36, color: '#888' },
+        ];
+
+        padIndex = 0;
+        for (let row = 0; row < 4; row++) {
+            for (let col = 8; col < 12; col++) {
+                const pad = rightDeckPads[padIndex++];
+                cells.push({
+                    row,
+                    col,
+                    rowSpan: 1,
+                    colSpan: 1,
+                    control: {
+                        type: 'pad',
+                        label: pad.label,
+                        color: pad.color,
+                        midiType: 'cc',
+                        midiChannel: 0,
+                        midiNumber: pad.cc,
+                        midiValue: 127
+                    }
+                });
+            }
+        }
+
+        return cells;
     }
 
     /**
@@ -244,6 +525,11 @@ export class SceneManager {
         } else if (config.type === 'sequencer') {
             scene.engine = config.engine || null;
             scene.render = () => this.renderSequencerScene(id);
+        } else if (config.type === 'control-grid') {
+            scene.rows = config.rows || 8;
+            scene.cols = config.cols || 8;
+            scene.cells = config.cells || [];
+            scene.render = () => this.renderControlGridScene(id);
         }
 
         this.scenes.set(id, scene);
@@ -285,7 +571,7 @@ export class SceneManager {
         if (resolvedDeviceIds.length > 0) {
             // Scene has device bindings - start polling for those devices
             const pollInterval = scene.pollInterval || 500; // Default to 500ms if not specified
-            console.log(`[Scene] "${scene.name}" polling devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
+            console.log(`[Scene] "${scene.name}" (type: ${scene.type}) polling Regroove devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
 
             if (this.controller.regrooveState && this.controller.midiOutput) {
                 // Update polling interval
@@ -297,7 +583,7 @@ export class SceneManager {
             }
         } else {
             // Scene has no device bindings - stop polling
-            console.log(`[Scene] "${scene.name}" has no device bindings, stopping polling`);
+            console.log(`[Scene] "${scene.name}" (type: ${scene.type}) has no Regroove device bindings, stopping polling`);
             if (this.controller.regrooveState) {
                 this.controller.regrooveState.stopPolling();
             }
@@ -326,11 +612,16 @@ export class SceneManager {
             return deviceIds;
         }
 
-        // For effects/piano scenes with deviceBinding
+        // For effects/piano/control-grid scenes with deviceBinding
         if (scene.deviceBinding) {
             const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
-            if (device && device.type !== 'generic') {
+            console.log(`[Scene] Checking scene.deviceBinding: device=${device?.name}, type=${device?.type}, deviceId=${device?.deviceId}`);
+            // Only poll for Regroove devices, not generic or undefined
+            if (device && device.type === 'regroove') {
                 deviceIds.push(device.deviceId);
+                console.log(`[Scene] Added deviceId ${device.deviceId} from scene.deviceBinding (Regroove)`);
+            } else if (device) {
+                console.log(`[Scene] Skipping deviceId ${device.deviceId} from scene.deviceBinding (type: ${device.type}, not Regroove)`);
             }
         }
 
@@ -340,7 +631,8 @@ export class SceneManager {
             scene.slots.forEach(slot => {
                 if (slot && slot.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(slot.deviceBinding);
-                    if (device && device.type !== 'generic') {
+                    // Only poll for Regroove devices, not generic or undefined
+                    if (device && device.type === 'regroove') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -354,7 +646,8 @@ export class SceneManager {
             scene.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    if (device && device.type !== 'generic') {
+                    // Only poll for Regroove devices, not generic or undefined
+                    if (device && device.type === 'regroove') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -368,7 +661,8 @@ export class SceneManager {
             this.controller.config.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    if (device && device.type !== 'generic') {
+                    // Only poll for Regroove devices, not generic or undefined
+                    if (device && device.type === 'regroove') {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -377,8 +671,14 @@ export class SceneManager {
         }
 
         // Fallback to pollDevices if no bindings resolved (backward compat)
-        if (deviceIds.length === 0 && scene.pollDevices) {
-            return scene.pollDevices;
+        // But still filter out non-Regroove devices
+        if (deviceIds.length === 0 && scene.pollDevices && scene.pollDevices.length > 0) {
+            // Filter pollDevices to only include Regroove devices
+            const filteredDeviceIds = scene.pollDevices.filter(deviceId => {
+                const device = this.controller.deviceManager.getAllDevices().find(d => d.deviceId === deviceId);
+                return device && device.type === 'regroove';
+            });
+            return filteredDeviceIds;
         }
 
         return deviceIds;
@@ -2913,5 +3213,623 @@ export class SceneManager {
             console.log(`[Sequencer] Resuming sequencer scene: ${scene.name}`);
             scene.sequencerInstance.resume();
         }
+    }
+
+    /**
+     * Render Control Grid scene - flexible grid with multiple control types
+     */
+    renderControlGridScene(sceneId) {
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        const scene = this.scenes.get(sceneId);
+        if (!scene) {
+            console.error(`[ControlGrid] Scene "${sceneId}" not found`);
+            return;
+        }
+
+        // Clear container and match pad grid styling
+        container.removeAttribute('style');
+        container.style.display = 'grid';
+        container.style.gridTemplateColumns = `repeat(${scene.cols}, 1fr)`;
+        container.style.gridTemplateRows = `repeat(${scene.rows}, 1fr)`;
+        container.style.gap = '10px';
+        container.style.padding = '10px 10px 4px 10px';
+        container.style.height = 'calc(100vh - 60px)';
+        container.innerHTML = '';
+
+        // Track occupied positions to avoid overlapping spanning cells
+        const occupiedPositions = new Set();
+
+        // Create cells from config (handles spanning)
+        scene.cells.forEach(cellConfig => {
+            const cell = this.createGridCell(cellConfig, sceneId);
+
+            // Apply grid positioning
+            cell.style.gridRow = `${cellConfig.row + 1} / span ${cellConfig.rowSpan || 1}`;
+            cell.style.gridColumn = `${cellConfig.col + 1} / span ${cellConfig.colSpan || 1}`;
+
+            // Mark positions as occupied
+            for (let r = cellConfig.row; r < cellConfig.row + (cellConfig.rowSpan || 1); r++) {
+                for (let c = cellConfig.col; c < cellConfig.col + (cellConfig.colSpan || 1); c++) {
+                    occupiedPositions.add(`${r},${c}`);
+                }
+            }
+
+            container.appendChild(cell);
+        });
+
+        // Fill empty positions
+        for (let row = 0; row < scene.rows; row++) {
+            for (let col = 0; col < scene.cols; col++) {
+                const key = `${row},${col}`;
+                if (!occupiedPositions.has(key)) {
+                    const cell = this.createGridCell({row, col, rowSpan: 1, colSpan: 1, control: {type: 'empty'}}, sceneId);
+                    cell.style.gridRow = `${row + 1}`;
+                    cell.style.gridColumn = `${col + 1}`;
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        console.log(`[ControlGrid] Rendered ${scene.name} (${scene.rows}x${scene.cols}, ${scene.cells.length} controls)`);
+    }
+
+    /**
+     * Create a single grid cell with the specified control type
+     */
+    createGridCell(cellConfig, sceneId) {
+        const cell = document.createElement('div');
+        cell.style.position = 'relative';
+        // No background/border - let controls provide their own styling (match pad grid)
+
+        // Store cell config for editing
+        cell.dataset.row = cellConfig.row;
+        cell.dataset.col = cellConfig.col;
+        cell.dataset.sceneId = sceneId;
+        cell.setAttribute('draggable', 'false');
+
+        // Ctrl+drag support (like pads grid)
+        cell.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && e.ctrlKey) {
+                e.preventDefault();
+                cell.setAttribute('draggable', 'true');
+                cell.style.cursor = 'move';
+            }
+        });
+
+        cell.addEventListener('dragstart', (e) => {
+            if (cell.getAttribute('draggable') === 'true') {
+                this.draggingCell = { row: cellConfig.row, col: cellConfig.col, sceneId };
+                cell.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', `${cellConfig.row},${cellConfig.col}`);
+            }
+        });
+
+        cell.addEventListener('dragend', () => {
+            cell.style.opacity = '';
+            cell.style.cursor = '';
+            cell.setAttribute('draggable', 'false');
+        });
+
+        cell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
+
+        cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (this.draggingCell && this.draggingCell.sceneId === sceneId) {
+                this.swapControlGridCells(sceneId, this.draggingCell.row, this.draggingCell.col, cellConfig.row, cellConfig.col);
+                this.draggingCell = null;
+            }
+        });
+
+        // Add right-click context menu
+        cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.showControlGridCellEditor(sceneId, cellConfig.row, cellConfig.col);
+        });
+
+        const control = cellConfig.control || {type: 'empty'};
+
+        switch (control.type) {
+            case 'pad':
+                this.createPadControl(cell, control, sceneId);
+                break;
+            case 'fader':
+                this.createFaderControl(cell, control, sceneId);
+                break;
+            case 'knob':
+                this.createKnobControl(cell, control, sceneId);
+                break;
+            case 'button':
+                this.createButtonControl(cell, control, sceneId);
+                break;
+            case 'empty':
+            default:
+                // Empty cell - no styling (transparent like pad grid)
+                break;
+        }
+
+        return cell;
+    }
+
+    /**
+     * Create a pad control (momentary button that sends MIDI) - uses regroove-pad component
+     */
+    createPadControl(cell, control, sceneId) {
+        const pad = document.createElement('regroove-pad');
+        pad.setAttribute('label', control.label || '');
+
+        // Map hex colors to supported regroove-pad colors (green, red, yellow, blue)
+        if (control.color) {
+            const colorMap = {
+                '#4a9eff': 'blue',
+                '#9a4aff': 'blue',      // purple → blue
+                '#4aff9a': 'green',
+                '#ff4a4a': 'red',
+                '#ff9a4a': 'yellow',    // orange → yellow
+                '#ff4a9a': 'red',       // pink → red
+                '#ffaa44': 'yellow',
+                '#888': '',             // gray → default
+                '#9a9a9a': ''           // gray → default
+            };
+            const colorName = colorMap[control.color];
+            if (colorName) {
+                pad.setAttribute('color', colorName);
+            }
+        }
+
+        // Set MIDI attribute based on type
+        if (control.midiType === 'note') {
+            pad.setAttribute('note', control.midiNumber || 60);
+        } else if (control.midiType === 'cc') {
+            pad.setAttribute('cc', control.midiNumber || 1);
+        }
+
+        pad.style.cssText = `
+            width: 100%;
+            height: 100%;
+        `;
+
+        // Listen for pad-press event (fired by regroove-pad component)
+        pad.addEventListener('pad-press', (e) => {
+            this.sendControlMIDI(control, 127);
+        });
+
+        // Listen for pad-release event for note pads
+        if (control.midiType === 'note') {
+            pad.addEventListener('pad-release', (e) => {
+                this.sendControlMIDI(control, 0);
+            });
+        }
+
+        cell.appendChild(pad);
+    }
+
+    /**
+     * Create a fader control (vertical slider) - supports different fader types
+     */
+    createFaderControl(cell, control, sceneId) {
+        const faderType = control.faderType || 'cc-fader';
+        const fader = document.createElement(faderType);
+
+        // Configure based on fader type
+        if (faderType === 'cc-fader') {
+            fader.setAttribute('label', control.label || 'Fader');
+            fader.setAttribute('cc', control.midiNumber || 1);
+            fader.setAttribute('value', control.midiValue !== undefined ? control.midiValue : 64);
+            fader.setAttribute('min', '0');
+            fader.setAttribute('max', '127');
+
+            // Pass horizontal attribute if specified
+            if (control.horizontal) {
+                fader.setAttribute('horizontal', 'true');
+            }
+
+            fader.addEventListener('cc-change', (e) => {
+                this.sendControlMIDI(control, e.detail.value);
+            });
+        } else if (faderType === 'channel-fader') {
+            fader.setAttribute('channel', control.midiNumber || 0);
+            fader.setAttribute('label', control.label || `CH${(control.midiNumber || 0) + 1}`);
+            fader.setAttribute('volume', '100');
+            fader.setAttribute('pan', '0');
+            fader.setAttribute('solo', 'false');
+            fader.setAttribute('muted', 'false');
+
+            // Set device binding for MIDI
+            const deviceConfig = this.resolveDeviceBinding(control.deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+            fader.dataset.deviceBinding = control.deviceBinding || '';
+
+            // Add event listeners for channel fader
+            fader.addEventListener('volume-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleChannelVolume(deviceId, e.detail.channel, e.detail.value);
+            });
+            fader.addEventListener('pan-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                const panValue = this.convertPanToWire(e.detail.value);
+                this.handleChannelPan(deviceId, e.detail.channel, panValue);
+            });
+            fader.addEventListener('solo-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleChannelSolo(deviceId, e.detail.channel, e.detail.solo);
+            });
+            fader.addEventListener('mute-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleChannelMute(deviceId, e.detail.channel, e.detail.muted);
+            });
+        } else if (faderType === 'mix-fader') {
+            fader.setAttribute('label', control.label || 'Master');
+            fader.setAttribute('volume', '100');
+            fader.setAttribute('pan', '0');
+            fader.setAttribute('fx', 'false');
+            fader.setAttribute('muted', 'false');
+
+            const deviceConfig = this.resolveDeviceBinding(control.deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+            fader.dataset.deviceBinding = control.deviceBinding || '';
+
+            fader.addEventListener('volume-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleMasterVolume(deviceId, e.detail.value);
+            });
+            fader.addEventListener('pan-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                const panValue = this.convertPanToWire(e.detail.value);
+                this.handleMasterPan(deviceId, panValue);
+            });
+            fader.addEventListener('fx-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                const route = e.detail.enabled ? 1 : 0;
+                this.handleFxRouting(deviceId, route);
+            });
+            fader.addEventListener('mute-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleMasterMute(deviceId, e.detail.muted);
+            });
+        } else if (faderType === 'tempo-fader') {
+            fader.setAttribute('bpm', control.midiValue || '120');
+
+            const deviceConfig = this.resolveDeviceBinding(control.deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+
+            fader.addEventListener('tempo-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleTempoChange(deviceId, e.detail.bpm);
+            });
+        } else if (faderType === 'stereo-fader') {
+            fader.setAttribute('separation', control.midiValue || '64');
+
+            const deviceConfig = this.resolveDeviceBinding(control.deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+
+            fader.addEventListener('separation-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleStereoChange(deviceId, e.detail.separation);
+            });
+        } else if (faderType === 'program-fader') {
+            fader.setAttribute('program', control.midiNumber || 0);
+            fader.setAttribute('label', control.label || `PROG ${(control.midiNumber || 0) + 1}`);
+            fader.setAttribute('volume', '100');
+            fader.setAttribute('pan', '0');
+            fader.setAttribute('fx', 'false');
+            fader.setAttribute('muted', 'false');
+
+            const deviceConfig = this.resolveDeviceBinding(control.deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+
+            fader.addEventListener('volume-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleProgramVolume(deviceId, e.detail.program, e.detail.value);
+            });
+            fader.addEventListener('pan-change', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                const panValue = this.convertPanToWire(e.detail.value);
+                this.handleProgramPan(deviceId, e.detail.program, panValue);
+            });
+            fader.addEventListener('fx-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleProgramFxEnable(deviceId, e.detail.program, e.detail.enabled);
+            });
+            fader.addEventListener('mute-toggle', (e) => {
+                const deviceId = parseInt(fader.dataset.deviceId || 0);
+                this.handleProgramMute(deviceId, e.detail.program, e.detail.muted);
+            });
+        }
+
+        fader.style.cssText = `
+            width: 100%;
+            height: 100%;
+        `;
+
+        cell.appendChild(fader);
+    }
+
+    /**
+     * Create a knob control (rotary control that sends CC) - uses pad-knob component
+     */
+    createKnobControl(cell, control, sceneId) {
+        const knob = document.createElement('pad-knob');
+        knob.setAttribute('label', control.label || 'Knob');
+        knob.setAttribute('cc', control.midiNumber || 1);
+        knob.setAttribute('value', control.midiValue !== undefined ? control.midiValue : 64);
+        knob.setAttribute('min', '0');
+        knob.setAttribute('max', '127');
+
+        knob.style.cssText = `
+            width: 100%;
+            height: 100%;
+        `;
+
+        // Listen for CC changes and send MIDI
+        knob.addEventListener('cc-change', (e) => {
+            const value = e.detail.value;
+            this.sendControlMIDI(control, value);
+        });
+
+        cell.appendChild(knob);
+    }
+
+    /**
+     * Create a button control (toggle or momentary)
+     */
+    createButtonControl(cell, control, sceneId) {
+        // For now, buttons work like pads
+        this.createPadControl(cell, control, sceneId);
+    }
+
+    /**
+     * Swap two control grid cells (for Ctrl+drag)
+     */
+    swapControlGridCells(sceneId, fromRow, fromCol, toRow, toCol) {
+        const scene = this.scenes.get(sceneId);
+        if (!scene) return;
+
+        // Find cells in config
+        const fromIndex = scene.cells.findIndex(c => c.row === fromRow && c.col === fromCol);
+        const toIndex = scene.cells.findIndex(c => c.row === toRow && c.col === toCol);
+
+        if (fromIndex >= 0 && toIndex >= 0) {
+            // Swap the cell positions
+            const fromCell = scene.cells[fromIndex];
+            const toCell = scene.cells[toIndex];
+
+            // Update row/col references
+            fromCell.row = toRow;
+            fromCell.col = toCol;
+            toCell.row = fromRow;
+            toCell.col = fromCol;
+        } else if (fromIndex >= 0) {
+            // Moving to empty cell
+            scene.cells[fromIndex].row = toRow;
+            scene.cells[fromIndex].col = toCol;
+        }
+
+        // Save and re-render
+        this.controller.sceneEditor.saveScenesToStorage();
+        this.renderControlGridScene(sceneId);
+    }
+
+    /**
+     * Send MIDI from a control grid element
+     */
+    sendControlMIDI(control, value) {
+        // Get MIDI output (use device binding if specified)
+        let midiOutput = this.controller.midiOutput;
+        let midiChannel = control.midiChannel || 0;
+
+        if (control.deviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(control.deviceBinding);
+            if (device) {
+                const deviceOutput = this.controller.deviceManager.getMidiOutput(device.id);
+                if (deviceOutput) {
+                    midiOutput = deviceOutput;
+                    midiChannel = device.midiChannel;
+                }
+            }
+        }
+
+        if (!midiOutput) return;
+
+        const midiType = control.midiType || 'cc';
+        const midiNumber = control.midiNumber || 0;
+
+        if (midiType === 'note') {
+            const statusByte = value > 0 ? (0x90 + midiChannel) : (0x80 + midiChannel);
+            midiOutput.send([statusByte, midiNumber, value]);
+        } else if (midiType === 'cc') {
+            const statusByte = 0xB0 + midiChannel;
+            midiOutput.send([statusByte, midiNumber, value]);
+        } else if (midiType === 'program') {
+            const statusByte = 0xC0 + midiChannel;
+            midiOutput.send([statusByte, midiNumber]);
+        }
+
+        console.log(`[ControlGrid] MIDI ${midiType}: Ch${midiChannel + 1}, Num${midiNumber}, Val${value}`);
+    }
+
+    /**
+     * Show cell editor dialog for control grid
+     */
+    showControlGridCellEditor(sceneId, row, col) {
+        const scene = this.scenes.get(sceneId);
+        if (!scene) return;
+
+        // Find existing cell config
+        const cellIndex = scene.cells.findIndex(c => c.row === row && c.col === col);
+        const existingCell = cellIndex >= 0 ? scene.cells[cellIndex] : null;
+        const control = existingCell?.control || {type: 'empty'};
+
+        if (!window.nbDialog) {
+            console.error('[ControlGrid] nbDialog not available');
+            return;
+        }
+
+        const dialogContent = `
+            <div style="background: #1a1a1a; border: 2px solid #4a4a4a; border-radius: 8px; padding: 20px; min-width: 400px; color: #fff; font-family: Arial, sans-serif;">
+                <h3 style="margin: 0 0 20px 0; text-align: center;">Edit Grid Control</h3>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #888;">Position:</label>
+                    <div style="color: #ccc;">Row ${row + 1}, Col ${col + 1}</div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #888;">Control Type:</label>
+                    <select id="control-type" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                        <option value="empty" ${control.type === 'empty' ? 'selected' : ''}>Empty</option>
+                        <option value="pad" ${control.type === 'pad' ? 'selected' : ''}>Pad (Button)</option>
+                        <option value="fader" ${control.type === 'fader' ? 'selected' : ''}>Fader (Vertical Slider)</option>
+                        <option value="knob" ${control.type === 'knob' ? 'selected' : ''}>Knob (Rotary)</option>
+                        <option value="button" ${control.type === 'button' ? 'selected' : ''}>Button (Toggle)</option>
+                    </select>
+                </div>
+
+                <div id="fader-type-section" style="display: ${control.type === 'fader' ? 'block' : 'none'}; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #888;">Fader Type:</label>
+                    <select id="fader-type" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                        <option value="cc-fader" ${control.faderType === 'cc-fader' || !control.faderType ? 'selected' : ''}>CC Fader (Generic)</option>
+                        <option value="channel-fader" ${control.faderType === 'channel-fader' ? 'selected' : ''}>Channel Fader (Volume/Pan/Solo/Mute)</option>
+                        <option value="mix-fader" ${control.faderType === 'mix-fader' ? 'selected' : ''}>Mix Fader (Master Volume/Pan/FX/Mute)</option>
+                        <option value="tempo-fader" ${control.faderType === 'tempo-fader' ? 'selected' : ''}>Tempo Fader (BPM)</option>
+                        <option value="stereo-fader" ${control.faderType === 'stereo-fader' ? 'selected' : ''}>Stereo Fader (Separation)</option>
+                        <option value="program-fader" ${control.faderType === 'program-fader' ? 'selected' : ''}>Program Fader (Samplecrate)</option>
+                    </select>
+                </div>
+
+                <div id="control-settings" style="display: ${control.type !== 'empty' ? 'block' : 'none'};">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">Label:</label>
+                        <input type="text" id="control-label" value="${control.label || ''}" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">Color:</label>
+                        <input type="color" id="control-color" value="${control.color || '#4a9eff'}" style="width: 100%; height: 40px; padding: 4px; background: #0a0a0a; border: 1px solid #555; border-radius: 4px; cursor: pointer;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">MIDI Type:</label>
+                        <select id="midi-type" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                            <option value="cc" ${control.midiType === 'cc' ? 'selected' : ''}>CC (Control Change)</option>
+                            <option value="note" ${control.midiType === 'note' ? 'selected' : ''}>Note On/Off</option>
+                            <option value="program" ${control.midiType === 'program' ? 'selected' : ''}>Program Change</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">MIDI Channel (1-16):</label>
+                        <input type="number" id="midi-channel" value="${(control.midiChannel || 0) + 1}" min="1" max="16" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">MIDI Number (CC/Note/Program):</label>
+                        <input type="number" id="midi-number" value="${control.midiNumber || 1}" min="0" max="127" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">Initial Value (0-127):</label>
+                        <input type="number" id="midi-value" value="${control.midiValue !== undefined ? control.midiValue : 64}" min="0" max="127" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #888;">Size:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <div style="flex: 1;">
+                                <label style="display: block; margin-bottom: 3px; color: #666; font-size: 0.85em;">Rows:</label>
+                                <input type="number" id="row-span" value="${existingCell?.rowSpan || 1}" min="1" max="${scene.rows}" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="display: block; margin-bottom: 3px; color: #666; font-size: 0.85em;">Cols:</label>
+                                <input type="number" id="col-span" value="${existingCell?.colSpan || 1}" min="1" max="${scene.cols}" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    ${existingCell && control.type !== 'empty' ? `<button id="delete-control" style="padding: 10px 20px; background: #4a2a2a; color: #cc4444; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete</button>` : ''}
+                    <button id="cancel-control" style="padding: 10px 20px; background: #4a4a4a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+                    <button id="save-control" style="padding: 10px 20px; background: #4a9eff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Save</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(dialogContent);
+
+        // Show/hide settings based on control type
+        setTimeout(() => {
+            const typeSelect = document.getElementById('control-type');
+            const settingsDiv = document.getElementById('control-settings');
+            const faderTypeSection = document.getElementById('fader-type-section');
+
+            typeSelect?.addEventListener('change', () => {
+                settingsDiv.style.display = typeSelect.value === 'empty' ? 'none' : 'block';
+                faderTypeSection.style.display = typeSelect.value === 'fader' ? 'block' : 'none';
+            });
+
+            document.getElementById('cancel-control')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+
+            document.getElementById('delete-control')?.addEventListener('click', () => {
+                // Remove cell from config
+                if (cellIndex >= 0) {
+                    scene.cells.splice(cellIndex, 1);
+                    this.controller.sceneEditor.saveScenesToStorage();
+                    window.nbDialog.hide();
+                    this.renderControlGridScene(sceneId);
+                }
+            });
+
+            document.getElementById('save-control')?.addEventListener('click', () => {
+                const type = document.getElementById('control-type').value;
+
+                if (type === 'empty') {
+                    // Remove cell if it exists
+                    if (cellIndex >= 0) {
+                        scene.cells.splice(cellIndex, 1);
+                    }
+                } else {
+                    // Create/update cell config
+                    const newCell = {
+                        row,
+                        col,
+                        rowSpan: parseInt(document.getElementById('row-span').value) || 1,
+                        colSpan: parseInt(document.getElementById('col-span').value) || 1,
+                        control: {
+                            type,
+                            label: document.getElementById('control-label').value,
+                            color: document.getElementById('control-color').value,
+                            midiType: document.getElementById('midi-type').value,
+                            midiChannel: parseInt(document.getElementById('midi-channel').value) - 1,
+                            midiNumber: parseInt(document.getElementById('midi-number').value),
+                            midiValue: parseInt(document.getElementById('midi-value').value)
+                        }
+                    };
+
+                    // Add faderType if this is a fader
+                    if (type === 'fader') {
+                        newCell.control.faderType = document.getElementById('fader-type').value;
+                    }
+
+                    if (cellIndex >= 0) {
+                        scene.cells[cellIndex] = newCell;
+                    } else {
+                        scene.cells.push(newCell);
+                    }
+                }
+
+                this.controller.sceneEditor.saveScenesToStorage();
+                window.nbDialog.hide();
+                this.renderControlGridScene(sceneId);
+            });
+        }, 100);
     }
 }

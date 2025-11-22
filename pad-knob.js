@@ -75,8 +75,9 @@ class PadKnob extends HTMLElement {
 
                 .knob-container {
                     position: relative;
-                    width: min(120px, 60%);
-                    height: min(120px, 60%);
+                    width: min(120px, 100%);
+                    aspect-ratio: 1 / 1;
+                    max-height: 100%;
                     flex-shrink: 0;
                 }
 

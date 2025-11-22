@@ -83,6 +83,21 @@ export class SceneEditor {
             this.createSequencerScene();
         });
 
+        // Close control grid scene editor
+        document.getElementById('close-control-grid-scene-editor')?.addEventListener('click', () => {
+            this.closeControlGridSceneEditor();
+        });
+
+        // Save control grid scene
+        document.getElementById('save-control-grid-scene')?.addEventListener('click', () => {
+            this.saveControlGridScene();
+        });
+
+        // Delete control grid scene
+        document.getElementById('delete-control-grid-scene')?.addEventListener('click', () => {
+            this.deleteControlGridScene();
+        });
+
         // Close split scene editor
         document.getElementById('close-split-scene-editor')?.addEventListener('click', () => {
             this.closeSplitSceneEditor();
@@ -226,6 +241,15 @@ export class SceneEditor {
     openSceneEditor(sceneId = null) {
         this.currentSceneId = sceneId;
 
+        // Check if this is a control-grid scene - use simplified editor
+        if (sceneId) {
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'control-grid') {
+                this.openControlGridEditor(sceneId);
+                return;
+            }
+        }
+
         if (sceneId && sceneId !== 'pads') {
             // Edit existing scene
             const scene = this.sceneManager.scenes.get(sceneId);
@@ -285,6 +309,100 @@ export class SceneEditor {
 
     closeSceneEditor() {
         document.getElementById('scene-editor-overlay').classList.remove('active');
+    }
+
+    /**
+     * Open simplified editor for control-grid scenes
+     */
+    openControlGridEditor(sceneId) {
+        const scene = this.sceneManager.scenes.get(sceneId);
+        if (!scene) return;
+
+        this.currentSceneId = sceneId;
+
+        // Populate form fields
+        document.getElementById('control-grid-scene-name').value = scene.name;
+        document.getElementById('control-grid-scene-rows').value = scene.rows || 5;
+        document.getElementById('control-grid-scene-cols').value = scene.cols || 12;
+
+        // Populate device dropdown
+        this.populateControlGridDeviceDropdown(scene.deviceBinding);
+
+        // Show overlay
+        document.getElementById('control-grid-scene-editor-overlay').classList.add('active');
+    }
+
+    closeControlGridSceneEditor() {
+        document.getElementById('control-grid-scene-editor-overlay').classList.remove('active');
+    }
+
+    populateControlGridDeviceDropdown(selectedDeviceId = null) {
+        const select = document.getElementById('control-grid-scene-device');
+        if (!select) return;
+
+        // Get all available devices
+        const devices = this.sceneManager.controller.deviceManager?.getAllDevices() || [];
+
+        // Build options
+        select.innerHTML = '<option value="">Default MIDI Output</option>' +
+            devices.map(d =>
+                `<option value="${d.id}" ${selectedDeviceId === d.id ? 'selected' : ''}>${d.name} (CH ${d.midiChannel + 1})</option>`
+            ).join('');
+    }
+
+    saveControlGridScene() {
+        if (!this.currentSceneId) return;
+
+        const scene = this.sceneManager.scenes.get(this.currentSceneId);
+        if (!scene) return;
+
+        const name = document.getElementById('control-grid-scene-name').value.trim();
+        const deviceBinding = document.getElementById('control-grid-scene-device').value || null;
+        const rows = parseInt(document.getElementById('control-grid-scene-rows').value);
+        const cols = parseInt(document.getElementById('control-grid-scene-cols').value);
+
+        if (!name) {
+            window.nbDialog.alert('Please enter a scene name');
+            return;
+        }
+
+        // Update scene
+        scene.name = name;
+        scene.deviceBinding = deviceBinding;
+        scene.rows = rows;
+        scene.cols = cols;
+
+        // Save and refresh
+        this.saveScenesToStorage();
+        this.sceneManager.switchScene(this.currentSceneId);  // Re-render with new settings
+
+        // Update scene selector
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
+
+        // Close editor
+        this.closeControlGridSceneEditor();
+    }
+
+    deleteControlGridScene() {
+        if (!this.currentSceneId) return;
+
+        const scene = this.sceneManager.scenes.get(this.currentSceneId);
+        if (!scene) return;
+
+        window.nbDialog.confirm(`Delete scene "${scene.name}"?`, (confirmed) => {
+            if (confirmed) {
+                this.sceneManager.scenes.delete(this.currentSceneId);
+                this.saveScenesToStorage();
+                if (this.sceneManager.controller.settingsUI) {
+                    this.sceneManager.controller.settingsUI.refreshScenesList();
+                }
+                this.closeControlGridSceneEditor();
+                // Switch to default scene
+                this.sceneManager.switchScene('pads');
+            }
+        });
     }
 
     renderFaderGrid() {
@@ -1384,6 +1502,7 @@ export class SceneEditor {
                 type: scene.type,
                 enabled: scene.enabled !== undefined ? scene.enabled : true, // Save enabled state
                 rows: scene.rows,
+                cols: scene.cols, // For control-grid scenes
                 columnsPerRow: scene.columnsPerRow,
                 slots: scene.slots,
                 columns: scene.columns, // Keep for backward compatibility
@@ -1393,7 +1512,7 @@ export class SceneEditor {
                 octave: scene.octave, // For piano scenes
                 midiChannel: scene.midiChannel, // For piano scenes
                 program: scene.program, // For piano scenes
-                deviceBinding: scene.deviceBinding, // For effects and piano scenes
+                deviceBinding: scene.deviceBinding, // For effects, piano, and control-grid scenes
                 programId: scene.programId, // For effects scenes
                 padLayout: scene.padLayout, // For split scenes
                 padSide: scene.padSide, // For split scenes

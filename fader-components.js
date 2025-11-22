@@ -670,10 +670,11 @@ class ProgramFader extends BaseFader {
 /**
  * CC Fader Component
  * Generic MIDI CC fader for any CC number
+ * Supports both vertical (default) and horizontal orientation
  */
 class CCFader extends BaseFader {
     static get observedAttributes() {
-        return ['label', 'cc', 'value', 'min', 'max'];
+        return ['label', 'cc', 'value', 'min', 'max', 'horizontal'];
     }
 
     connectedCallback() {
@@ -684,10 +685,21 @@ class CCFader extends BaseFader {
     attributeChangedCallback(name, oldValue, newValue) {
         if (oldValue !== newValue && this.shadowRoot) {
             if (name === 'value') {
-                const slider = this.shadowRoot.querySelector('.fader-slider');
+                const slider = this.shadowRoot.querySelector('#cc-slider');
                 const valueDisplay = this.shadowRoot.querySelector('.fader-value');
-                if (slider) slider.value = newValue;
+                const isHorizontal = this.getAttribute('horizontal') === 'true';
+
+                if (slider) {
+                    // For horizontal (HTML range), set .value; for vertical (svg-slider), set attribute
+                    if (isHorizontal) {
+                        slider.value = newValue;
+                    } else {
+                        slider.setAttribute('value', newValue);
+                    }
+                }
                 if (valueDisplay) valueDisplay.textContent = newValue;
+            } else if (name === 'horizontal') {
+                this.render();  // Re-render when orientation changes
             }
         }
     }
@@ -698,42 +710,135 @@ class CCFader extends BaseFader {
         const value = parseInt(this.getAttribute('value') || '64');
         const min = parseInt(this.getAttribute('min') || '0');
         const max = parseInt(this.getAttribute('max') || '127');
+        const isHorizontal = this.getAttribute('horizontal') === 'true';
 
-        this.shadowRoot.innerHTML = `
-            <style>
-                ${this.getBaseStyles()}
+        if (isHorizontal) {
+            // Horizontal layout - use HTML range input
+            this.shadowRoot.innerHTML = `
+                <style>
+                    :host {
+                        display: flex;
+                        flex-direction: row;
+                        align-items: center;
+                        justify-content: space-between;
+                        width: 100%;
+                        height: 100%;
+                        padding: 8px;
+                        gap: 10px;
+                        box-sizing: border-box;
+                    }
 
-                .fader-value {
-                    font-size: 0.9em;
-                    color: #888;
-                    padding: 4px 8px;
-                    background: #0a0a0a;
-                    border-radius: 4px;
-                    min-width: 40px;
-                    text-align: center;
-                }
+                    .fader-label {
+                        color: #aaa;
+                        font-size: 0.85em;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        white-space: nowrap;
+                    }
 
-                .cc-number {
-                    font-size: 0.7em;
-                    color: #666;
-                    margin-top: 4px;
-                }
-            </style>
+                    .horizontal-slider {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        flex: 1;
+                        height: 24px;
+                        background: #2a2a2a;
+                        outline: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        touch-action: none;
+                    }
 
-            <div class="fader-label">${label}</div>
-            <div class="fader-value">${value}</div>
-            <input type="range" class="fader-slider" min="${min}" max="${max}" value="${value}" orient="vertical">
-            <div class="cc-number">CC ${cc}</div>
-        `;
+                    .horizontal-slider::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        width: 32px;
+                        height: 32px;
+                        background: #cc4444;
+                        cursor: grab;
+                        border-radius: 4px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    }
+
+                    .horizontal-slider::-webkit-slider-thumb:active {
+                        cursor: grabbing;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+                    }
+
+                    .horizontal-slider::-moz-range-thumb {
+                        width: 32px;
+                        height: 32px;
+                        background: #cc4444;
+                        cursor: grab;
+                        border: none;
+                        border-radius: 4px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    }
+
+                    .horizontal-slider::-moz-range-thumb:active {
+                        cursor: grabbing;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+                    }
+
+                    .fader-value {
+                        font-size: 0.85em;
+                        color: #888;
+                        padding: 4px 8px;
+                        background: #0a0a0a;
+                        border-radius: 4px;
+                        min-width: 40px;
+                        text-align: center;
+                        white-space: nowrap;
+                    }
+                </style>
+
+                <div class="fader-label">${label}</div>
+                <input type="range" class="horizontal-slider" id="cc-slider"
+                       min="${min}" max="${max}" value="${value}">
+                <div class="fader-value">${value}</div>
+            `;
+        } else {
+            // Vertical layout - use svg-slider
+            this.shadowRoot.innerHTML = `
+                <style>
+                    ${this.getBaseStyles()}
+
+                    .fader-value {
+                        font-size: 0.9em;
+                        color: #888;
+                        padding: 4px 8px;
+                        background: #0a0a0a;
+                        border-radius: 4px;
+                        min-width: 40px;
+                        text-align: center;
+                    }
+
+                    .cc-number {
+                        font-size: 0.7em;
+                        color: #666;
+                        margin-top: 4px;
+                    }
+                </style>
+
+                <div class="fader-label">${label}</div>
+                <div class="fader-value">${value}</div>
+                <div class="slider-container">
+                    <svg-slider id="cc-slider" min="${min}" max="${max}" value="${value}" width="60"></svg-slider>
+                </div>
+                <div class="cc-number">CC ${cc}</div>
+            `;
+        }
     }
 
     setupEventListeners() {
-        const slider = this.shadowRoot.querySelector('.fader-slider');
+        const slider = this.shadowRoot.querySelector('#cc-slider');
         const valueDisplay = this.shadowRoot.querySelector('.fader-value');
         const cc = parseInt(this.getAttribute('cc') || '1');
+        const isHorizontal = this.getAttribute('horizontal') === 'true';
 
         slider?.addEventListener('input', (e) => {
-            const value = parseInt(e.target.value);
+            // For horizontal (HTML range), use e.target.value; for vertical (svg-slider), use e.detail.value
+            const value = isHorizontal ? parseInt(e.target.value) : e.detail.value;
             valueDisplay.textContent = value;
 
             // Mark as changing to prevent state updates from interfering
@@ -746,7 +851,7 @@ class CCFader extends BaseFader {
             }));
         });
 
-        slider?.addEventListener('change', () => {
+        slider?.addEventListener('change', (e) => {
             // Release the changing lock after user stops dragging
             setTimeout(() => {
                 delete this.dataset.ccChanging;

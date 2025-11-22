@@ -155,12 +155,13 @@ export class DeviceManager {
                         this.devices.set(device.id, {
                             id: device.id,
                             name: device.name,
+                            type: device.type || 'generic', // Restore type field!
                             midiChannel: device.midiChannel,
                             deviceId: device.deviceId,
                             color: device.color || '#cc4444',
                             midiOutputId: device.midiOutputId || null
                         });
-                        console.log(`[Devices] Loaded: ${device.name} - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'}`);
+                        console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'}`);
                     });
                 }
 

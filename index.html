@@ -1584,6 +1584,59 @@
         </div>
     </div>
 
+    <!-- Control Grid Scene Editor -->
+    <div class="settings-overlay" id="control-grid-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="control-grid-scene-editor-title">EDIT CONTROL GRID SCENE</div>
+                <button class="close-settings" id="close-control-grid-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="control-grid-scene-name" placeholder="DJ Decks" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">DEVICE BINDING</label>
+                    <select id="control-grid-scene-device" style="width: 100%;">
+                        <option value="">Default MIDI Output</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Controls in this scene will send MIDI to the selected device
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">GRID SIZE</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 3px; color: #888; font-size: 0.85em;">Rows:</label>
+                            <input type="number" id="control-grid-scene-rows" min="1" max="10" value="5" style="width: 100%;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 3px; color: #888; font-size: 0.85em;">Columns:</label>
+                            <input type="number" id="control-grid-scene-cols" min="1" max="16" value="12" style="width: 100%;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 10px; background: #0a0a0a; border-radius: 4px; border-left: 3px solid #4a9eff; margin-bottom: 15px;">
+                    <div style="color: #4a9eff; font-size: 0.85em; font-weight: bold; margin-bottom: 5px;">💡 TIP</div>
+                    <div style="color: #888; font-size: 0.75em;">
+                        Right-click individual cells in the grid to edit pads, faders, and knobs
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-control-grid-scene">💾 SAVE SCENE</button>
+                    <button id="delete-control-grid-scene">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Device Instance Editor -->
     <div class="settings-overlay" id="device-editor-overlay">
         <div class="settings-panel">
