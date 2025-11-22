@@ -27,8 +27,8 @@ export class SequencerScene {
         this.scrollOffset = 0;
         this.visibleRows = 24; // Number of rows visible at once
 
-        // Track whether we're editing
-        this.editing = false;
+        // Track whether we're in record/edit mode
+        this.recordMode = false;
 
         // Track last preview note time to prevent MIDI feedback loops
         // When navigating with arrow keys, preview notes are sent via MIDI output
@@ -147,6 +147,29 @@ export class SequencerScene {
         stopBtn.addEventListener('click', () => this.engine.stopPlayback());
         bar.appendChild(stopBtn);
 
+        // Record/Edit button
+        const recordBtn = document.createElement('button');
+        recordBtn.textContent = '⏺ REC';
+        recordBtn.id = 'seq-record-btn';
+        recordBtn.style.cssText = buttonStyle + `
+            background: ${this.recordMode ? '#4a2a2a' : '#2a2a2a'};
+            color: ${this.recordMode ? '#cc4444' : '#888'};
+            border-color: ${this.recordMode ? '#5a3a3a' : '#3a3a3a'};
+        `;
+        recordBtn.addEventListener('click', () => this.toggleRecordMode());
+        bar.appendChild(recordBtn);
+
+        // File operations button
+        const fileBtn = document.createElement('button');
+        fileBtn.textContent = '📁 FILE';
+        fileBtn.style.cssText = buttonStyle + `
+            background: #2a2a4a;
+            color: #6a6aaa;
+            border-color: #3a3a5a;
+        `;
+        fileBtn.addEventListener('click', () => this.openFileDialog());
+        bar.appendChild(fileBtn);
+
         // Fill Track button
         const fillBtn = document.createElement('button');
         fillBtn.textContent = '⚡ FILL';
@@ -157,50 +180,6 @@ export class SequencerScene {
         `;
         fillBtn.addEventListener('click', () => this.openFillDialog());
         bar.appendChild(fillBtn);
-
-        // Export MIDI button
-        const exportBtn = document.createElement('button');
-        exportBtn.textContent = '💾 EXPORT';
-        exportBtn.style.cssText = buttonStyle + `
-            background: #2a4a4a;
-            color: #6a9a9a;
-            border-color: #3a5a5a;
-        `;
-        exportBtn.addEventListener('click', () => this.exportMIDI());
-        bar.appendChild(exportBtn);
-
-        // Import MIDI button
-        const importBtn = document.createElement('button');
-        importBtn.textContent = '📁 IMPORT';
-        importBtn.style.cssText = buttonStyle + `
-            background: #2a4a2a;
-            color: #6a9a6a;
-            border-color: #3a5a3a;
-        `;
-        importBtn.addEventListener('click', () => this.importMIDI());
-        bar.appendChild(importBtn);
-
-        // Upload to Device button
-        const uploadBtn = document.createElement('button');
-        uploadBtn.textContent = '📤 UPLOAD';
-        uploadBtn.style.cssText = buttonStyle + `
-            background: #4a2a4a;
-            color: #aa6aaa;
-            border-color: #5a3a5a;
-        `;
-        uploadBtn.addEventListener('click', () => this.uploadToDevice());
-        bar.appendChild(uploadBtn);
-
-        // Download from Device button
-        const downloadBtn = document.createElement('button');
-        downloadBtn.textContent = '📥 DOWNLOAD';
-        downloadBtn.style.cssText = buttonStyle + `
-            background: #2a2a4a;
-            color: #6a6aaa;
-            border-color: #3a3a5a;
-        `;
-        downloadBtn.addEventListener('click', () => this.downloadFromDevice());
-        bar.appendChild(downloadBtn);
 
         // BPM control
         const bpmLabel = document.createElement('span');
@@ -831,6 +810,9 @@ export class SequencerScene {
                     return; // Not the active scene - ignore all MIDI input
                 }
 
+                // CRITICAL: Only insert notes when in record mode
+                if (!this.recordMode) return;
+
                 // Only insert notes when cursor is on note field (not velocity/program fields)
                 if (this.cursorField !== 0) return;
 
@@ -894,22 +876,145 @@ export class SequencerScene {
         }
     }
 
+    toggleRecordMode() {
+        this.recordMode = !this.recordMode;
+
+        // Update record button appearance
+        const recordBtn = document.getElementById('seq-record-btn');
+        if (recordBtn) {
+            recordBtn.style.background = this.recordMode ? '#4a2a2a' : '#2a2a2a';
+            recordBtn.style.color = this.recordMode ? '#cc4444' : '#888';
+            recordBtn.style.borderColor = this.recordMode ? '#5a3a3a' : '#3a3a3a';
+        }
+
+        console.log(`[Sequencer] Record mode ${this.recordMode ? 'enabled' : 'disabled'}`);
+    }
+
+    openFileDialog() {
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        const dialogContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 400px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 20px 0; text-align: center;">File Operations</h3>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button id="file-export-btn" style="
+                        padding: 12px 20px;
+                        background: #2a4a4a;
+                        color: #6a9a9a;
+                        border: 1px solid #3a5a5a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        font-size: 14px;
+                    ">💾 Export MIDI File</button>
+
+                    <button id="file-import-btn" style="
+                        padding: 12px 20px;
+                        background: #2a4a2a;
+                        color: #6a9a6a;
+                        border: 1px solid #3a5a3a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        font-size: 14px;
+                    ">📁 Import MIDI File</button>
+
+                    <button id="file-upload-btn" style="
+                        padding: 12px 20px;
+                        background: #4a2a4a;
+                        color: #aa6aaa;
+                        border: 1px solid #5a3a5a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        font-size: 14px;
+                    ">📤 Upload to Device</button>
+
+                    <button id="file-download-btn" style="
+                        padding: 12px 20px;
+                        background: #2a2a4a;
+                        color: #6a6aaa;
+                        border: 1px solid #3a3a5a;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        font-size: 14px;
+                    ">📥 Download from Device</button>
+                </div>
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <button id="file-close-btn" style="
+                        padding: 10px 30px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Close</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(dialogContent);
+
+        // Wire up buttons
+        setTimeout(() => {
+            document.getElementById('file-export-btn')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+                this.exportMIDI();
+            });
+
+            document.getElementById('file-import-btn')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+                this.importMIDI();
+            });
+
+            document.getElementById('file-upload-btn')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+                this.uploadToDevice();
+            });
+
+            document.getElementById('file-download-btn')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+                this.downloadFromDevice();
+            });
+
+            document.getElementById('file-close-btn')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+        }, 100);
+    }
+
     handleKeyDown(e) {
         // Only handle if this scene is active
         if (this.controller.sceneManager?.currentScene !== this.sceneId) {
             return;
         }
 
-        // Arrow keys for navigation and editing
+        // Arrow keys for navigation (always enabled)
+        // Note editing requires record mode (editing operations below)
         switch (e.key) {
             case 'ArrowUp':
                 e.preventDefault();
 
-                // Note field: Shift+Up = increment note, Ctrl+Up = increment octave
+                // Note field: Shift+Up = increment note, Ctrl+Up = increment octave (requires record mode)
                 if (this.cursorField === 0) {
-                    if (e.shiftKey) {
+                    if (e.shiftKey && this.recordMode) {
                         this.incrementNote(1);
-                    } else if (e.ctrlKey) {
+                    } else if (e.ctrlKey && this.recordMode) {
                         this.incrementOctave(1);
                     } else {
                         // Normal Up = move cursor up
@@ -926,11 +1031,11 @@ export class SequencerScene {
                         }
                     }
                 }
-                // Volume field: Shift+Up = small increment (+1), Ctrl+Up = large increment (+16)
+                // Volume field: Shift+Up = small increment (+1), Ctrl+Up = large increment (+16) (requires record mode)
                 else if (this.cursorField === 1) {
-                    if (e.shiftKey) {
+                    if (e.shiftKey && this.recordMode) {
                         this.incrementVolume(1);
-                    } else if (e.ctrlKey) {
+                    } else if (e.ctrlKey && this.recordMode) {
                         this.incrementVolume(16);
                     } else {
                         // Normal Up = move cursor up
@@ -950,11 +1055,11 @@ export class SequencerScene {
             case 'ArrowDown':
                 e.preventDefault();
 
-                // Note field: Shift+Down = decrement note, Ctrl+Down = decrement octave
+                // Note field: Shift+Down = decrement note, Ctrl+Down = decrement octave (requires record mode)
                 if (this.cursorField === 0) {
-                    if (e.shiftKey) {
+                    if (e.shiftKey && this.recordMode) {
                         this.incrementNote(-1);
-                    } else if (e.ctrlKey) {
+                    } else if (e.ctrlKey && this.recordMode) {
                         this.incrementOctave(-1);
                     } else {
                         // Normal Down = move cursor down
@@ -971,11 +1076,11 @@ export class SequencerScene {
                         }
                     }
                 }
-                // Volume field: Shift+Down = small decrement (-1), Ctrl+Down = large decrement (-16)
+                // Volume field: Shift+Down = small decrement (-1), Ctrl+Down = large decrement (-16) (requires record mode)
                 else if (this.cursorField === 1) {
-                    if (e.shiftKey) {
+                    if (e.shiftKey && this.recordMode) {
                         this.incrementVolume(-1);
-                    } else if (e.ctrlKey) {
+                    } else if (e.ctrlKey && this.recordMode) {
                         this.incrementVolume(-16);
                     } else {
                         // Normal Down = move cursor down
@@ -1033,17 +1138,19 @@ export class SequencerScene {
 
             case 'Delete':
                 e.preventDefault();
-                this.clearCurrentEntry();
+                if (this.recordMode) {
+                    this.clearCurrentEntry();
+                }
                 break;
 
             default:
-                // Handle note input (C, D, E, F, G, A, B) when on note field
-                if (this.cursorField === 0 && /^[A-G]$/i.test(e.key)) {
+                // Handle note input (C, D, E, F, G, A, B) when on note field (requires record mode)
+                if (this.recordMode && this.cursorField === 0 && /^[A-G]$/i.test(e.key)) {
                     e.preventDefault();
                     this.setNote(e.key.toUpperCase());
                 }
-                // Handle hex input (0-9, A-F) when on volume field
-                else if (this.cursorField === 1 && /^[0-9A-F]$/i.test(e.key)) {
+                // Handle hex input (0-9, A-F) when on volume field (requires record mode)
+                else if (this.recordMode && this.cursorField === 1 && /^[0-9A-F]$/i.test(e.key)) {
                     e.preventDefault();
                     this.setVolumeHex(e.key.toUpperCase());
                 }
@@ -1456,7 +1563,13 @@ export class SequencerScene {
         return new Uint8Array(midiFile);
     }
 
-    exportMIDI(returnData = false) {
+    exportMIDI(returnData = false, selectedTracks = null) {
+        // If no track selection provided and not returning data, show dialog
+        if (!returnData && selectedTracks === null) {
+            this.showExportTrackDialog();
+            return;
+        }
+
         // Create Standard MIDI File (Format 1)
         const tracks = [];
 
@@ -1476,8 +1589,13 @@ export class SequencerScene {
         tempoTrack.push(0xFF, 0x2F, 0x00); // End of track
         tracks.push(tempoTrack);
 
-        // Convert each sequencer track to MIDI track
-        for (let track = 0; track < this.engine.pattern.tracks; track++) {
+        // Determine which tracks to export
+        const tracksToExport = selectedTracks === 'all'
+            ? Array.from({length: 4}, (_, i) => i)
+            : [selectedTracks];
+
+        // Convert selected sequencer tracks to MIDI tracks
+        for (const track of tracksToExport) {
             tracks.push(this.buildMIDITrack(track, ticksPerRow));
         }
 
@@ -1492,13 +1610,89 @@ export class SequencerScene {
         // Download file
         const blob = new Blob([midiFile], { type: 'audio/midi' });
         const url = URL.createObjectURL(blob);
+        const trackSuffix = selectedTracks === 'all' ? 'all' : `track${selectedTracks + 1}`;
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${this.name.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.mid`;
+        a.download = `${this.name.replace(/[^a-z0-9]/gi, '_')}_${trackSuffix}_${Date.now()}.mid`;
         a.click();
         URL.revokeObjectURL(url);
 
         console.log(`[Sequencer] Exported MIDI file: ${a.download}`);
+    }
+
+    showExportTrackDialog() {
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
+        }
+
+        const dialogContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 350px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Export MIDI</h3>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Select track(s) to export:</label>
+                    <select id="export-track-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        <option value="all">All 4 tracks</option>
+                        ${Array.from({length: 4}, (_, i) => `<option value="${i}">Track ${i + 1}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="export-cancel" style="
+                        padding: 10px 20px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Cancel</button>
+                    <button id="export-ok" style="
+                        padding: 10px 20px;
+                        background: #4a9eff;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Export</button>
+                </div>
+            </div>
+        `;
+
+        window.nbDialog.show(dialogContent);
+
+        // Wire up buttons
+        setTimeout(() => {
+            document.getElementById('export-cancel')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+
+            document.getElementById('export-ok')?.addEventListener('click', () => {
+                const trackSelection = document.getElementById('export-track-selector').value;
+                window.nbDialog.hide();
+
+                const selectedTracks = trackSelection === 'all' ? 'all' : parseInt(trackSelection);
+                this.exportMIDI(false, selectedTracks);
+            });
+        }, 100);
     }
 
     importMIDI() {
@@ -1514,10 +1708,12 @@ export class SequencerScene {
             reader.onload = (event) => {
                 try {
                     const data = new Uint8Array(event.target.result);
-                    this.parseMIDIFile(data);
+                    this.showImportTrackDialog(data, file.name);
                 } catch (err) {
                     console.error('[Sequencer] MIDI import error:', err);
-                    window.nbDialog.alert('Error importing MIDI file: ' + err.message);
+                    if (window.nbDialog) {
+                        window.nbDialog.alert('Error importing MIDI file: ' + err.message);
+                    }
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -1525,86 +1721,179 @@ export class SequencerScene {
         input.click();
     }
 
-    parseMIDIFile(data) {
-        let pos = 0;
-
-        // Read header
-        const header = String.fromCharCode(...data.slice(pos, pos + 4));
-        pos += 4;
-
-        if (header !== 'MThd') {
-            throw new Error('Not a valid MIDI file (missing MThd header)');
+    showImportTrackDialog(midiData, fileName) {
+        if (!window.nbDialog) {
+            console.error('[Sequencer] nbDialog not available');
+            return;
         }
 
-        const headerLength = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
-        pos += 4;
+        const dialogContent = `
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #4a4a4a;
+                border-radius: 8px;
+                padding: 20px;
+                min-width: 350px;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+            ">
+                <h3 style="margin: 0 0 15px 0; text-align: center;">Import MIDI</h3>
 
-        const format = (data[pos] << 8) | data[pos + 1];
-        pos += 2;
+                <div style="margin-bottom: 15px;">
+                    <strong>File:</strong> ${fileName}
+                </div>
 
-        const numTracks = (data[pos] << 8) | data[pos + 1];
-        pos += 2;
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Import to track:</label>
+                    <select id="import-track-selector" style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #0a0a0a;
+                        color: #ccc;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    ">
+                        ${Array.from({length: 4}, (_, i) => `<option value="${i}">Track ${i + 1}</option>`).join('')}
+                    </select>
+                </div>
 
-        const ticksPerQuarterNote = (data[pos] << 8) | data[pos + 1];
-        pos += 2;
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="import-cancel" style="
+                        padding: 10px 20px;
+                        background: #4a4a4a;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Cancel</button>
+                    <button id="import-ok" style="
+                        padding: 10px 20px;
+                        background: #4a9eff;
+                        color: #fff;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Import</button>
+                </div>
+            </div>
+        `;
 
-        console.log(`[Sequencer] MIDI Import: Format ${format}, ${numTracks} tracks, ${ticksPerQuarterNote} ticks/quarter`);
+        window.nbDialog.show(dialogContent);
 
-        // Ask which track to import (non-blocking)
-        window.nbDialog.prompt(`Import to which sequencer track (1-4)?`, '1', (trackStr) => {
-            if (trackStr === null) return;
-            const targetTrack = parseInt(trackStr) - 1;
-            if (targetTrack < 0 || targetTrack > 3) {
-                window.nbDialog.alert('Invalid track number');
-                return;
+        // Wire up buttons
+        setTimeout(() => {
+            document.getElementById('import-cancel')?.addEventListener('click', () => {
+                window.nbDialog.hide();
+            });
+
+            document.getElementById('import-ok')?.addEventListener('click', () => {
+                const targetTrack = parseInt(document.getElementById('import-track-selector').value);
+                window.nbDialog.hide();
+
+                this.parseMIDIFile(midiData, targetTrack);
+            });
+        }, 100);
+    }
+
+    parseMIDIFile(data, targetTrack) {
+        try {
+            let pos = 0;
+
+            // Read header
+            if (data.length < 14) {
+                throw new Error(`File too small (${data.length} bytes), minimum is 14 bytes for MIDI header`);
             }
 
-            // Parse tracks
-            let midiTrack = 0;
-            const processNextTrack = () => {
-                if (pos >= data.length || midiTrack >= numTracks) {
-                    this.updateTrackerGrid();
-                    console.log(`[Sequencer] MIDI import complete`);
-                    return;
+            const header = String.fromCharCode(...data.slice(pos, pos + 4));
+            pos += 4;
+
+            if (header !== 'MThd') {
+                throw new Error(`Not a valid MIDI file (missing MThd header, found '${header}')`);
+            }
+
+            const headerLength = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
+            pos += 4;
+
+            const format = (data[pos] << 8) | data[pos + 1];
+            pos += 2;
+
+            const numTracks = (data[pos] << 8) | data[pos + 1];
+            pos += 2;
+
+            const ticksPerQuarterNote = (data[pos] << 8) | data[pos + 1];
+            pos += 2;
+
+            console.log(`[Sequencer] MIDI Import: Format ${format}, ${numTracks} tracks, ${ticksPerQuarterNote} ticks/quarter, header length ${headerLength}`);
+            console.log(`[Sequencer] Importing to sequencer track ${targetTrack + 1}`);
+
+            // Parse all tracks and import the first non-tempo track
+            let midiTrackIndex = 0;
+            let importedTrackCount = 0;
+
+            while (pos < data.length && midiTrackIndex < numTracks) {
+                if (pos + 8 > data.length) {
+                    console.warn(`[Sequencer] Not enough data for track header at pos ${pos}`);
+                    break;
                 }
 
                 const trackHeader = String.fromCharCode(...data.slice(pos, pos + 4));
                 pos += 4;
 
                 if (trackHeader !== 'MTrk') {
-                    console.warn('[Sequencer] Skipping unknown chunk:', trackHeader);
-                    processNextTrack();
-                    return;
+                    console.warn(`[Sequencer] Skipping unknown chunk: '${trackHeader}' at pos ${pos - 4}`);
+                    break;
                 }
 
                 const trackLength = (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
                 pos += 4;
 
+                if (pos + trackLength > data.length) {
+                    console.warn(`[Sequencer] Track ${midiTrackIndex} length ${trackLength} exceeds file size (${data.length - pos} bytes remaining)`);
+                    break;
+                }
+
                 const trackData = data.slice(pos, pos + trackLength);
                 pos += trackLength;
 
-                // Skip track 0 (tempo track)
-                if (midiTrack === 0) {
-                    midiTrack++;
-                    processNextTrack();
-                    return;
+                console.log(`[Sequencer] Found MIDI track ${midiTrackIndex}, length ${trackLength} bytes`);
+
+                // Skip track 0 (usually tempo/meta track)
+                if (midiTrackIndex === 0) {
+                    console.log(`[Sequencer] Skipping track 0 (tempo/meta track)`);
+                    midiTrackIndex++;
+                    continue;
                 }
 
-                // Ask if we want to import this track
-                window.nbDialog.confirm(`Import MIDI track ${midiTrack} (sequencer track ${midiTrack})?`, (confirmed) => {
-                    if (confirmed) {
-                        this.importMIDITrack(trackData, targetTrack, ticksPerQuarterNote);
-                        this.updateTrackerGrid();
-                        console.log(`[Sequencer] MIDI import complete`);
-                    } else {
-                        midiTrack++;
-                        processNextTrack();
-                    }
-                });
-            };
+                // Import the first non-tempo track we find
+                console.log(`[Sequencer] Importing MIDI track ${midiTrackIndex} to sequencer track ${targetTrack + 1}`);
+                this.importMIDITrack(trackData, targetTrack, ticksPerQuarterNote);
+                importedTrackCount++;
+                midiTrackIndex++;
+                break; // Only import one track
+            }
 
-            processNextTrack();
-        });
+            this.updateTrackerGrid();
+
+            if (importedTrackCount > 0) {
+                console.log(`[Sequencer] MIDI import complete: imported ${importedTrackCount} track(s)`);
+                if (window.nbDialog) {
+                    window.nbDialog.alert(`MIDI file imported successfully to track ${targetTrack + 1}!`);
+                }
+            } else {
+                console.warn('[Sequencer] No tracks found to import');
+                if (window.nbDialog) {
+                    window.nbDialog.alert('No tracks found in MIDI file');
+                }
+            }
+        } catch (err) {
+            console.error(`[Sequencer] Error parsing MIDI file:`, err);
+            if (window.nbDialog) {
+                window.nbDialog.alert(`Error importing MIDI file: ${err.message}`);
+            }
+        }
     }
 
     importMIDITrack(trackData, targetTrack, ticksPerQuarterNote) {
@@ -1615,62 +1904,106 @@ export class SequencerScene {
         const ticksPerRow = ticksPerQuarterNote / 4; // 16th note resolution
         const noteEvents = [];
 
-        console.log(`[Sequencer] Parsing track data: ${trackData.length} bytes`);
+        console.log(`[Sequencer] Parsing track data: ${trackData.length} bytes, ticksPerQuarterNote=${ticksPerQuarterNote}, ticksPerRow=${ticksPerRow}`);
 
-        while (pos < trackData.length) {
-            // Read variable-length delta time
-            const [deltaTime, newPos] = this.readVarLen(trackData, pos);
-            pos = newPos;
-            time += deltaTime;
-
-            // Check if we have enough data
-            if (pos >= trackData.length) break;
-
-            // Read event
-            let status = trackData[pos];
-
-            // Handle running status
-            if (status < 0x80) {
-                status = runningStatus;
-            } else {
-                pos++;
-                runningStatus = status;
-            }
-
-            const messageType = status & 0xF0;
-
-            if (messageType === 0x90 || messageType === 0x80) {
-                // Note On/Off
-                if (pos + 1 >= trackData.length) break;
-                const note = trackData[pos++];
-                const velocity = trackData[pos++];
-
-                const row = Math.floor(time / ticksPerRow);
-
-                if (messageType === 0x90 && velocity > 0) {
-                    // Note On
-                    console.log(`[Sequencer] Note On: ${note} at row ${row}, velocity ${velocity}`);
-                    noteEvents.push({ row, note, velocity });
+        try {
+            while (pos < trackData.length) {
+                // Read variable-length delta time
+                try {
+                    const [deltaTime, newPos] = this.readVarLen(trackData, pos);
+                    pos = newPos;
+                    time += deltaTime;
+                } catch (err) {
+                    console.error(`[Sequencer] Error reading delta time at pos ${pos}:`, err);
+                    break;
                 }
-            } else if (messageType >= 0xC0 && messageType <= 0xE0) {
-                // Program Change, Channel Pressure (2 bytes total including status)
-                if (pos >= trackData.length) break;
-                pos++;
-            } else if (messageType >= 0x80 && messageType <= 0xB0) {
-                // Note Off, Control Change, etc. (3 bytes total including status)
-                if (pos + 1 >= trackData.length) break;
-                pos += 2;
-            } else if (status === 0xFF) {
-                // Meta event
-                if (pos >= trackData.length) break;
-                const metaType = trackData[pos++];
-                if (pos >= trackData.length) break;
-                const [length, newPos2] = this.readVarLen(trackData, pos);
-                pos = newPos2 + length;
-            } else if (status === 0xF0 || status === 0xF7) {
-                // SysEx
-                const [length, newPos2] = this.readVarLen(trackData, pos);
-                pos = newPos2 + length;
+
+                // Check if we have enough data
+                if (pos >= trackData.length) {
+                    console.log(`[Sequencer] Reached end of track data at pos ${pos}`);
+                    break;
+                }
+
+                // Read event
+                let status = trackData[pos];
+
+                // Handle running status
+                if (status < 0x80) {
+                    status = runningStatus;
+                } else {
+                    pos++;
+                    runningStatus = status;
+                }
+
+                const messageType = status & 0xF0;
+
+                if (messageType === 0x90 || messageType === 0x80) {
+                    // Note On/Off
+                    if (pos + 1 >= trackData.length) {
+                        console.warn(`[Sequencer] Not enough data for note event at pos ${pos}`);
+                        break;
+                    }
+                    const note = trackData[pos++];
+                    const velocity = trackData[pos++];
+
+                    const row = Math.floor(time / ticksPerRow);
+
+                    if (messageType === 0x90 && velocity > 0) {
+                        // Note On - only log occasionally to avoid spam
+                        if (noteEvents.length < 5 || noteEvents.length % 10 === 0) {
+                            console.log(`[Sequencer] Note On: ${note} at tick ${time}, row ${row}, velocity ${velocity}`);
+                        }
+                        noteEvents.push({ row, note, velocity });
+                    }
+                } else if (messageType >= 0xC0 && messageType <= 0xE0) {
+                    // Program Change, Channel Pressure (2 bytes total including status)
+                    if (pos >= trackData.length) break;
+                    pos++;
+                } else if (messageType >= 0x80 && messageType <= 0xB0) {
+                    // Note Off, Control Change, etc. (3 bytes total including status)
+                    if (pos + 1 >= trackData.length) break;
+                    pos += 2;
+                } else if (status === 0xFF) {
+                    // Meta event
+                    if (pos >= trackData.length) break;
+                    const metaType = trackData[pos++];
+                    if (pos >= trackData.length) break;
+                    try {
+                        const [length, newPos2] = this.readVarLen(trackData, pos);
+                        pos = newPos2 + length;
+                        if (pos > trackData.length) {
+                            console.warn(`[Sequencer] Meta event extends beyond track data: metaType=0x${metaType.toString(16)}, length=${length}`);
+                            pos = trackData.length;
+                            break;
+                        }
+                    } catch (err) {
+                        console.error(`[Sequencer] Error reading meta event length at pos ${pos}:`, err);
+                        break;
+                    }
+                } else if (status === 0xF0 || status === 0xF7) {
+                    // SysEx
+                    try {
+                        const [length, newPos2] = this.readVarLen(trackData, pos);
+                        pos = newPos2 + length;
+                        if (pos > trackData.length) {
+                            console.warn(`[Sequencer] SysEx extends beyond track data: length=${length}`);
+                            pos = trackData.length;
+                            break;
+                        }
+                    } catch (err) {
+                        console.error(`[Sequencer] Error reading SysEx length at pos ${pos}:`, err);
+                        break;
+                    }
+                } else {
+                    console.warn(`[Sequencer] Unknown status byte 0x${status.toString(16)} at pos ${pos}`);
+                    // Try to skip this byte and continue
+                    pos++;
+                }
+            }
+        } catch (err) {
+            console.error(`[Sequencer] Error parsing MIDI track:`, err);
+            if (window.nbDialog) {
+                window.nbDialog.alert(`Error parsing MIDI track: ${err.message}`);
             }
         }
 
@@ -2046,7 +2379,7 @@ export class SequencerScene {
                 onComplete: () => {
                     if (uploadCancelled) return;
 
-                    console.log(`[Sequencer] Upload complete: Track ${trackIndex + 1} → slot ${slot}`);
+                    console.log(`[Sequencer] Upload complete: Track ${trackIndex + 1} → slot S${slot + 1}`);
                     const statusText = document.getElementById('upload-status');
                     if (statusText) statusText.textContent = 'Upload complete!';
 
@@ -2054,7 +2387,7 @@ export class SequencerScene {
                     setTimeout(() => {
                         window.nbDialog.hide();
                         if (window.nbDialog.alert) {
-                            window.nbDialog.alert(`Track ${trackIndex + 1} uploaded successfully to slot ${slot}!`);
+                            window.nbDialog.alert(`Track ${trackIndex + 1} uploaded successfully to slot S${slot + 1}!`);
                         }
                     }, 1000);
                 },
@@ -2276,7 +2609,7 @@ export class SequencerScene {
                 setTimeout(() => {
                     window.nbDialog.hide();
                     if (window.nbDialog.alert) {
-                        window.nbDialog.alert(`All 4 tracks uploaded successfully to slots ${startingSlot}-${startingSlot + 3}!`);
+                        window.nbDialog.alert(`All 4 tracks uploaded successfully to slots S${startingSlot + 1}-S${startingSlot + 4}!`);
                     }
                 }, 1000);
             }
@@ -2786,10 +3119,18 @@ export class SequencerScene {
         // Read variable-length quantity (MIDI standard)
         let value = 0;
         let byte;
+        let bytesRead = 0;
 
         do {
+            if (pos >= data.length) {
+                throw new Error(`readVarLen: unexpected end of data at position ${pos}`);
+            }
+            if (bytesRead >= 4) {
+                throw new Error(`readVarLen: variable-length value too long at position ${pos}`);
+            }
             byte = data[pos++];
             value = (value << 7) | (byte & 0x7F);
+            bytesRead++;
         } while (byte & 0x80);
 
         return [value, pos];
