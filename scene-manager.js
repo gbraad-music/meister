@@ -2268,7 +2268,7 @@ export class SceneManager {
             if (scene.program > -1) {
                 scene.program--;
                 if (scene.program >= 0) {
-                    this.sendProgramChange(scene.midiChannel, scene.program);
+                    this.sendProgramChange(scene, scene.program);
                 }
                 this.renderPianoScene(sceneId);
             }
@@ -2300,7 +2300,7 @@ export class SceneManager {
         programUpBtn.addEventListener('click', () => {
             if (scene.program < 127) {
                 scene.program++;
-                this.sendProgramChange(scene.midiChannel, scene.program);
+                this.sendProgramChange(scene, scene.program);
                 this.renderPianoScene(sceneId);
             }
         });
@@ -2316,7 +2316,7 @@ export class SceneManager {
 
         // Send program change if scene has a program set
         if (scene.program >= 0) {
-            this.sendProgramChange(scene.midiChannel, scene.program);
+            this.sendProgramChange(scene, scene.program);
         }
 
         // Create piano keyboard container
@@ -2376,13 +2376,38 @@ export class SceneManager {
         const activeTouches = new Map(); // touchId -> noteNumber (for multi-touch)
         let mouseNote = null; // Current note for mouse input
 
+        // Resolve MIDI output and channel from device binding
+        let midiOutput = this.controller.midiOutput; // Default output
+        let midiChannel = scene.midiChannel || 0; // Scene's MIDI channel
+
+        if (scene.deviceBinding && this.controller.deviceManager) {
+            const boundDevice = this.controller.deviceManager.getDevice(scene.deviceBinding);
+            if (boundDevice) {
+                // Use device-specific output and channel
+                const deviceOutput = this.controller.deviceManager.getMidiOutput(boundDevice.id);
+                if (deviceOutput) {
+                    midiOutput = deviceOutput;
+                    midiChannel = boundDevice.midiChannel; // Use device's channel, not scene's
+                    console.log(`[Piano] Using device output: ${boundDevice.name}, channel ${midiChannel + 1}`);
+                } else {
+                    console.warn(`[Piano] No MIDI output found for device ${boundDevice.name}, using default`);
+                }
+            } else {
+                console.warn(`[Piano] Device binding ${scene.deviceBinding} not found, using default output`);
+            }
+        } else {
+            console.log(`[Piano] No device binding, using default MIDI output on channel ${midiChannel + 1}`);
+        }
+
         // Helper function to send note on/off
         const sendNote = (noteNumber, velocity) => {
-            if (!this.controller.midiOutput) return;
+            if (!midiOutput) {
+                console.warn('[Piano] No MIDI output available');
+                return;
+            }
 
-            const channel = scene.midiChannel || 0;
-            const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
-            this.controller.midiOutput.send([statusByte, noteNumber, velocity]);
+            const statusByte = velocity > 0 ? (0x90 + midiChannel) : (0x80 + midiChannel);
+            midiOutput.send([statusByte, noteNumber, velocity]);
         };
 
         // Helper to calculate velocity from Y position in key
@@ -2819,14 +2844,40 @@ export class SceneManager {
 
     /**
      * Send MIDI program change message
+     * @param {Object} scene - Piano scene object with deviceBinding and midiChannel
+     * @param {number} program - Program number (0-127)
      */
-    sendProgramChange(channel, program) {
-        if (!this.controller.midiOutput) return;
+    sendProgramChange(scene, program) {
+        // Resolve MIDI output and channel from device binding
+        let midiOutput = this.controller.midiOutput; // Default output
+        let midiChannel = scene.midiChannel || 0; // Scene's MIDI channel
+
+        if (scene.deviceBinding && this.controller.deviceManager) {
+            const boundDevice = this.controller.deviceManager.getDevice(scene.deviceBinding);
+            if (boundDevice) {
+                // Use device-specific output and channel
+                const deviceOutput = this.controller.deviceManager.getMidiOutput(boundDevice.id);
+                if (deviceOutput) {
+                    midiOutput = deviceOutput;
+                    midiChannel = boundDevice.midiChannel; // Use device's channel
+                    console.log(`[Piano] Sending Program Change via device: ${boundDevice.name}, channel ${midiChannel + 1}`);
+                } else {
+                    console.warn(`[Piano] No MIDI output found for device ${boundDevice.name}, using default`);
+                }
+            } else {
+                console.warn(`[Piano] Device binding ${scene.deviceBinding} not found, using default output`);
+            }
+        }
+
+        if (!midiOutput) {
+            console.warn('[Piano] No MIDI output available for program change');
+            return;
+        }
 
         // MIDI Program Change: 0xC0-0xCF (channel) + program number (0-127 on wire, 1-128 user-facing)
-        const statusByte = 0xC0 + channel;
-        this.controller.midiOutput.send([statusByte, program]);
-        console.log(`[Piano] Sent Program Change: CH ${channel + 1} -> Program ${program + 1} (wire: ${program})`);
+        const statusByte = 0xC0 + midiChannel;
+        midiOutput.send([statusByte, program]);
+        console.log(`[Piano] Sent Program Change: CH ${midiChannel + 1} -> Program ${program + 1} (wire: ${program})`);
     }
 
     /**
