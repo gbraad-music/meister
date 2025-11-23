@@ -1,10 +1,16 @@
 <?xml version='1.0' encoding='utf-8'?>
 <MixxxControllerPreset mixxxVersion="" schemaVersion="1">
     <info>
-        <name>regroove-meister</name>
+        <name>Regroove Meister</name>
+        <author>Gerard Braad</author>
+        <description>Regroove Meister MIDI controller mapping for Mixxx. The interface can be opened at: https://music.gbraad.nl/meister
+        </description>
+        <forums>https://music.gbraad.nl/meister</forums>
     </info>
-    <controller id="">
-        <scriptfiles/>
+    <controller id="RegrooveMeister" type="MIDI">
+        <scriptfiles>
+            <file filename="regroove-meister-scripts.js" functionprefix="RegrooveMeister" />
+        </scriptfiles>
         <controls>
             <control>
                 <group>[Channel1]</group>
