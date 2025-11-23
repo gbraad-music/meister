@@ -15,44 +15,44 @@ export class InputRouter {
     /**
      * Set route configuration for a MIDI input
      */
-    setRoute(inputId, config) {
+    setRoute(inputName, config) {
         const route = {
-            inputId: inputId,
+            inputName: inputName,
             mode: config.mode || 'off', // 'pass_through', 'device', 'off'
             targets: config.targets || [], // Array of target configs for switching
             activeTargetIndex: config.activeTargetIndex ?? 0 // Current active target
         };
 
-        this.routes.set(inputId, route);
-        this.activeRoutes.set(inputId, route.activeTargetIndex);
+        this.routes.set(inputName, route);
+        this.activeRoutes.set(inputName, route.activeTargetIndex);
         this.saveRoutes();
     }
 
     /**
      * Get route configuration for a MIDI input
      */
-    getRoute(inputId) {
-        return this.routes.get(inputId);
+    getRoute(inputName) {
+        return this.routes.get(inputName);
     }
 
     /**
      * Switch to next target for an input
      */
-    switchTarget(inputId) {
-        const route = this.routes.get(inputId);
+    switchTarget(inputName) {
+        const route = this.routes.get(inputName);
         if (!route || route.targets.length === 0) {
-            console.warn(`[InputRouter] No route configured for input ${inputId}`);
+            console.warn(`[InputRouter] No route configured for input ${inputName}`);
             return null;
         }
 
         // Cycle to next target
         const nextIndex = (route.activeTargetIndex + 1) % route.targets.length;
         route.activeTargetIndex = nextIndex;
-        this.activeRoutes.set(inputId, nextIndex);
+        this.activeRoutes.set(inputName, nextIndex);
         this.saveRoutes();
 
         const target = route.targets[nextIndex];
-        console.log(`[InputRouter] Switched input "${inputId}" to target: ${JSON.stringify(target)}`);
+        console.log(`[InputRouter] Switched input "${inputName}" to target: ${JSON.stringify(target)}`);
 
         return target;
     }
@@ -60,19 +60,19 @@ export class InputRouter {
     /**
      * Set specific target for an input by index
      */
-    setActiveTarget(inputId, targetIndex) {
-        const route = this.routes.get(inputId);
+    setActiveTarget(inputName, targetIndex) {
+        const route = this.routes.get(inputName);
         if (!route || !route.targets[targetIndex]) {
-            console.warn(`[InputRouter] Invalid target index ${targetIndex} for input ${inputId}`);
+            console.warn(`[InputRouter] Invalid target index ${targetIndex} for input ${inputName}`);
             return null;
         }
 
         route.activeTargetIndex = targetIndex;
-        this.activeRoutes.set(inputId, targetIndex);
+        this.activeRoutes.set(inputName, targetIndex);
         this.saveRoutes();
 
         const target = route.targets[targetIndex];
-        console.log(`[InputRouter] Set input "${inputId}" to target: ${JSON.stringify(target)}`);
+        console.log(`[InputRouter] Set input "${inputName}" to target: ${JSON.stringify(target)}`);
 
         return target;
     }
@@ -80,8 +80,8 @@ export class InputRouter {
     /**
      * Get current active target for an input
      */
-    getActiveTarget(inputId) {
-        const route = this.routes.get(inputId);
+    getActiveTarget(inputName) {
+        const route = this.routes.get(inputName);
         if (!route || route.targets.length === 0) {
             return null;
         }
@@ -92,13 +92,13 @@ export class InputRouter {
     /**
      * Route a MIDI message from an input
      */
-    routeMessage(inputId, midiData) {
-        const route = this.routes.get(inputId);
+    routeMessage(inputName, midiData) {
+        const route = this.routes.get(inputName);
         if (!route || route.mode === 'off') {
             return; // No routing configured
         }
 
-        const target = this.getActiveTarget(inputId);
+        const target = this.getActiveTarget(inputName);
         if (!target) {
             return; // No active target
         }
@@ -112,7 +112,7 @@ export class InputRouter {
         }
 
         if (route.mode === 'pass_through') {
-            this.routeToOutput(target.outputId, midiData);
+            this.routeToOutput(target.outputName, midiData);
         } else if (route.mode === 'device') {
             this.routeToDevice(target.deviceId, midiData, target.channelMode);
         }
@@ -121,14 +121,14 @@ export class InputRouter {
     /**
      * Route to output (pass-through, unchanged)
      */
-    routeToOutput(outputId, midiData) {
+    routeToOutput(outputName, midiData) {
         if (!this.controller.midiAccess) return;
 
-        const output = this.controller.midiAccess.outputs.get(outputId);
+        const output = this.controller.midiAccess.outputs.get(outputName);
         if (output) {
             output.send(midiData);
         } else {
-            console.warn(`[InputRouter] Output ${outputId} not found`);
+            console.warn(`[InputRouter] Output ${outputName} not found`);
         }
     }
 
@@ -177,7 +177,7 @@ export class InputRouter {
      */
     saveRoutes() {
         const routesData = Array.from(this.routes.entries()).map(([id, route]) => ({
-            inputId: id,
+            inputName: id,
             ...route
         }));
 
@@ -193,13 +193,13 @@ export class InputRouter {
             if (saved) {
                 const routesData = JSON.parse(saved);
                 routesData.forEach(route => {
-                    this.routes.set(route.inputId, {
-                        inputId: route.inputId,
+                    this.routes.set(route.inputName, {
+                        inputName: route.inputName,
                         mode: route.mode,
                         targets: route.targets || [],
                         activeTargetIndex: route.activeTargetIndex ?? 0
                     });
-                    this.activeRoutes.set(route.inputId, route.activeTargetIndex ?? 0);
+                    this.activeRoutes.set(route.inputName, route.activeTargetIndex ?? 0);
                 });
                 console.log(`[InputRouter] Loaded ${this.routes.size} route(s)`);
             }
@@ -218,11 +218,11 @@ export class InputRouter {
     /**
      * Remove a route
      */
-    removeRoute(inputId) {
-        if (this.routes.delete(inputId)) {
-            this.activeRoutes.delete(inputId);
+    removeRoute(inputName) {
+        if (this.routes.delete(inputName)) {
+            this.activeRoutes.delete(inputName);
             this.saveRoutes();
-            console.log(`[InputRouter] Removed route for input ${inputId}`);
+            console.log(`[InputRouter] Removed route for input ${inputName}`);
         }
     }
 }

@@ -24,14 +24,14 @@ export class DeviceManager {
             midiChannel: config.midiChannel ?? 0,
             deviceId: config.deviceId ?? 0,
             color: config.color || '#cc4444',
-            midiOutputId: config.midiOutputId || null // null = use default MIDI output
+            midiOutputName: config.midiOutputName || null // null = use default MIDI output (use name, not ID)
         };
 
         this.devices.set(id, device);
         this.saveDevices();
         this.refreshDeviceList();
 
-        console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, Ch ${device.midiChannel}, ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'})`);
+        console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, Ch ${device.midiChannel}, ID ${device.deviceId}, Output: ${device.midiOutputName || 'default'})`);
     }
 
     /**
@@ -106,12 +106,14 @@ export class DeviceManager {
         }
 
         // If device has a specific MIDI output assigned, use it
-        if (device.midiOutputId && this.controller.midiAccess) {
-            const output = this.controller.midiAccess.outputs.get(device.midiOutputId);
+        if (device.midiOutputName && this.controller.midiAccess) {
+            // Find output by name (not ID, as IDs change between sessions)
+            const output = Array.from(this.controller.midiAccess.outputs.values())
+                .find(out => out.name === device.midiOutputName);
             if (output) {
                 return output;
             }
-            console.warn(`[Devices] MIDI output ${device.midiOutputId} not found for device ${device.name}, using default`);
+            console.warn(`[Devices] MIDI output "${device.midiOutputName}" not found for device ${device.name}, using default`);
         }
 
         // Fallback to controller's default output
@@ -159,9 +161,9 @@ export class DeviceManager {
                             midiChannel: device.midiChannel,
                             deviceId: device.deviceId,
                             color: device.color || '#cc4444',
-                            midiOutputId: device.midiOutputId || null
+                            midiOutputName: device.midiOutputName || device.midiOutputId || null // Support legacy midiOutputId
                         });
-                        console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputId || 'default'}`);
+                        console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputName || device.midiOutputId || 'default'}`);
                     });
                 }
 
@@ -250,7 +252,7 @@ export class DeviceManager {
                 document.getElementById('device-name').value = device.name;
                 document.getElementById('device-midi-channel').value = device.midiChannel;
                 document.getElementById('device-sysex-id').value = device.deviceId;
-                document.getElementById('device-midi-output').value = device.midiOutputId || '';
+                document.getElementById('device-midi-output').value = device.midiOutputName || '';
                 document.getElementById('device-type').value = device.type || 'regroove';
                 document.getElementById('device-color').value = device.color || '#cc4444';
                 document.getElementById('device-color-value').textContent = device.color || '#cc4444';
@@ -291,7 +293,7 @@ export class DeviceManager {
             const outputs = Array.from(this.controller.midiAccess.outputs.values());
             outputs.forEach(output => {
                 const option = document.createElement('option');
-                option.value = output.id;
+                option.value = output.name; // Use name instead of ID (IDs change between sessions)
                 option.textContent = output.name;
                 select.appendChild(option);
             });
@@ -318,7 +320,7 @@ export class DeviceManager {
 
         const midiChannel = parseInt(document.getElementById('device-midi-channel').value);
         const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
-        const midiOutputId = document.getElementById('device-midi-output').value || null;
+        const midiOutputName = document.getElementById('device-midi-output').value || null;
         const deviceType = document.getElementById('device-type').value || 'regroove';
         const deviceColor = document.getElementById('device-color').value || '#cc4444';
 
@@ -329,7 +331,7 @@ export class DeviceManager {
             type: deviceType,
             midiChannel: midiChannel,
             deviceId: sysexDeviceId,
-            midiOutputId: midiOutputId,
+            midiOutputName: midiOutputName,
             color: deviceColor
         });
 
@@ -377,12 +379,18 @@ export class DeviceManager {
 
             // Get MIDI output name
             let outputName = 'Default';
-            if (device.midiOutputId && this.controller.midiAccess) {
-                const output = this.controller.midiAccess.outputs.get(device.midiOutputId);
-                if (output) {
-                    outputName = output.name;
+            if (device.midiOutputName) {
+                // Check if the output still exists
+                if (this.controller.midiAccess) {
+                    const output = Array.from(this.controller.midiAccess.outputs.values())
+                        .find(out => out.name === device.midiOutputName);
+                    if (output) {
+                        outputName = device.midiOutputName;
+                    } else {
+                        outputName = `${device.midiOutputName} (Not Found)`;
+                    }
                 } else {
-                    outputName = 'Not Found';
+                    outputName = device.midiOutputName;
                 }
             }
 

@@ -678,6 +678,25 @@
                     </div>
                 </div>
 
+                <!-- MIDI Input Selection -->
+                <div style="border-top: 2px solid #1a1a1a; padding-top: 20px; margin-bottom: 20px;">
+                    <h3 style="color: #888; font-size: 1em; margin-bottom: 10px; font-weight: normal;">MIDI INPUT DEVICES</h3>
+                    <div style="color: #555; font-size: 0.75em; margin-bottom: 15px;">
+                        Select which MIDI input devices should be listened to. Disabled devices will not lock the hardware.
+                    </div>
+                    <table class="settings-table" id="midi-inputs-table">
+                        <thead>
+                            <tr>
+                                <th>Device Name</th>
+                                <th style="width: 100px; text-align: center;">Enabled</th>
+                            </tr>
+                        </thead>
+                        <tbody id="midi-inputs-list">
+                            <tr><td colspan="2" class="empty-state">No MIDI input devices detected</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <!-- STATE POLLING section removed - polling is now managed per-scene via scene configuration -->
 
                 <div style="border-top: 2px solid #1a1a1a; padding-top: 20px; margin-bottom: 20px;">

@@ -7,6 +7,7 @@ class MeisterController {
         this.config = this.getDefaultConfig();
         this.pads = [];
         this.editingPadIndex = null;
+        this.enabledMidiInputs = new Set(); // Set of enabled MIDI input names (not IDs, as IDs change between sessions)
 
         // MIDI Clock Master
         this.clockMaster = false;
@@ -108,14 +109,40 @@ class MeisterController {
 
         console.log('[Meister] Setting up MIDI input listeners...');
         let count = 0;
-        // Listen to all MIDI inputs for SPP messages
-        // Use addEventListener instead of onmidimessage to allow multiple handlers (e.g., upload/download)
-        for (let input of this.midiAccess.inputs.values()) {
-            input.addEventListener('midimessage', (event) => this.handleMIDIMessage(event));
-            console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
-            count++;
+
+        // If no enabled inputs are configured, enable all inputs by default
+        if (!this.enabledMidiInputs || this.enabledMidiInputs.size === 0) {
+            console.log('[Meister] No enabled inputs configured, enabling all inputs by default');
+            this.enabledMidiInputs = new Set(Array.from(this.midiAccess.inputs.values()).map(input => input.name));
+            this.saveConfig();
         }
-        console.log(`[Meister] ${count} MIDI input(s) configured`);
+
+        // Store the handler function reference for each input so we can remove it later
+        if (!this.midiInputHandlers) {
+            this.midiInputHandlers = new Map();
+        }
+
+        // Remove existing listeners from all inputs
+        for (let input of this.midiAccess.inputs.values()) {
+            const existingHandler = this.midiInputHandlers.get(input.name);
+            if (existingHandler) {
+                input.removeEventListener('midimessage', existingHandler);
+            }
+        }
+
+        // Listen only to enabled MIDI inputs (match by name, not ID)
+        for (let input of this.midiAccess.inputs.values()) {
+            if (this.enabledMidiInputs.has(input.name)) {
+                const handler = (event) => this.handleMIDIMessage(event);
+                this.midiInputHandlers.set(input.name, handler);
+                input.addEventListener('midimessage', handler);
+                console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
+                count++;
+            } else {
+                console.log(`[Meister] ✗ Skipped (disabled): ${input.name}`);
+            }
+        }
+        console.log(`[Meister] ${count} MIDI input(s) configured (${this.midiAccess.inputs.size} total available)`);
     }
 
     handleMIDIMessage(event) {
@@ -133,7 +160,8 @@ class MeisterController {
         // Note On messages in sequencer mode are NOT routed - handled by sequencer
         const isSystemMessage = (status >= 0xF0);
         if (!isSystemMessage && !isSequencerNoteEntry && this.inputRouter) {
-            this.inputRouter.routeMessage(event.target.id, data);
+            // Use input name for routing (not ID, as IDs change between sessions)
+            this.inputRouter.routeMessage(event.target.name, data);
         }
 
         // Check for SysEx messages (0xF0)
@@ -293,22 +321,26 @@ class MeisterController {
         if (this.midiAccess) {
             for (let output of this.midiAccess.outputs.values()) {
                 const option = document.createElement('option');
-                option.value = output.id;
+                option.value = output.name; // Use name instead of ID (IDs change between sessions)
                 option.textContent = output.name;
                 select.appendChild(option);
             }
 
             // Try to restore saved MIDI output from config, or fall back to current dropdown value
-            const savedOutputId = this.config.midiOutputId || currentValue;
+            const savedOutputName = this.config.midiOutputName || currentValue;
 
-            if (savedOutputId) {
-                select.value = savedOutputId;
-                if (select.value === savedOutputId) {
-                    this.midiOutput = this.midiAccess.outputs.get(savedOutputId);
-                    this.updateConnectionStatus(true);
+            if (savedOutputName) {
+                select.value = savedOutputName;
+                if (select.value === savedOutputName) {
+                    // Find output by name
+                    this.midiOutput = Array.from(this.midiAccess.outputs.values())
+                        .find(output => output.name === savedOutputName);
 
-                    // Note: State polling is now managed by scene manager, not globally
-                    console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
+                    if (this.midiOutput) {
+                        this.updateConnectionStatus(true);
+                        // Note: State polling is now managed by scene manager, not globally
+                        console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
+                    }
                 }
             }
         }
@@ -334,9 +366,11 @@ class MeisterController {
 
         // MIDI output selection
         document.getElementById('midi-output').addEventListener('change', (e) => {
-            const outputId = e.target.value;
-            if (outputId && this.midiAccess) {
-                this.midiOutput = this.midiAccess.outputs.get(outputId);
+            const outputName = e.target.value;
+            if (outputName && this.midiAccess) {
+                // Find output by name (not ID, as IDs change between sessions)
+                this.midiOutput = Array.from(this.midiAccess.outputs.values())
+                    .find(output => output.name === outputName);
                 this.updateConnectionStatus(true);
                 this.saveConfig();
 
@@ -1061,10 +1095,10 @@ class MeisterController {
             for (let input of this.midiAccess.inputs.values()) {
                 // Check if not already in routes
                 const alreadyListed = this.inputRouter &&
-                    this.inputRouter.getAllRoutes().some(r => r.inputId === input.id);
+                    this.inputRouter.getAllRoutes().some(r => r.inputName === input.name);
 
                 if (!alreadyListed) {
-                    options += `<option value="${input.id}">${input.name}</option>`;
+                    options += `<option value="${input.name}">${input.name}</option>`;
                 }
             }
         }
@@ -1675,14 +1709,14 @@ class MeisterController {
 
                 // For routing actions (602), add active target info to sublabel and set color
                 if (padConfig.action === 602 && this.inputRouter) {
-                    const inputId = padConfig.parameter || '';
-                    const routingInfo = this.getRoutingDisplayInfo(inputId);
+                    const inputName = padConfig.parameter || '';
+                    const routingInfo = this.getRoutingDisplayInfo(inputName);
                     if (routingInfo) {
                         sublabel = sublabel ? `${sublabel}\n${routingInfo}` : routingInfo;
                     }
 
                     // Set color based on active target index
-                    const route = this.inputRouter.getRoute(inputId);
+                    const route = this.inputRouter.getRoute(inputName);
                     if (route && route.targets && route.targets.length > 0) {
                         const colors = ['red', 'blue', 'green', 'yellow'];
                         const activeIndex = route.activeTargetIndex || 0;
@@ -2211,27 +2245,20 @@ class MeisterController {
      * Get display info for routing action pads (action 602)
      * Shows the MIDI input name and currently active target
      */
-    getRoutingDisplayInfo(inputId) {
+    getRoutingDisplayInfo(inputName) {
         if (!this.inputRouter) return null;
 
         // Handle "all inputs" case
-        if (inputId === '') {
+        if (inputName === '') {
             const allRoutes = this.inputRouter.getAllRoutes();
             if (allRoutes.length === 0) return 'No routes configured';
             return `All Routes (${allRoutes.length})`;
         }
 
-        // Get input name
-        let inputName = 'Unknown Input';
-        if (this.midiAccess) {
-            const input = this.midiAccess.inputs.get(inputId);
-            if (input) {
-                inputName = input.name;
-            }
-        }
+        // inputName is already the name of the input device, no need to look it up
 
         // Get active target
-        const activeTarget = this.inputRouter.getActiveTarget(inputId);
+        const activeTarget = this.inputRouter.getActiveTarget(inputName);
         if (!activeTarget) {
             return `${inputName}\nNo active route`;
         }
@@ -2248,10 +2275,10 @@ class MeisterController {
                     targetName = `Device ${activeTarget.deviceId}`;
                 }
             }
-        } else if (activeTarget.outputId !== undefined) {
+        } else if (activeTarget.outputName !== undefined) {
             // Pass-through mode
             if (this.midiAccess) {
-                const output = this.midiAccess.outputs.get(activeTarget.outputId);
+                const output = this.midiAccess.outputs.get(activeTarget.outputName);
                 if (output) {
                     targetName = output.name;
                 } else {
@@ -3069,10 +3096,13 @@ class MeisterController {
             this.config.receiveSPP = this.receiveSPP;
             this.config.pollingIntervalMs = this.regrooveState.pollingIntervalMs;
 
-            // Save MIDI output selection
+            // Save MIDI output selection (use name, not ID, as IDs change between sessions)
             if (this.midiOutput) {
-                this.config.midiOutputId = this.midiOutput.id;
+                this.config.midiOutputName = this.midiOutput.name;
             }
+
+            // Save enabled MIDI inputs (convert Set to Array for JSON)
+            this.config.enabledMidiInputs = Array.from(this.enabledMidiInputs);
 
             localStorage.setItem('meisterConfig', JSON.stringify(this.config));
         } catch (e) {
@@ -3101,6 +3131,12 @@ class MeisterController {
                 // Load polling interval
                 if (this.config.pollingIntervalMs !== undefined) {
                     this.regrooveState.pollingIntervalMs = this.config.pollingIntervalMs;
+                }
+
+                // Load enabled MIDI inputs (convert Array back to Set)
+                if (this.config.enabledMidiInputs && Array.isArray(this.config.enabledMidiInputs)) {
+                    this.enabledMidiInputs = new Set(this.config.enabledMidiInputs);
+                    console.log(`[Meister] Loaded ${this.enabledMidiInputs.size} enabled MIDI input(s) from config`);
                 }
 
                 document.getElementById('clock-master').checked = this.clockMaster;

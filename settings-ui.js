@@ -12,6 +12,7 @@ export class SettingsUI {
         this.setupTabSwitching();
         this.setupScenesUI();
         this.setupMIDIDevicesUI();
+        this.setupMIDIInputsUI();
         this.setupInputRoutingUI();
         this.setupMIDIMappingsUI();
         this.setupKeyboardUI();
@@ -41,6 +42,7 @@ export class SettingsUI {
                     if (tabId === 'scenes') {
                         this.refreshScenesList();
                     } else if (tabId === 'midi') {
+                        this.refreshMIDIInputsList();
                         this.refreshInputRoutingList();
                     } else if (tabId === 'midi-devices') {
                         this.refreshMIDIDevicesList();
@@ -250,6 +252,92 @@ export class SettingsUI {
             });
         });
         observer.observe(settingsOverlay, { attributes: true });
+    }
+
+    /**
+     * Setup MIDI Inputs UI
+     */
+    setupMIDIInputsUI() {
+        // Refresh inputs list when settings are opened
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (settingsOverlay.classList.contains('active')) {
+                        const activeTab = document.querySelector('.settings-tab.active');
+                        if (activeTab && activeTab.getAttribute('data-tab') === 'midi') {
+                            this.refreshMIDIInputsList();
+                        }
+                    }
+                }
+            });
+        });
+        observer.observe(settingsOverlay, { attributes: true });
+    }
+
+    /**
+     * Refresh MIDI inputs list
+     */
+    refreshMIDIInputsList() {
+        const tbody = document.getElementById('midi-inputs-list');
+        if (!tbody || !this.controller.midiAccess) return;
+
+        const inputs = Array.from(this.controller.midiAccess.inputs.values());
+
+        if (inputs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" class="empty-state">No MIDI input devices detected</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+
+        inputs.forEach(input => {
+            const isEnabled = this.controller.enabledMidiInputs.has(input.name);
+            const row = document.createElement('tr');
+
+            // Device name
+            const nameCell = document.createElement('td');
+            nameCell.textContent = input.name;
+            nameCell.style.fontWeight = isEnabled ? 'bold' : 'normal';
+            nameCell.style.color = isEnabled ? '#ddd' : '#666';
+            row.appendChild(nameCell);
+
+            // Enable checkbox
+            const enableCell = document.createElement('td');
+            enableCell.style.textAlign = 'center';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = isEnabled;
+            checkbox.style.width = 'auto';
+            checkbox.addEventListener('change', (e) => {
+                this.toggleMIDIInput(input.name, e.target.checked);
+            });
+            enableCell.appendChild(checkbox);
+            row.appendChild(enableCell);
+
+            tbody.appendChild(row);
+        });
+    }
+
+    /**
+     * Toggle MIDI input enabled state
+     */
+    toggleMIDIInput(inputName, enabled) {
+        if (enabled) {
+            this.controller.enabledMidiInputs.add(inputName);
+        } else {
+            this.controller.enabledMidiInputs.delete(inputName);
+        }
+
+        this.controller.saveConfig();
+
+        // Reconnect MIDI inputs to apply changes
+        this.controller.setupMIDIInputs();
+
+        // Refresh the UI
+        this.refreshMIDIInputsList();
+
+        console.log(`[Settings] MIDI input ${enabled ? 'enabled' : 'disabled'}: ${inputName}`);
     }
 
     /**
@@ -771,7 +859,7 @@ export class SettingsUI {
         tbody.innerHTML = '';
 
         inputs.forEach(input => {
-            const route = this.controller.inputRouter.getRoute(input.id) || { mode: 'off', targets: [], activeTargetIndex: 0 };
+            const route = this.controller.inputRouter.getRoute(input.name) || { mode: 'off', targets: [], activeTargetIndex: 0 };
             const row = document.createElement('tr');
 
             // Input device name
@@ -790,7 +878,7 @@ export class SettingsUI {
             `;
             modeSelect.style.width = '100%';
             modeSelect.addEventListener('change', (e) => {
-                this.updateInputRoutingMode(input.id, e.target.value);
+                this.updateInputRoutingMode(input.name, e.target.value);
             });
             modeCell.appendChild(modeSelect);
             row.appendChild(modeCell);
@@ -800,7 +888,7 @@ export class SettingsUI {
             if (route.targets && route.targets.length > 0) {
                 const targetsList = route.targets.map((target, idx) => {
                     if (route.mode === 'pass_through') {
-                        const output = this.controller.midiAccess.outputs.get(target.outputId);
+                        const output = this.controller.midiAccess.outputs.get(target.outputName);
                         return output ? output.name : 'Unknown';
                     } else if (route.mode === 'device') {
                         const device = this.controller.deviceManager?.getDevice(target.deviceId);
@@ -837,7 +925,7 @@ export class SettingsUI {
             editBtn.style.width = '100%';
             editBtn.style.padding = '5px';
             editBtn.addEventListener('click', () => {
-                this.openInputRoutingEditor(input.id, input.name);
+                this.openInputRoutingEditor(input.name, input.name);
             });
             actionsCell.appendChild(editBtn);
             row.appendChild(actionsCell);
@@ -849,10 +937,10 @@ export class SettingsUI {
     /**
      * Update input routing mode
      */
-    updateInputRoutingMode(inputId, mode) {
-        const currentRoute = this.controller.inputRouter.getRoute(inputId) || { targets: [], activeTargetIndex: 0 };
+    updateInputRoutingMode(inputName, mode) {
+        const currentRoute = this.controller.inputRouter.getRoute(inputName) || { targets: [], activeTargetIndex: 0 };
 
-        this.controller.inputRouter.setRoute(inputId, {
+        this.controller.inputRouter.setRoute(inputName, {
             mode: mode,
             targets: currentRoute.targets,
             activeTargetIndex: currentRoute.activeTargetIndex
@@ -864,8 +952,8 @@ export class SettingsUI {
     /**
      * Open input routing editor dialog
      */
-    openInputRoutingEditor(inputId, inputName) {
-        const route = this.controller.inputRouter.getRoute(inputId) || { mode: 'off', targets: [], activeTargetIndex: 0 };
+    openInputRoutingEditor(inputName, inputDisplayName) {
+        const route = this.controller.inputRouter.getRoute(inputName) || { mode: 'off', targets: [], activeTargetIndex: 0 };
 
         // Build targets list
         let targetsHTML = '<div style="margin-bottom: 10px;"><strong>Targets:</strong></div>';
@@ -877,7 +965,7 @@ export class SettingsUI {
             route.targets.forEach((target, idx) => {
                 let targetLabel = '';
                 if (route.mode === 'pass_through') {
-                    const output = this.controller.midiAccess.outputs.get(target.outputId);
+                    const output = this.controller.midiAccess.outputs.get(target.outputName);
                     targetLabel = output ? output.name : 'Unknown Output';
                 } else if (route.mode === 'device') {
                     const device = this.controller.deviceManager?.getDevice(target.deviceId);
@@ -889,7 +977,7 @@ export class SettingsUI {
                 targetsHTML += `
                     <div style="padding: 8px; margin: 5px 0; background: ${isActive ? '#2a4a2a' : '#1a1a1a'}; border: 1px solid ${isActive ? '#4a9e4a' : '#333'}; border-radius: 3px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="color: ${isActive ? '#4a9e4a' : '#ddd'};">#${idx + 1}: ${targetLabel}</span>
-                        <button onclick="window.meisterController.settingsUI.removeInputTarget('${inputId}', ${idx})" style="padding: 3px 8px; background: #cc4444; border: none; color: #fff; cursor: pointer; border-radius: 2px;">Remove</button>
+                        <button onclick="window.meisterController.settingsUI.removeInputTarget('${inputName}', ${idx})" style="padding: 3px 8px; background: #cc4444; border: none; color: #fff; cursor: pointer; border-radius: 2px;">Remove</button>
                     </div>
                 `;
             });
@@ -905,7 +993,7 @@ export class SettingsUI {
                     <select id="new-target-output" style="width: 100%; padding: 8px; background: #0a0a0a; color: #888; border: 1px solid #333; margin-bottom: 10px;">
                         <option value="">-- Select MIDI Output --</option>
                     </select>
-                    <button onclick="window.meisterController.settingsUI.addInputTargetOutput('${inputId}')" style="width: 100%; padding: 10px; background: #2a4a2a; color: #4a9e4a; border: 1px solid #3a5a3a; cursor: pointer;">➕ Add Output Target</button>
+                    <button onclick="window.meisterController.settingsUI.addInputTargetOutput('${inputName}')" style="width: 100%; padding: 10px; background: #2a4a2a; color: #4a9e4a; border: 1px solid #3a5a3a; cursor: pointer;">➕ Add Output Target</button>
                 </div>
             `;
         } else if (route.mode === 'device') {
@@ -920,7 +1008,7 @@ export class SettingsUI {
                         <option value="omni">OMNI (Keep Original Channel)</option>
                         <option value="device">Device Channel</option>
                     </select>
-                    <button onclick="window.meisterController.settingsUI.addInputTargetDevice('${inputId}')" style="width: 100%; padding: 10px; background: #2a4a2a; color: #4a9e4a; border: 1px solid #3a5a3a; cursor: pointer;">➕ Add Device Target</button>
+                    <button onclick="window.meisterController.settingsUI.addInputTargetDevice('${inputName}')" style="width: 100%; padding: 10px; background: #2a4a2a; color: #4a9e4a; border: 1px solid #3a5a3a; cursor: pointer;">➕ Add Device Target</button>
                 </div>
             `;
         }
@@ -975,29 +1063,29 @@ export class SettingsUI {
     /**
      * Add output target to input routing
      */
-    addInputTargetOutput(inputId) {
-        const outputId = document.getElementById('new-target-output')?.value;
-        if (!outputId) {
+    addInputTargetOutput(inputName) {
+        const outputName = document.getElementById('new-target-output')?.value;
+        if (!outputName) {
             window.nbDialog.alert('Please select a MIDI output');
             return;
         }
 
-        const route = this.controller.inputRouter.getRoute(inputId) || { mode: 'pass_through', targets: [], activeTargetIndex: 0 };
-        route.targets.push({ outputId });
+        const route = this.controller.inputRouter.getRoute(inputName) || { mode: 'pass_through', targets: [], activeTargetIndex: 0 };
+        route.targets.push({ outputName });
 
-        this.controller.inputRouter.setRoute(inputId, route);
+        this.controller.inputRouter.setRoute(inputName, route);
 
         // Close and reopen dialog
         document.getElementById('input-routing-dialog')?.remove();
-        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.id === inputId);
-        if (input) this.openInputRoutingEditor(inputId, input.name);
+        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.name === inputName);
+        if (input) this.openInputRoutingEditor(inputName, input.name);
         this.refreshInputRoutingList();
     }
 
     /**
      * Add device target to input routing
      */
-    addInputTargetDevice(inputId) {
+    addInputTargetDevice(inputName) {
         const deviceId = document.getElementById('new-target-device')?.value;
         const channelMode = document.getElementById('new-target-channel-mode')?.value || 'omni';
 
@@ -1006,23 +1094,23 @@ export class SettingsUI {
             return;
         }
 
-        const route = this.controller.inputRouter.getRoute(inputId) || { mode: 'device', targets: [], activeTargetIndex: 0 };
+        const route = this.controller.inputRouter.getRoute(inputName) || { mode: 'device', targets: [], activeTargetIndex: 0 };
         route.targets.push({ deviceId, channelMode });
 
-        this.controller.inputRouter.setRoute(inputId, route);
+        this.controller.inputRouter.setRoute(inputName, route);
 
         // Close and reopen dialog
         document.getElementById('input-routing-dialog')?.remove();
-        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.id === inputId);
-        if (input) this.openInputRoutingEditor(inputId, input.name);
+        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.name === inputName);
+        if (input) this.openInputRoutingEditor(inputName, input.name);
         this.refreshInputRoutingList();
     }
 
     /**
      * Remove target from input routing
      */
-    removeInputTarget(inputId, targetIndex) {
-        const route = this.controller.inputRouter.getRoute(inputId);
+    removeInputTarget(inputName, targetIndex) {
+        const route = this.controller.inputRouter.getRoute(inputName);
         if (!route || !route.targets) return;
 
         route.targets.splice(targetIndex, 1);
@@ -1032,12 +1120,12 @@ export class SettingsUI {
             route.activeTargetIndex = Math.max(0, route.targets.length - 1);
         }
 
-        this.controller.inputRouter.setRoute(inputId, route);
+        this.controller.inputRouter.setRoute(inputName, route);
 
         // Close and reopen dialog
         document.getElementById('input-routing-dialog')?.remove();
-        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.id === inputId);
-        if (input) this.openInputRoutingEditor(inputId, input.name);
+        const input = Array.from(this.controller.midiAccess.inputs.values()).find(inp => inp.name === inputName);
+        if (input) this.openInputRoutingEditor(inputName, input.name);
         this.refreshInputRoutingList();
     }
 }
