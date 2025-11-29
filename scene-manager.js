@@ -201,21 +201,21 @@ export class SceneManager {
 
         // Left deck pads (4x4 grid, cols 0-3, rows 0-3)
         const leftDeckPads = [
-            { label: 'Cue A1', cc: 1, color: '#4a9eff' },
-            { label: 'Cue A2', cc: 2, color: '#4a9eff' },
-            { label: 'Cue A3', cc: 3, color: '#4a9eff' },
-            { label: 'Cue A4', cc: 4, color: '#4a9eff' },
-            { label: 'Loop A1', cc: 5, color: '#9a4aff' },
-            { label: 'Loop A2', cc: 6, color: '#9a4aff' },
-            { label: 'Loop A3', cc: 7, color: '#9a4aff' },
-            { label: 'Loop A4', cc: 8, color: '#9a4aff' },
+            { label: 'Cue A1', cc: 1, color: '#ff4a4a' },  // RED for Deck A
+            { label: 'Cue A2', cc: 2, color: '#ff4a4a' },
+            { label: 'Cue A3', cc: 3, color: '#ff4a4a' },
+            { label: 'Cue A4', cc: 4, color: '#ff4a4a' },
+            { label: 'Loop A1', cc: 5, color: '#ffff4a' },  // YELLOW for loops
+            { label: 'Loop A2', cc: 6, color: '#ffff4a' },
+            { label: 'Loop A3', cc: 7, color: '#ffff4a' },
+            { label: 'Loop A4', cc: 8, color: '#ffff4a' },
             { label: 'FX A1', cc: 9, color: '#4aff9a' },
             { label: 'FX A2', cc: 10, color: '#4aff9a' },
             { label: 'FX A3', cc: 11, color: '#4aff9a' },
             { label: 'FX A4', cc: 12, color: '#4aff9a' },
             { label: 'Play A', cc: 13, color: '#ff4a4a' },
             { label: 'Sync A', cc: 14, color: '#ff9a4a' },
-            { label: 'Deck A', cc: 15, color: '#888' },
+            { label: 'PFL A', cc: 15, color: '#888' },
             { label: 'Load A', cc: 16, color: '#888' },
         ];
 
@@ -413,21 +413,21 @@ export class SceneManager {
 
         // Right deck pads (4x4 grid, cols 8-11, rows 0-3)
         const rightDeckPads = [
-            { label: 'Cue B1', cc: 21, color: '#ff4a9a' },
-            { label: 'Cue B2', cc: 22, color: '#ff4a9a' },
-            { label: 'Cue B3', cc: 23, color: '#ff4a9a' },
-            { label: 'Cue B4', cc: 24, color: '#ff4a9a' },
-            { label: 'Loop B1', cc: 25, color: '#9a4aff' },
-            { label: 'Loop B2', cc: 26, color: '#9a4aff' },
-            { label: 'Loop B3', cc: 27, color: '#9a4aff' },
-            { label: 'Loop B4', cc: 28, color: '#9a4aff' },
+            { label: 'Cue B1', cc: 21, color: '#4a9eff' },  // BLUE for Deck B
+            { label: 'Cue B2', cc: 22, color: '#4a9eff' },
+            { label: 'Cue B3', cc: 23, color: '#4a9eff' },
+            { label: 'Cue B4', cc: 24, color: '#4a9eff' },
+            { label: 'Loop B1', cc: 25, color: '#ffff4a' },  // YELLOW for loops
+            { label: 'Loop B2', cc: 26, color: '#ffff4a' },
+            { label: 'Loop B3', cc: 27, color: '#ffff4a' },
+            { label: 'Loop B4', cc: 28, color: '#ffff4a' },
             { label: 'FX B1', cc: 29, color: '#4aff9a' },
             { label: 'FX B2', cc: 30, color: '#4aff9a' },
             { label: 'FX B3', cc: 31, color: '#4aff9a' },
             { label: 'FX B4', cc: 32, color: '#4aff9a' },
             { label: 'Play B', cc: 33, color: '#ff4a4a' },
             { label: 'Sync B', cc: 34, color: '#ff9a4a' },
-            { label: 'Deck B', cc: 35, color: '#888' },
+            { label: 'PFL B', cc: 35, color: '#888' },
             { label: 'Load B', cc: 36, color: '#888' },
         ];
 
