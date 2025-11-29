@@ -3621,16 +3621,30 @@ export class SceneManager {
      */
     sendControlMIDI(control, value) {
         // Get MIDI output (use device binding if specified)
+        // Priority: control.deviceBinding > scene.deviceBinding > default output
         let midiOutput = this.controller.midiOutput;
         let midiChannel = control.midiChannel || 0;
 
-        if (control.deviceBinding && this.controller.deviceManager) {
-            const device = this.controller.deviceManager.getDevice(control.deviceBinding);
+        // First, try control-specific device binding
+        let deviceBinding = control.deviceBinding;
+
+        // If no control-specific binding, try scene-level device binding
+        if (!deviceBinding) {
+            const currentScene = this.scenes.get(this.currentScene);
+            if (currentScene && currentScene.deviceBinding) {
+                deviceBinding = currentScene.deviceBinding;
+            }
+        }
+
+        // Apply device binding if we found one
+        if (deviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(deviceBinding);
             if (device) {
                 const deviceOutput = this.controller.deviceManager.getMidiOutput(device.id);
                 if (deviceOutput) {
                     midiOutput = deviceOutput;
                     midiChannel = device.midiChannel;
+                    console.log(`[ControlGrid] Using device: ${device.name} (Ch${midiChannel + 1}, Output: ${deviceOutput.name})`);
                 }
             }
         }
