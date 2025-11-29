@@ -88,7 +88,7 @@ class BaseFader extends HTMLElement {
             }
 
             .fader-button.active {
-                background: #cc4444;
+                background: #CF1A37;
                 color: #fff;
             }
 
@@ -99,7 +99,7 @@ class BaseFader extends HTMLElement {
             }
 
             #fx-btn.warning {
-                background: #cc4444;
+                background: #CF1A37;
                 color: #fff;
             }
 
@@ -141,7 +141,7 @@ class BaseFader extends HTMLElement {
                 appearance: none;
                 width: 24px;
                 height: 24px;
-                background: #cc4444;
+                background: #CF1A37;
                 cursor: grab;
                 border-radius: 4px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -155,7 +155,7 @@ class BaseFader extends HTMLElement {
             .pan-slider::-moz-range-thumb {
                 width: 24px;
                 height: 24px;
-                background: #cc4444;
+                background: #CF1A37;
                 cursor: grab;
                 border: none;
                 border-radius: 4px;
@@ -754,7 +754,7 @@ class CCFader extends BaseFader {
                         appearance: none;
                         width: 32px;
                         height: 32px;
-                        background: #cc4444;
+                        background: #CF1A37;
                         cursor: grab;
                         border-radius: 4px;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -768,7 +768,7 @@ class CCFader extends BaseFader {
                     .horizontal-slider::-moz-range-thumb {
                         width: 32px;
                         height: 32px;
-                        background: #cc4444;
+                        background: #CF1A37;
                         cursor: grab;
                         border: none;
                         border-radius: 4px;

@@ -141,7 +141,7 @@ export class SequencerScene {
         stopBtn.textContent = '■ STOP';
         stopBtn.style.cssText = buttonStyle + `
             background: #4a2a2a;
-            color: #cc4444;
+            color: #CF1A37;
             border-color: #5a3a3a;
         `;
         stopBtn.addEventListener('click', () => this.engine.stopPlayback());
@@ -153,7 +153,7 @@ export class SequencerScene {
         recordBtn.id = 'seq-record-btn';
         recordBtn.style.cssText = buttonStyle + `
             background: ${this.recordMode ? '#4a2a2a' : '#2a2a2a'};
-            color: ${this.recordMode ? '#cc4444' : '#888'};
+            color: ${this.recordMode ? '#CF1A37' : '#888'};
             border-color: ${this.recordMode ? '#5a3a3a' : '#3a3a3a'};
         `;
         recordBtn.addEventListener('click', () => this.toggleRecordMode());
@@ -692,7 +692,7 @@ export class SequencerScene {
             muteBtn.textContent = 'M';
             muteBtn.style.cssText = `
                 padding: 6px 12px;
-                background: ${this.engine.trackMutes[track] ? '#cc4444' : '#2a2a2a'};
+                background: ${this.engine.trackMutes[track] ? '#CF1A37' : '#2a2a2a'};
                 color: ${this.engine.trackMutes[track] ? '#fff' : '#888'};
                 border: 1px solid #333;
                 border-radius: 2px;
@@ -717,7 +717,7 @@ export class SequencerScene {
             const isSoloed = this.engine.isTrackSoloed(track);
             soloBtn.style.cssText = `
                 padding: 6px 12px;
-                background: ${isSoloed ? '#cc4444' : '#2a2a2a'};
+                background: ${isSoloed ? '#CF1A37' : '#2a2a2a'};
                 color: ${isSoloed ? '#fff' : '#888'};
                 border: 1px solid #333;
                 border-radius: 2px;
@@ -883,7 +883,7 @@ export class SequencerScene {
         const recordBtn = document.getElementById('seq-record-btn');
         if (recordBtn) {
             recordBtn.style.background = this.recordMode ? '#4a2a2a' : '#2a2a2a';
-            recordBtn.style.color = this.recordMode ? '#cc4444' : '#888';
+            recordBtn.style.color = this.recordMode ? '#CF1A37' : '#888';
             recordBtn.style.borderColor = this.recordMode ? '#5a3a3a' : '#3a3a3a';
         }
 

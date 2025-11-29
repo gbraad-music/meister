@@ -49,7 +49,7 @@ class SvgSlider extends HTMLElement {
 
     render() {
         const width = this.getAttribute('width') || '60';
-        const color = this.getAttribute('color') || '#cc4444';
+        const color = this.getAttribute('color') || '#CF1A37';
 
         this.shadowRoot.innerHTML = `
             <style>

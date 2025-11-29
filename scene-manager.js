@@ -201,20 +201,20 @@ export class SceneManager {
 
         // Left deck pads (4x4 grid, cols 0-3, rows 0-3)
         const leftDeckPads = [
-            { label: 'Cue A1', cc: 1, color: '#ff4a4a' },  // RED for Deck A
-            { label: 'Cue A2', cc: 2, color: '#ff4a4a' },
-            { label: 'Cue A3', cc: 3, color: '#ff4a4a' },
-            { label: 'Cue A4', cc: 4, color: '#ff4a4a' },
-            { label: 'Loop A1', cc: 5, color: '#ffff4a' },  // YELLOW for loops
-            { label: 'Loop A2', cc: 6, color: '#ffff4a' },
-            { label: 'Loop A3', cc: 7, color: '#ffff4a' },
-            { label: 'Loop A4', cc: 8, color: '#ffff4a' },
-            { label: 'FX A1', cc: 9, color: '#4aff9a' },
-            { label: 'FX A2', cc: 10, color: '#4aff9a' },
-            { label: 'FX A3', cc: 11, color: '#4aff9a' },
-            { label: 'FX A4', cc: 12, color: '#4aff9a' },
-            { label: 'Play A', cc: 13, color: '#ff4a4a' },
-            { label: 'Sync A', cc: 14, color: '#ff9a4a' },
+            { label: 'Cue A1', cc: 1, color: '#0088FF' },  // Blue for CUE buttons
+            { label: 'Cue A2', cc: 2, color: '#0088FF' },
+            { label: 'Cue A3', cc: 3, color: '#0088FF' },
+            { label: 'Cue A4', cc: 4, color: '#0088FF' },
+            { label: 'Loop A1', cc: 5, color: '#FFCC00' },  // Orange/yellow for loops
+            { label: 'Loop A2', cc: 6, color: '#FFCC00' },
+            { label: 'Loop A3', cc: 7, color: '#FFCC00' },
+            { label: 'Loop A4', cc: 8, color: '#FFCC00' },
+            { label: 'FX A1', cc: 9, color: '#00DD00' },  // Bright green for FX
+            { label: 'FX A2', cc: 10, color: '#00DD00' },
+            { label: 'FX A3', cc: 11, color: '#00DD00' },
+            { label: 'FX A4', cc: 12, color: '#00DD00' },
+            { label: 'Play A', cc: 13, color: '#DD0000' },  // Dark red for play
+            { label: 'Sync A', cc: 14, color: '#FFAA00' },  // Orange for sync
             { label: 'PFL A', cc: 15, color: '#888' },
             { label: 'Load A', cc: 16, color: '#888' },
         ];
@@ -363,6 +363,7 @@ export class SceneManager {
             col: 0,
             rowSpan: 1,
             colSpan: 4,
+            accentColor: '#FF0000',  // RED accent for Deck A
             control: {
                 type: 'fader',
                 faderType: 'cc-fader',
@@ -381,6 +382,7 @@ export class SceneManager {
             col: 4,
             rowSpan: 1,
             colSpan: 4,
+            accentColor: '#000000',  // Black accent to keep alignment with TEMPO sliders
             control: {
                 type: 'fader',
                 faderType: 'cc-fader',
@@ -399,6 +401,7 @@ export class SceneManager {
             col: 8,
             rowSpan: 1,
             colSpan: 4,
+            accentColor: '#0000FF',  // BLUE accent for Deck B
             control: {
                 type: 'fader',
                 faderType: 'cc-fader',
@@ -413,20 +416,20 @@ export class SceneManager {
 
         // Right deck pads (4x4 grid, cols 8-11, rows 0-3)
         const rightDeckPads = [
-            { label: 'Cue B1', cc: 21, color: '#4a9eff' },  // BLUE for Deck B
-            { label: 'Cue B2', cc: 22, color: '#4a9eff' },
-            { label: 'Cue B3', cc: 23, color: '#4a9eff' },
-            { label: 'Cue B4', cc: 24, color: '#4a9eff' },
-            { label: 'Loop B1', cc: 25, color: '#ffff4a' },  // YELLOW for loops
-            { label: 'Loop B2', cc: 26, color: '#ffff4a' },
-            { label: 'Loop B3', cc: 27, color: '#ffff4a' },
-            { label: 'Loop B4', cc: 28, color: '#ffff4a' },
-            { label: 'FX B1', cc: 29, color: '#4aff9a' },
-            { label: 'FX B2', cc: 30, color: '#4aff9a' },
-            { label: 'FX B3', cc: 31, color: '#4aff9a' },
-            { label: 'FX B4', cc: 32, color: '#4aff9a' },
-            { label: 'Play B', cc: 33, color: '#ff4a4a' },
-            { label: 'Sync B', cc: 34, color: '#ff9a4a' },
+            { label: 'Cue B1', cc: 21, color: '#0088FF' },  // Blue for CUE buttons
+            { label: 'Cue B2', cc: 22, color: '#0088FF' },
+            { label: 'Cue B3', cc: 23, color: '#0088FF' },
+            { label: 'Cue B4', cc: 24, color: '#0088FF' },
+            { label: 'Loop B1', cc: 25, color: '#FFCC00' },  // Orange/yellow for loops
+            { label: 'Loop B2', cc: 26, color: '#FFCC00' },
+            { label: 'Loop B3', cc: 27, color: '#FFCC00' },
+            { label: 'Loop B4', cc: 28, color: '#FFCC00' },
+            { label: 'FX B1', cc: 29, color: '#00DD00' },  // Bright green for FX
+            { label: 'FX B2', cc: 30, color: '#00DD00' },
+            { label: 'FX B3', cc: 31, color: '#00DD00' },
+            { label: 'FX B4', cc: 32, color: '#00DD00' },
+            { label: 'Play B', cc: 33, color: '#DD0000' },  // Dark red for play
+            { label: 'Sync B', cc: 34, color: '#FFAA00' },  // Orange for sync
             { label: 'PFL B', cc: 35, color: '#888' },
             { label: 'Load B', cc: 36, color: '#888' },
         ];
@@ -2829,7 +2832,7 @@ export class SceneManager {
 
                     mouseNote = noteNumber;
                     activeNotes.add(noteNumber);
-                    path.setAttribute('fill', '#cc4444');
+                    path.setAttribute('fill', '#CF1A37');
                     sendNote(noteNumber, velocity);
                 });
 
@@ -2873,7 +2876,7 @@ export class SceneManager {
 
                         activeTouches.set(touchId, noteNumber);
                         activeNotes.add(noteNumber);
-                        path.setAttribute('fill', '#cc4444');
+                        path.setAttribute('fill', '#CF1A37');
                         sendNote(noteNumber, velocity);
                     }
                 });
@@ -2962,7 +2965,7 @@ export class SceneManager {
 
                     mouseNote = noteNumber;
                     activeNotes.add(noteNumber);
-                    path.setAttribute('fill', '#cc4444');
+                    path.setAttribute('fill', '#CF1A37');
                     sendNote(noteNumber, velocity);
                 });
 
@@ -3006,7 +3009,7 @@ export class SceneManager {
 
                         activeTouches.set(touchId, noteNumber);
                         activeNotes.add(noteNumber);
-                        path.setAttribute('fill', '#cc4444');
+                        path.setAttribute('fill', '#CF1A37');
                         sendNote(noteNumber, velocity);
                     }
                 });
@@ -3058,7 +3061,7 @@ export class SceneManager {
                 // Play new note
                 mouseNote = keyInfo.noteNumber;
                 activeNotes.add(keyInfo.noteNumber);
-                keyInfo.path.setAttribute('fill', '#cc4444');
+                keyInfo.path.setAttribute('fill', '#CF1A37');
                 sendNote(keyInfo.noteNumber, velocity);
             }
         });
@@ -3096,7 +3099,7 @@ export class SceneManager {
                     // Play new note for this touch
                     activeTouches.set(touchId, keyInfo.noteNumber);
                     activeNotes.add(keyInfo.noteNumber);
-                    keyInfo.path.setAttribute('fill', '#cc4444');
+                    keyInfo.path.setAttribute('fill', '#CF1A37');
                     sendNote(keyInfo.noteNumber, velocity);
                 }
             }
@@ -3282,6 +3285,13 @@ export class SceneManager {
         const cell = document.createElement('div');
         cell.style.position = 'relative';
         // No background/border - let controls provide their own styling (match pad grid)
+
+        // Apply accent color as bottom border if set
+        if (cellConfig.accentColor) {
+            console.log(`[Accent] Setting accent color ${cellConfig.accentColor} for cell at row ${cellConfig.row}, col ${cellConfig.col}`);
+            cell.style.borderBottom = `4px solid ${cellConfig.accentColor}`;
+            cell.style.setProperty('border-bottom-color', cellConfig.accentColor, 'important');
+        }
 
         // Store cell config for editing
         cell.dataset.row = cellConfig.row;
@@ -3712,11 +3722,11 @@ export class SceneManager {
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; color: #888;">Color:</label>
                         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;">
-                            <button class="color-preset" data-color="#ff4a4a" style="padding: 12px; background: #ff4a4a; border: 2px solid ${control.color === '#ff4a4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">RED</button>
-                            <button class="color-preset" data-color="#4a9eff" style="padding: 12px; background: #4a9eff; border: 2px solid ${control.color === '#4a9eff' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">BLUE</button>
-                            <button class="color-preset" data-color="#4aff9a" style="padding: 12px; background: #4aff9a; border: 2px solid ${control.color === '#4aff9a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">GREEN</button>
-                            <button class="color-preset" data-color="#ffff4a" style="padding: 12px; background: #ffff4a; border: 2px solid ${control.color === '#ffff4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">YELLOW</button>
-                            <button class="color-preset" data-color="#ff9a4a" style="padding: 12px; background: #ff9a4a; border: 2px solid ${control.color === '#ff9a4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">ORANGE</button>
+                            <button class="color-preset" data-color="#DD8000" style="padding: 12px; background: #DD8000; border: 2px solid ${control.color === '#DD8000' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">RED</button>
+                            <button class="color-preset" data-color="#0088FF" style="padding: 12px; background: #0088FF; border: 2px solid ${control.color === '#0088FF' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">BLUE</button>
+                            <button class="color-preset" data-color="#00DD00" style="padding: 12px; background: #00DD00; border: 2px solid ${control.color === '#00DD00' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">GREEN</button>
+                            <button class="color-preset" data-color="#FFCC00" style="padding: 12px; background: #FFCC00; border: 2px solid ${control.color === '#FFCC00' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">YELLOW</button>
+                            <button class="color-preset" data-color="#FFAA00" style="padding: 12px; background: #FFAA00; border: 2px solid ${control.color === '#FFAA00' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">ORANGE</button>
                             <button class="color-preset" data-color="#9a4aff" style="padding: 12px; background: #9a4aff; border: 2px solid ${control.color === '#9a4aff' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">PURPLE</button>
                             <button class="color-preset" data-color="#888" style="padding: 12px; background: #888; border: 2px solid ${control.color === '#888' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">GRAY</button>
                             <button id="custom-color-btn" style="padding: 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #aaa; font-weight: bold;">CUSTOM</button>
@@ -3767,7 +3777,7 @@ export class SceneManager {
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                    ${existingCell && control.type !== 'empty' ? `<button id="delete-control" style="padding: 10px 20px; background: #4a2a2a; color: #cc4444; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete</button>` : ''}
+                    ${existingCell && control.type !== 'empty' ? `<button id="delete-control" style="padding: 10px 20px; background: #4a2a2a; color: #CF1A37; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete</button>` : ''}
                     <button id="cancel-control" style="padding: 10px 20px; background: #4a4a4a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
                     <button id="save-control" style="padding: 10px 20px; background: #4a9eff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Save</button>
                 </div>

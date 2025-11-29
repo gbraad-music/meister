@@ -23,7 +23,7 @@ export class DeviceManager {
             type: config.type || 'generic', // 'generic', 'regroove', or 'samplecrate'
             midiChannel: config.midiChannel ?? 0,
             deviceId: config.deviceId ?? 0,
-            color: config.color || '#cc4444',
+            color: config.color || '#CF1A37',
             midiOutputName: config.midiOutputName || null // null = use default MIDI output (use name, not ID)
         };
 
@@ -160,7 +160,7 @@ export class DeviceManager {
                             type: device.type || 'generic', // Restore type field!
                             midiChannel: device.midiChannel,
                             deviceId: device.deviceId,
-                            color: device.color || '#cc4444',
+                            color: device.color || '#CF1A37',
                             midiOutputName: device.midiOutputName || device.midiOutputId || null // Support legacy midiOutputId
                         });
                         console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputName || device.midiOutputId || 'default'}`);
@@ -190,7 +190,7 @@ export class DeviceManager {
             name: 'Default Regroove',
             midiChannel: 0,
             deviceId: 0,
-            color: '#cc4444'
+            color: '#CF1A37'
         });
         this.setDefaultDevice(defaultId);
         console.log('[Devices] Created default device instance');
@@ -254,8 +254,8 @@ export class DeviceManager {
                 document.getElementById('device-sysex-id').value = device.deviceId;
                 document.getElementById('device-midi-output').value = device.midiOutputName || '';
                 document.getElementById('device-type').value = device.type || 'regroove';
-                document.getElementById('device-color').value = device.color || '#cc4444';
-                document.getElementById('device-color-value').textContent = device.color || '#cc4444';
+                document.getElementById('device-color').value = device.color || '#CF1A37';
+                document.getElementById('device-color-value').textContent = device.color || '#CF1A37';
                 document.getElementById('delete-device').style.display = 'inline-block';
             }
         } else {
@@ -265,8 +265,8 @@ export class DeviceManager {
             document.getElementById('device-sysex-id').value = 0;
             document.getElementById('device-midi-output').value = '';
             document.getElementById('device-type').value = 'regroove';
-            document.getElementById('device-color').value = '#cc4444';
-            document.getElementById('device-color-value').textContent = '#cc4444';
+            document.getElementById('device-color').value = '#CF1A37';
+            document.getElementById('device-color-value').textContent = '#CF1A37';
             document.getElementById('delete-device').style.display = 'none';
         }
 
@@ -322,7 +322,7 @@ export class DeviceManager {
         const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
         const midiOutputName = document.getElementById('device-midi-output').value || null;
         const deviceType = document.getElementById('device-type').value || 'regroove';
-        const deviceColor = document.getElementById('device-color').value || '#cc4444';
+        const deviceColor = document.getElementById('device-color').value || '#CF1A37';
 
         const id = this.editingDeviceId || `device-${Date.now()}`;
 
@@ -406,7 +406,7 @@ export class DeviceManager {
                 <tr>
                     <td style="color: #ddd; font-weight: ${isDefault ? 'bold' : 'normal'};">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; background: ${device.color || '#cc4444'}; border-radius: 2px; flex-shrink: 0;"></div>
+                            <div style="width: 12px; height: 12px; background: ${device.color || '#CF1A37'}; border-radius: 2px; flex-shrink: 0;"></div>
                             <div>
                                 ${device.name}
                                 ${isDefault ? '<span style="color: #4a9eff; font-size: 0.8em;"> (DEFAULT)</span>' : ''}

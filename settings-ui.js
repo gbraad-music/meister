@@ -108,8 +108,8 @@ export class SettingsUI {
                         <button class="scene-move-down" data-scene-id="${scene.id}" style="padding: 3px 7px; background: #333; border: 1px solid #444; color: ${index < scenes.length - 1 ? '#888' : '#333'}; cursor: ${index < scenes.length - 1 ? 'pointer' : 'default'}; border-radius: 2px; font-size: 0.75em;" ${index === scenes.length - 1 ? 'disabled' : ''}>▼</button>
                         <button class="scene-set-default" data-scene-id="${scene.id}" style="padding: 3px 7px; background: ${this.controller.sceneManager.defaultScene === scene.id ? '#4a4a2a' : '#2a2a2a'}; border: 1px solid ${this.controller.sceneManager.defaultScene === scene.id ? '#6a6a3a' : '#3a3a3a'}; color: ${this.controller.sceneManager.defaultScene === scene.id ? '#ffff88' : '#888'}; cursor: pointer; border-radius: 2px; font-size: 0.7em;">★</button>
                         <button class="scene-toggle" data-scene-id="${scene.id}" style="padding: 3px 10px; background: ${isEnabled ? '#4a2a2a' : '#2a4a2a'}; border: 1px solid ${isEnabled ? '#5a3a3a' : '#3a5a3a'}; color: ${isEnabled ? '#9e4a4a' : '#4a9e4a'}; cursor: pointer; border-radius: 2px; font-size: 0.75em; white-space: nowrap;">${isEnabled ? 'DISABLE' : 'ENABLE'}</button>
-                        <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-edit" data-scene-id="${scene.id}">✏️</div>
-                        <div style="color: #cc4444; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-delete" data-scene-id="${scene.id}">🗑️</div>
+                        <div style="color: #CF1A37; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-edit" data-scene-id="${scene.id}">✏️</div>
+                        <div style="color: #CF1A37; font-size: 1em; cursor: pointer; padding: 0 4px; display: flex; align-items: center;" class="scene-delete" data-scene-id="${scene.id}">🗑️</div>
                     </div>
                 </div>
             `;
@@ -977,7 +977,7 @@ export class SettingsUI {
                 targetsHTML += `
                     <div style="padding: 8px; margin: 5px 0; background: ${isActive ? '#2a4a2a' : '#1a1a1a'}; border: 1px solid ${isActive ? '#4a9e4a' : '#333'}; border-radius: 3px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="color: ${isActive ? '#4a9e4a' : '#ddd'};">#${idx + 1}: ${targetLabel}</span>
-                        <button onclick="window.meisterController.settingsUI.removeInputTarget('${inputName}', ${idx})" style="padding: 3px 8px; background: #cc4444; border: none; color: #fff; cursor: pointer; border-radius: 2px;">Remove</button>
+                        <button onclick="window.meisterController.settingsUI.removeInputTarget('${inputName}', ${idx})" style="padding: 3px 8px; background: #CF1A37; border: none; color: #fff; cursor: pointer; border-radius: 2px;">Remove</button>
                     </div>
                 `;
             });

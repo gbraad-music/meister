@@ -427,7 +427,7 @@ export class SceneEditor {
             return `
                 <div class="fader-slot" data-slot="${index}" style="
                     background: ${fader ? '#2a2a2a' : '#1a1a1a'};
-                    border: 2px solid ${fader ? '#cc4444' : '#333'};
+                    border: 2px solid ${fader ? '#CF1A37' : '#333'};
                     padding: 12px;
                     border-radius: 4px;
                     cursor: pointer;
@@ -1210,7 +1210,7 @@ export class SceneEditor {
             return `
                 <div class="fader-slot" data-slot="${index}" style="
                     background: ${fader ? '#2a2a2a' : '#1a1a1a'};
-                    border: 2px solid ${fader ? '#cc4444' : '#333'};
+                    border: 2px solid ${fader ? '#CF1A37' : '#333'};
                     padding: 12px;
                     border-radius: 4px;
                     cursor: pointer;

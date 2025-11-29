@@ -3193,7 +3193,7 @@ class MeisterController {
                                 name: device.name,
                                 midiChannel: device.midiChannel,
                                 deviceId: device.deviceId,
-                                color: device.color || '#cc4444'
+                                color: device.color || '#CF1A37'
                             });
                         });
                     }

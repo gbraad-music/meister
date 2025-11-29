@@ -95,7 +95,7 @@ class PadKnob extends HTMLElement {
                     left: 50%;
                     width: 3px;
                     height: 40%;
-                    background: #cc4444;
+                    background: #CF1A37;
                     border-radius: 2px;
                     transform-origin: bottom center;
                     transform: translateX(-50%) rotate(${rotation}deg);
