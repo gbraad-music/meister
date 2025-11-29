@@ -136,6 +136,17 @@ class RegroovePad extends HTMLElement {
                     border-color: #000000 !important;
                 }
 
+                /* Custom color support */
+                :host([data-custom-color]) .pad {
+                    background: var(--custom-bg, #6b7b8c);
+                    border-color: color-mix(in srgb, var(--custom-bg, #6b7b8c) 50%, black);
+                }
+
+                :host([data-custom-color]) .pad.active {
+                    background: color-mix(in srgb, var(--custom-bg, #6b7b8c) 80%, white) !important;
+                    border-color: #000000 !important;
+                }
+
                 .label {
                     font-size: 0.85em;
                     font-weight: bold;
@@ -200,11 +211,20 @@ class RegroovePad extends HTMLElement {
         if (!pad) return;
 
         pad.classList.remove('active', 'state-on', 'color-green', 'color-red', 'color-yellow', 'color-blue');
+        this.removeAttribute('data-custom-color');
 
         // Apply color if set
         const color = this.getAttribute('color');
         if (color) {
-            pad.classList.add(`color-${color}`);
+            // Check if it's a hex color or named color
+            if (color.startsWith('#')) {
+                // Hex color - apply as custom style
+                this.style.setProperty('--custom-bg', color);
+                this.setAttribute('data-custom-color', 'true');
+            } else {
+                // Named color - use CSS class
+                pad.classList.add(`color-${color}`);
+            }
         }
 
         if (this._active) {

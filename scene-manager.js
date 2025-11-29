@@ -3364,23 +3364,9 @@ export class SceneManager {
         const pad = document.createElement('regroove-pad');
         pad.setAttribute('label', control.label || '');
 
-        // Map hex colors to supported regroove-pad colors (green, red, yellow, blue)
+        // Pass color directly to pad - component will handle both named and hex colors
         if (control.color) {
-            const colorMap = {
-                '#4a9eff': 'blue',
-                '#9a4aff': 'blue',      // purple → blue
-                '#4aff9a': 'green',
-                '#ff4a4a': 'red',
-                '#ff9a4a': 'yellow',    // orange → yellow
-                '#ff4a9a': 'red',       // pink → red
-                '#ffaa44': 'yellow',
-                '#888': '',             // gray → default
-                '#9a9a9a': ''           // gray → default
-            };
-            const colorName = colorMap[control.color];
-            if (colorName) {
-                pad.setAttribute('color', colorName);
-            }
+            pad.setAttribute('color', control.color);
         }
 
         // Set MIDI attribute based on type
@@ -3725,7 +3711,20 @@ export class SceneManager {
 
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; color: #888;">Color:</label>
-                        <input type="color" id="control-color" value="${control.color || '#4a9eff'}" style="width: 100%; height: 40px; padding: 4px; background: #0a0a0a; border: 1px solid #555; border-radius: 4px; cursor: pointer;">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;">
+                            <button class="color-preset" data-color="#ff4a4a" style="padding: 12px; background: #ff4a4a; border: 2px solid ${control.color === '#ff4a4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">RED</button>
+                            <button class="color-preset" data-color="#4a9eff" style="padding: 12px; background: #4a9eff; border: 2px solid ${control.color === '#4a9eff' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">BLUE</button>
+                            <button class="color-preset" data-color="#4aff9a" style="padding: 12px; background: #4aff9a; border: 2px solid ${control.color === '#4aff9a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">GREEN</button>
+                            <button class="color-preset" data-color="#ffff4a" style="padding: 12px; background: #ffff4a; border: 2px solid ${control.color === '#ffff4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #000; font-weight: bold;">YELLOW</button>
+                            <button class="color-preset" data-color="#ff9a4a" style="padding: 12px; background: #ff9a4a; border: 2px solid ${control.color === '#ff9a4a' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">ORANGE</button>
+                            <button class="color-preset" data-color="#9a4aff" style="padding: 12px; background: #9a4aff; border: 2px solid ${control.color === '#9a4aff' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">PURPLE</button>
+                            <button class="color-preset" data-color="#888" style="padding: 12px; background: #888; border: 2px solid ${control.color === '#888' ? '#fff' : '#333'}; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #fff; font-weight: bold;">GRAY</button>
+                            <button id="custom-color-btn" style="padding: 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 4px; cursor: pointer; font-size: 0.75em; color: #aaa; font-weight: bold;">CUSTOM</button>
+                        </div>
+                        <div id="custom-color-picker" style="display: none; margin-top: 8px;">
+                            <input type="color" id="control-color-picker" value="${control.color || '#4a9eff'}" style="width: 100%; height: 40px; padding: 4px; background: #0a0a0a; border: 1px solid #555; border-radius: 4px; cursor: pointer;">
+                        </div>
+                        <input type="hidden" id="control-color" value="${control.color || '#4a9eff'}">
                     </div>
 
                     <div style="margin-bottom: 15px;">
@@ -3786,6 +3785,40 @@ export class SceneManager {
             typeSelect?.addEventListener('change', () => {
                 settingsDiv.style.display = typeSelect.value === 'empty' ? 'none' : 'block';
                 faderTypeSection.style.display = typeSelect.value === 'fader' ? 'block' : 'none';
+            });
+
+            // Handle color preset buttons
+            const colorPresets = document.querySelectorAll('.color-preset');
+            const colorInput = document.getElementById('control-color');
+            const customColorBtn = document.getElementById('custom-color-btn');
+            const customColorPicker = document.getElementById('custom-color-picker');
+            const colorPicker = document.getElementById('control-color-picker');
+
+            colorPresets.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const color = btn.dataset.color;
+                    colorInput.value = color;
+
+                    // Update button borders
+                    colorPresets.forEach(b => b.style.border = '2px solid #333');
+                    btn.style.border = '2px solid #fff';
+                    customColorBtn.style.border = '2px solid #555';
+
+                    // Hide custom picker
+                    customColorPicker.style.display = 'none';
+                });
+            });
+
+            customColorBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                customColorPicker.style.display = 'block';
+                customColorBtn.style.border = '2px solid #fff';
+                colorPresets.forEach(b => b.style.border = '2px solid #333');
+            });
+
+            colorPicker.addEventListener('input', () => {
+                colorInput.value = colorPicker.value;
             });
 
             document.getElementById('cancel-control')?.addEventListener('click', () => {
