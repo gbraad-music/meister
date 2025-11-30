@@ -274,10 +274,39 @@ class FireSequencerScene {
             controlStack.style.gridColumn = '2';
 
             // SOLO button (top)
-            const soloBtn = this.createButton('S', '#ffaa00', () => {
-                this.trackSolos[track] = !this.trackSolos[track];
-                this.updateMuteButtonVisual(track);
-                console.log(`[FireSequencer] Track ${track} solo: ${this.trackSolos[track]}`);
+            const soloBtn = this.createButton('S', '#CF1A37', () => {
+                if (this.isLinkedMode()) {
+                    // Use sequencer's toggleSolo - it handles all the mute logic
+                    const sequencer = this.getLinkedSequencer();
+                    if (sequencer) {
+                        sequencer.engine.toggleSolo(track);
+
+                        // Read back mute states from sequencer
+                        for (let t = 0; t < 4; t++) {
+                            this.trackMutes[t] = sequencer.engine.trackMutes[t];
+                        }
+
+                        // Infer solo state: only one track unmuted = that track is soloed
+                        const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
+                        this.trackSolos = [false, false, false, false];
+                        if (unmutedTracks.length === 1) {
+                            this.trackSolos[unmutedTracks[0]] = true;
+                        }
+
+                        console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
+                    }
+                } else {
+                    // Compatible mode: manual toggle
+                    this.trackSolos[track] = !this.trackSolos[track];
+                    if (this.trackSolos[track]) {
+                        this.trackMutes[track] = false;
+                    }
+                }
+
+                // Update all button visuals (all tracks affected by solo)
+                for (let t = 0; t < 4; t++) {
+                    this.updateMuteButtonVisual(t);
+                }
             }, 0x24 + track);
             soloBtn.classList.add(`track-${track}-solo`);
             controlStack.appendChild(soloBtn);
@@ -544,8 +573,33 @@ class FireSequencerScene {
     handleMuteButton(track) {
         if (this.shiftPressed) {
             // SHIFT + MUTE = SOLO
-            this.trackSolos[track] = !this.trackSolos[track];
-            console.log(`[FireSequencer] Track ${track} solo: ${this.trackSolos[track]}`);
+            if (this.isLinkedMode()) {
+                // Use sequencer's toggleSolo - it handles all the mute logic
+                const sequencer = this.getLinkedSequencer();
+                if (sequencer) {
+                    sequencer.engine.toggleSolo(track);
+
+                    // Read back mute states from sequencer
+                    for (let t = 0; t < 4; t++) {
+                        this.trackMutes[t] = sequencer.engine.trackMutes[t];
+                    }
+
+                    // Infer solo state: only one track unmuted = that track is soloed
+                    const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
+                    this.trackSolos = [false, false, false, false];
+                    if (unmutedTracks.length === 1) {
+                        this.trackSolos[unmutedTracks[0]] = true;
+                    }
+
+                    console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
+                }
+            } else {
+                // Compatible mode: manual toggle
+                this.trackSolos[track] = !this.trackSolos[track];
+                if (this.trackSolos[track]) {
+                    this.trackMutes[track] = false;
+                }
+            }
         } else {
             // Normal MUTE
             this.trackMutes[track] = !this.trackMutes[track];
@@ -742,7 +796,7 @@ class FireSequencerScene {
         const isMuted = this.trackMutes[track];
         const isSoloed = this.trackSolos[track];
 
-        // Update mute button
+        // Update UI buttons
         if (muteBtn) {
             if (isMuted) {
                 muteBtn.setAttribute('color', '#CF1A37');  // Red when muted
@@ -751,13 +805,29 @@ class FireSequencerScene {
             }
         }
 
-        // Update solo button
         if (soloBtn) {
             if (isSoloed) {
-                soloBtn.setAttribute('color', '#ffaa00');  // Yellow when soloed
+                soloBtn.setAttribute('color', '#CF1A37');  // Red when soloed
             } else {
                 soloBtn.setAttribute('color', '#888');  // Gray when not soloed
             }
+        }
+
+        // Send MIDI to physical Fire controller LEDs (if available)
+        // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
+        // MUTE/SOLO buttons share the same note (0x24-0x27)
+        // Muted = Red/Amber (4), Soloed = Yellow/Amber (2), Off = 0
+        const note = 0x24 + track;
+
+        if (isMuted) {
+            // Muted: Red/Amber full brightness
+            this.sendFireLED(note, 4);  // AMBER_FULL
+        } else if (isSoloed) {
+            // Soloed: Yellow/Amber half brightness
+            this.sendFireLED(note, 2);  // AMBER_HALF
+        } else {
+            // Off
+            this.sendFireLED(note, 0);  // OFF
         }
     }
 
@@ -770,6 +840,16 @@ class FireSequencerScene {
             const isActive = this.stepStates[track][step];
             btn.setAttribute('color', isActive ? '#4a9eff' : '#2a2a2a');
         }
+
+        // Send MIDI to physical Fire controller LED (if available)
+        // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
+        // Step grid: Notes 0x36-0x75 (54-117), 4 rows × 16 columns
+        const stepNote = 0x36 + (track * 16) + step;
+        const isActive = this.stepStates[track][step];
+
+        // Active steps: Blue (use GREEN for visibility on hardware)
+        // Inactive steps: Off
+        this.sendFireLED(stepNote, isActive ? 3 : 0);  // GREEN_FULL or OFF
     }
 
     /**
@@ -889,6 +969,9 @@ class FireSequencerScene {
         }
 
         // Detect solo: if only one track is unmuted, mark it as soloed
+        // IMPORTANT: Always reset solo states first
+        this.trackSolos = [false, false, false, false];
+
         const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
         if (unmutedTracks.length === 1) {
             const soloTrack = unmutedTracks[0];
@@ -958,7 +1041,7 @@ class FireSequencerScene {
             // Activate step - set a default note if empty
             if (entry.isEmpty()) {
                 entry.note = 'C';
-                entry.octave = 4;
+                entry.octave = 3;
                 entry.volume = 100;
                 entry.program = sequencer.engine.trackPrograms[track] || 0;
             }
