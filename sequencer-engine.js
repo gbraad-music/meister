@@ -267,7 +267,7 @@ export class SequencerEngine {
 
         this.playing = true;
 
-        console.log(`[Sequencer] startPlayback - syncToGlobalClock=${this.syncToGlobalClock}, syncToMIDIClock=${this.syncToMIDIClock}, syncToSPP=${this.syncToSPP}`);
+        // console.log(`[Sequencer] startPlayback - syncToGlobalClock=${this.syncToGlobalClock}, syncToMIDIClock=${this.syncToMIDIClock}, syncToSPP=${this.syncToSPP}`);
 
         // Update ONLY local sequencer pad colors, not device sequencer pads
         if (this.controller.updateLocalSequencerPads) {
@@ -277,7 +277,7 @@ export class SequencerEngine {
         // Send MIDI start if configured
         if (this.sendStartStop && this.controller.midiOutput) {
             this.controller.midiOutput.send([0xFA]); // MIDI Start
-            console.log('[Sequencer] Sent MIDI Start');
+            // console.log('[Sequencer] Sent MIDI Start');
         }
 
         // Reset timing counters
@@ -287,7 +287,7 @@ export class SequencerEngine {
 
         // Choose sync method (priority order: Global Clock > MIDI Clock > SPP > Internal)
         if (this.syncToGlobalClock) {
-            console.log(`[Sequencer] ✓✓✓ Started with GLOBAL CLOCK SYNC ✓✓✓`);
+            // console.log(`[Sequencer] ✓✓✓ Started with GLOBAL CLOCK SYNC ✓✓✓`);
             this.currentRow = 0;
             this.lastGlobalRow = -1;
 
@@ -304,26 +304,26 @@ export class SequencerEngine {
             // Start polling global clock position
             this.startGlobalClockSync();
         } else if (this.syncToMIDIClock) {
-            console.log(`[Sequencer] ✓✓✓ Started with MIDI CLOCK SYNC ✓✓✓ (BPM: ${this.bpm})`);
+            // console.log(`[Sequencer] ✓✓✓ Started with MIDI CLOCK SYNC ✓✓✓ (BPM: ${this.bpm})`);
             this.currentRow = 0;
 
             // CRITICAL: Stop ANY existing timers to prevent dual-timer bug!
             if (this.rafHandle) {
-                console.log(`[Sequencer] WARNING: Killing existing rafHandle timer!`);
+                // console.log(`[Sequencer] WARNING: Killing existing rafHandle timer!`);
                 clearTimeout(this.rafHandle);
                 this.rafHandle = null;
             }
             if (this.tickInterval) {
-                console.log(`[Sequencer] WARNING: Killing existing tickInterval timer!`);
+                // console.log(`[Sequencer] WARNING: Killing existing tickInterval timer!`);
                 clearTimeout(this.tickInterval);
                 this.tickInterval = null;
             }
 
             // Will advance ONLY on incoming MIDI clock pulses (handleMIDIClock)
             // Clock now uses Web Worker - stable timing even with UI visible!
-            console.log(`[Sequencer] Will advance ONLY on MIDI clock pulses (not internal timer)`);
+            // console.log(`[Sequencer] Will advance ONLY on MIDI clock pulses (not internal timer)`);
         } else if (this.syncToSPP) {
-            console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: SPP - waiting for position)`);
+            // console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: SPP - waiting for position)`);
             // SPP sync - waits for incoming position messages, no internal timer
         } else {
             // Internal timing with high-precision setTimeout
@@ -343,11 +343,11 @@ export class SequencerEngine {
 
             // Start global clock if not already running
             if (!this.controller.globalClockRunning) {
-                console.log(`[Sequencer] ✓✓✓ STARTING GLOBAL CLOCK ✓✓✓ (BPM: ${this.bpm})`);
+                // console.log(`[Sequencer] ✓✓✓ STARTING GLOBAL CLOCK ✓✓✓ (BPM: ${this.bpm})`);
                 this.startGlobalClock();
             }
 
-            console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: Internal Timer)`);
+            // console.log(`[Sequencer] Started (BPM: ${this.bpm}, Sync: Internal Timer)`);
             this.scheduleWithRAF();
         }
     }
@@ -361,7 +361,7 @@ export class SequencerEngine {
         this.controller.globalClockRow = this.currentRow; // Start from current position
         this.isMasterClock = true; // Flag to know we should update global clock
 
-        console.log('[Global Clock] Started - this sequencer is now the master clock');
+        // console.log('[Global Clock] Started - this sequencer is now the master clock');
     }
 
     /**
@@ -408,17 +408,17 @@ export class SequencerEngine {
         // Send MIDI stop if configured
         if (this.sendStartStop && this.controller.midiOutput) {
             this.controller.midiOutput.send([0xFC]); // MIDI Stop
-            console.log('[Sequencer] Sent MIDI Stop');
+            // console.log('[Sequencer] Sent MIDI Stop');
         }
 
-        console.log('[Sequencer] Stopped');
+        // console.log('[Sequencer] Stopped');
     }
 
     /**
      * Schedule playback using high-precision setTimeout (better than RAF!)
      */
     scheduleWithRAF() {
-        console.log(`[Sequencer] Starting high-precision internal timer at ${this.bpm} BPM (${this.msPerRow.toFixed(2)}ms per row)`);
+        // console.log(`[Sequencer] Starting high-precision internal timer at ${this.bpm} BPM (${this.msPerRow.toFixed(2)}ms per row)`);
 
         const clockTick = () => {
             if (!this.playing) return;
@@ -703,7 +703,7 @@ export class SequencerEngine {
         // Send SPP message: 0xF2 + LSB + MSB
         this.controller.midiOutput.send([0xF2, lsb, msb]);
 
-        console.log(`[Sequencer] Sent SPP: position ${position} (row ${position % 64})`);
+        // console.log(`[Sequencer] Sent SPP: position ${position} (row ${position % 64})`);
     }
 
     /**
@@ -803,7 +803,7 @@ export class SequencerEngine {
      * Start global clock sync - polls controller's global clock position
      */
     startGlobalClockSync() {
-        console.log(`[Sequencer] startGlobalClockSync called - controller.globalClockRunning=${this.controller.globalClockRunning}, globalClockRow=${this.controller.globalClockRow}`);
+        // console.log(`[Sequencer] startGlobalClockSync called - controller.globalClockRunning=${this.controller.globalClockRunning}, globalClockRow=${this.controller.globalClockRow}`);
 
         if (!this.syncToGlobalClock) {
             console.warn('[Sequencer] Cannot start global clock sync: syncToGlobalClock=false');
@@ -819,7 +819,7 @@ export class SequencerEngine {
         // Poll global clock position every 5ms for tight sync
         const pollGlobalClock = () => {
             if (!this.playing || !this.syncToGlobalClock) {
-                console.log('[Sequencer] Stopping global clock sync polling');
+                // console.log('[Sequencer] Stopping global clock sync polling');
                 return; // Stop polling if playback stopped or sync mode changed
             }
 
@@ -840,7 +840,7 @@ export class SequencerEngine {
         };
 
         // Start polling loop
-        console.log('[Sequencer] Starting global clock sync polling (5ms interval)');
+        // console.log('[Sequencer] Starting global clock sync polling (5ms interval)');
         this.rafHandle = setTimeout(pollGlobalClock, 5);
     }
 
@@ -888,14 +888,14 @@ export class SequencerEngine {
 
         if (this.isTrackSoloed(track)) {
             // Deactivating solo: unmute all tracks
-            console.log(`[Sequencer] Unsolo track ${track} - unmuting all tracks`);
+            // console.log(`[Sequencer] Unsolo track ${track} - unmuting all tracks`);
             for (let t = 0; t < this.pattern.tracks; t++) {
                 this.trackMutes[t] = false;
             }
-            console.log(`[Sequencer] After unsolo, mute states:`, this.trackMutes);
+            // console.log(`[Sequencer] After unsolo, mute states:`, this.trackMutes);
         } else {
             // Activating solo: unmute this track, mute all other tracks
-            console.log(`[Sequencer] Solo track ${track} - muting others`);
+            // console.log(`[Sequencer] Solo track ${track} - muting others`);
             this.trackMutes[track] = false;
             for (let t = 0; t < this.pattern.tracks; t++) {
                 if (t !== track) {
@@ -903,7 +903,7 @@ export class SequencerEngine {
                     this.stopTrackNote(t);
                 }
             }
-            console.log(`[Sequencer] After solo, mute states:`, this.trackMutes);
+            // console.log(`[Sequencer] After solo, mute states:`, this.trackMutes);
         }
     }
 

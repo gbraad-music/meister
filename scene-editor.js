@@ -1568,15 +1568,15 @@ export class SceneEditor {
     loadScenesFromStorage() {
         try {
             const saved = localStorage.getItem('meisterScenes');
-            console.log('[SceneEditor] Loading scenes from localStorage:', saved ? 'Found' : 'Not found');
+            // console.log('[SceneEditor] Loading scenes from localStorage:', saved ? 'Found' : 'Not found');
             if (saved) {
                 const scenes = JSON.parse(saved);
-                console.log('[SceneEditor] Parsed scenes:', Object.keys(scenes));
+                // console.log('[SceneEditor] Parsed scenes:', Object.keys(scenes));
 
                 // Load saved scenes BEFORE registering defaults
                 // This allows saved mixer scene to override the default
                 Object.entries(scenes).forEach(([id, config]) => {
-                    console.log(`[SceneEditor] Loading saved scene: ${id}, type: ${config.type}, linkedSequencer: ${config.linkedSequencer}`);
+                    // console.log(`[SceneEditor] Loading saved scene: ${id}, type: ${config.type}, linkedSequencer: ${config.linkedSequencer}`);
                     this.sceneManager.addScene(id, config);
                 });
 
@@ -1586,7 +1586,7 @@ export class SceneEditor {
                 // Initialize any sequencer instances that were loaded
                 this.sceneManager.initializeSequencerInstances();
             } else {
-                console.log('[SceneEditor] No scenes in localStorage');
+                // console.log('[SceneEditor] No scenes in localStorage');
             }
         } catch (e) {
             console.error('Failed to load scenes from storage:', e);
@@ -1711,7 +1711,7 @@ export class SceneEditor {
         // Re-render the fader grid
         this.renderFaderGrid();
 
-        console.log(`[SceneEditor] Applied ${layout} template`);
+        // console.log(`[SceneEditor] Applied ${layout} template`);
     }
 
     /**
@@ -1773,7 +1773,7 @@ export class SceneEditor {
                     this.sceneManager.controller.settingsUI.refreshScenesList();
                 }
                 this.closeSequencerSceneEditor();
-                console.log(`[SceneEditor] Renamed sequencer scene: ${name}`);
+                // console.log(`[SceneEditor] Renamed sequencer scene: ${name}`);
             }
         } else {
             // Create new scene
@@ -1802,7 +1802,7 @@ export class SceneEditor {
             // Switch to the new scene
             this.sceneManager.switchScene(sceneId);
 
-            console.log(`[SceneEditor] Created sequencer scene: ${name}`);
+            // console.log(`[SceneEditor] Created sequencer scene: ${name}`);
         }
     }
 
@@ -1998,7 +1998,7 @@ export class SceneEditor {
         // Switch to the new scene
         this.sceneManager.switchScene(sceneId);
 
-        console.log(`[SceneEditor] Created Fire scene: ${name} (${isLinked ? 'Linked' : 'Compatible'} mode)`);
+        // console.log(`[SceneEditor] Created Fire scene: ${name} (${isLinked ? 'Linked' : 'Compatible'} mode)`);
     }
 
     /**
@@ -2023,7 +2023,7 @@ export class SceneEditor {
             // Switch to default scene
             this.sceneManager.switchScene('pads');
 
-            console.log(`[SceneEditor] Deleted Fire scene: ${scene.name}`);
+            // console.log(`[SceneEditor] Deleted Fire scene: ${scene.name}`);
         }
     }
 }

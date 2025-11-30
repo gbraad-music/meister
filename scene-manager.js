@@ -38,7 +38,7 @@ export class SceneManager {
      * This allows sequencers to be controlled via pads without visiting the scene first
      */
     initializeSequencerInstances() {
-        console.log('[SceneManager] Initializing sequencer instances...');
+        // console.log('[SceneManager] Initializing sequencer instances...');
         let count = 0;
 
         for (const [sceneId, scene] of this.scenes.entries()) {
@@ -48,7 +48,7 @@ export class SceneManager {
                     scene.sequencerInstance = new window.SequencerScene(this.controller, sceneId, scene, true);
                     // Immediately pause it so it doesn't respond to MIDI clock
                     scene.sequencerInstance.pause();
-                    console.log(`[SceneManager] Pre-initialized sequencer (paused): ${scene.name} (${sceneId})`);
+                    // console.log(`[SceneManager] Pre-initialized sequencer (paused): ${scene.name} (${sceneId})`);
                     count++;
                 } else {
                     console.error('[SceneManager] SequencerScene class not available - cannot initialize sequencers');
@@ -57,7 +57,7 @@ export class SceneManager {
             }
         }
 
-        console.log(`[SceneManager] ✓ Initialized ${count} sequencer instance(s) in background`);
+        // console.log(`[SceneManager] ✓ Initialized ${count} sequencer instance(s) in background`);
     }
 
     setupOrientationListener() {
@@ -69,7 +69,7 @@ export class SceneManager {
                 const scene = this.scenes.get(this.currentScene);
                 // Only re-render if current scene is a split scene
                 if (scene && scene.type === 'split' && scene.render) {
-                    console.log('[SceneManager] Orientation changed, re-rendering split scene');
+                    // console.log('[SceneManager] Orientation changed, re-rendering split scene');
                     scene.render();
                 }
             }, 100);
@@ -541,7 +541,7 @@ export class SceneManager {
             scene.tracks = config.tracks || 4;
             scene.stepsPerTrack = config.stepsPerTrack || 16;
             scene.render = () => this.renderFireSequencerScene(id);
-            console.log(`[Scene] Added Fire scene: ${config.name}, linkedSequencer: ${scene.linkedSequencer}, deviceBinding: ${scene.deviceBinding}`);
+            // console.log(`[Scene] Added Fire scene: ${config.name}, linkedSequencer: ${scene.linkedSequencer}, deviceBinding: ${scene.deviceBinding}`);
         }
 
         this.scenes.set(id, scene);
@@ -563,12 +563,12 @@ export class SceneManager {
         if (previousScene) {
             // Pause sequencer scene when switching away (keeps playback running)
             if (previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
-                console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
+                // console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
                 previousScene.sequencerInstance.pause();
             }
             // Cleanup Fire sequencer scene when switching away
             if (previousScene.type === 'fire-sequencer' && previousScene.fireInstance) {
-                console.log(`[Scene] Cleaning up Fire scene: ${previousScene.name}`);
+                // console.log(`[Scene] Cleaning up Fire scene: ${previousScene.name}`);
                 previousScene.fireInstance.cleanup();
             }
         }
@@ -591,7 +591,7 @@ export class SceneManager {
         if (resolvedDeviceIds.length > 0) {
             // Scene has device bindings - start polling for those devices
             const pollInterval = scene.pollInterval || 500; // Default to 500ms if not specified
-            console.log(`[Scene] "${scene.name}" (type: ${scene.type}) polling Regroove devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
+            // console.log(`[Scene] "${scene.name}" (type: ${scene.type}) polling Regroove devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
 
             if (this.controller.regrooveState && this.controller.midiOutput) {
                 // Update polling interval
@@ -603,7 +603,7 @@ export class SceneManager {
             }
         } else {
             // Scene has no device bindings - stop polling
-            console.log(`[Scene] "${scene.name}" (type: ${scene.type}) has no Regroove device bindings, stopping polling`);
+            // console.log(`[Scene] "${scene.name}" (type: ${scene.type}) has no Regroove device bindings, stopping polling`);
             if (this.controller.regrooveState) {
                 this.controller.regrooveState.stopPolling();
             }
@@ -635,13 +635,13 @@ export class SceneManager {
         // For effects/piano/control-grid scenes with deviceBinding
         if (scene.deviceBinding) {
             const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
-            console.log(`[Scene] Checking scene.deviceBinding: device=${device?.name}, type=${device?.type}, deviceId=${device?.deviceId}`);
+            // console.log(`[Scene] Checking scene.deviceBinding: device=${device?.name}, type=${device?.type}, deviceId=${device?.deviceId}`);
             // Only poll for Regroove devices, not generic or undefined
             if (device && device.type === 'regroove') {
                 deviceIds.push(device.deviceId);
-                console.log(`[Scene] Added deviceId ${device.deviceId} from scene.deviceBinding (Regroove)`);
+                // console.log(`[Scene] Added deviceId ${device.deviceId} from scene.deviceBinding (Regroove)`);
             } else if (device) {
-                console.log(`[Scene] Skipping deviceId ${device.deviceId} from scene.deviceBinding (type: ${device.type}, not Regroove)`);
+                // console.log(`[Scene] Skipping deviceId ${device.deviceId} from scene.deviceBinding (type: ${device.type}, not Regroove)`);
             }
         }
 
@@ -1223,8 +1223,8 @@ export class SceneManager {
         // Get current parameter values from UI
         const params = this.getEffectParams(effectId);
 
-        console.log(`[Dev${deviceId} Prog${programId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
-        console.log(`[Dev${deviceId}] Sending SysEx 0x71: F0 7D ${deviceId.toString(16).padStart(2, '0')} 71 ${programId.toString(16).padStart(2, '0')} ${effectId.toString(16).padStart(2, '0')} ${enabled ? '01' : '00'} ${params.map(p => p.toString(16).padStart(2, '0')).join(' ')} F7`);
+        // console.log(`[Dev${deviceId} Prog${programId} Effects] ${enabled ? 'Enabling' : 'Disabling'} effect ${effectId} with params:`, params);
+        // console.log(`[Dev${deviceId}] Sending SysEx 0x71: F0 7D ${deviceId.toString(16).padStart(2, '0')} 71 ${programId.toString(16).padStart(2, '0')} ${effectId.toString(16).padStart(2, '0')} ${enabled ? '01' : '00'} ${params.map(p => p.toString(16).padStart(2, '0')).join(' ')} F7`);
 
         // Send SysEx command
         this.controller.sendSysExFxEffectSet(deviceId, programId, effectId, enabled, ...params);
@@ -1961,7 +1961,7 @@ export class SceneManager {
                 const trackIdx = parseInt(fader.dataset.sequencerTrack) - 1;
                 fader.setAttribute('muted', engine.trackMutes[trackIdx].toString());
                 fader.setAttribute('solo', engine.isTrackSoloed(trackIdx).toString());
-                console.log(`[SceneManager] Updated fader for track ${trackIdx}: muted=${engine.trackMutes[trackIdx]}, solo=${engine.isTrackSoloed(trackIdx)}`);
+                // console.log(`[SceneManager] Updated fader for track ${trackIdx}: muted=${engine.trackMutes[trackIdx]}, solo=${engine.isTrackSoloed(trackIdx)}`);
             }
         });
     }
@@ -2068,7 +2068,7 @@ export class SceneManager {
         if (!currentScene || currentScene.enabled === false) {
             const firstEnabled = this.getFirstEnabledScene();
             if (firstEnabled) {
-                console.log(`[SceneManager] Current scene disabled, switching to ${firstEnabled}`);
+                // console.log(`[SceneManager] Current scene disabled, switching to ${firstEnabled}`);
                 this.switchScene(firstEnabled);
             } else {
                 console.warn('[SceneManager] No enabled scenes found!');
@@ -2708,7 +2708,7 @@ export class SceneManager {
                 if (deviceOutput) {
                     midiOutput = deviceOutput;
                     midiChannel = boundDevice.midiChannel; // Use device's channel, not scene's
-                    console.log(`[Piano] Using device output: ${boundDevice.name}, channel ${midiChannel + 1}`);
+                    // console.log(`[Piano] Using device output: ${boundDevice.name}, channel ${midiChannel + 1}`);
                 } else {
                     console.warn(`[Piano] No MIDI output found for device ${boundDevice.name}, using default`);
                 }
@@ -2716,7 +2716,7 @@ export class SceneManager {
                 console.warn(`[Piano] Device binding ${scene.deviceBinding} not found, using default output`);
             }
         } else {
-            console.log(`[Piano] No device binding, using default MIDI output on channel ${midiChannel + 1}`);
+            // console.log(`[Piano] No device binding, using default MIDI output on channel ${midiChannel + 1}`);
         }
 
         // Helper function to send note on/off
@@ -3180,7 +3180,7 @@ export class SceneManager {
                 if (deviceOutput) {
                     midiOutput = deviceOutput;
                     midiChannel = boundDevice.midiChannel; // Use device's channel
-                    console.log(`[Piano] Sending Program Change via device: ${boundDevice.name}, channel ${midiChannel + 1}`);
+                    // console.log(`[Piano] Sending Program Change via device: ${boundDevice.name}, channel ${midiChannel + 1}`);
                 } else {
                     console.warn(`[Piano] No MIDI output found for device ${boundDevice.name}, using default`);
                 }
@@ -3197,7 +3197,7 @@ export class SceneManager {
         // MIDI Program Change: 0xC0-0xCF (channel) + program number (0-127 on wire, 1-128 user-facing)
         const statusByte = 0xC0 + midiChannel;
         midiOutput.send([statusByte, program]);
-        console.log(`[Piano] Sent Program Change: CH ${midiChannel + 1} -> Program ${program + 1} (wire: ${program})`);
+        // console.log(`[Piano] Sent Program Change: CH ${midiChannel + 1} -> Program ${program + 1} (wire: ${program})`);
     }
 
     /**
@@ -3220,7 +3220,7 @@ export class SceneManager {
             // Create new instance
             if (window.SequencerScene) {
                 scene.sequencerInstance = new window.SequencerScene(this.controller, sceneId, scene);
-                console.log(`[Sequencer] Created new sequencer instance for scene: ${scene.name}`);
+                // console.log(`[Sequencer] Created new sequencer instance for scene: ${scene.name}`);
             } else {
                 console.error('[Sequencer] SequencerScene class not available');
                 return;
@@ -3230,7 +3230,7 @@ export class SceneManager {
             scene.sequencerInstance.render();
 
             // Resume the scene (restart UI updates and MIDI input)
-            console.log(`[Sequencer] Resuming sequencer scene: ${scene.name}`);
+            // console.log(`[Sequencer] Resuming sequencer scene: ${scene.name}`);
             scene.sequencerInstance.resume();
         }
     }
@@ -3292,7 +3292,7 @@ export class SceneManager {
             }
         }
 
-        console.log(`[ControlGrid] Rendered ${scene.name} (${scene.rows}x${scene.cols}, ${scene.cells.length} controls)`);
+        // console.log(`[ControlGrid] Rendered ${scene.name} (${scene.rows}x${scene.cols}, ${scene.cells.length} controls)`);
     }
 
     /**
@@ -3305,7 +3305,7 @@ export class SceneManager {
 
         // Apply accent color as bottom border if set
         if (cellConfig.accentColor) {
-            console.log(`[Accent] Setting accent color ${cellConfig.accentColor} for cell at row ${cellConfig.row}, col ${cellConfig.col}`);
+            // console.log(`[Accent] Setting accent color ${cellConfig.accentColor} for cell at row ${cellConfig.row}, col ${cellConfig.col}`);
             cell.style.borderBottom = `4px solid ${cellConfig.accentColor}`;
             cell.style.setProperty('border-bottom-color', cellConfig.accentColor, 'important');
         }
@@ -3657,7 +3657,7 @@ export class SceneManager {
                 if (deviceOutput) {
                     midiOutput = deviceOutput;
                     midiChannel = device.midiChannel;
-                    console.log(`[ControlGrid] Using device: ${device.name} (Ch${midiChannel + 1}, Output: ${deviceOutput.name})`);
+                    // console.log(`[ControlGrid] Using device: ${device.name} (Ch${midiChannel + 1}, Output: ${deviceOutput.name})`);
                 }
             }
         }
@@ -3678,7 +3678,7 @@ export class SceneManager {
             midiOutput.send([statusByte, midiNumber]);
         }
 
-        console.log(`[ControlGrid] MIDI ${midiType}: Ch${midiChannel + 1}, Num${midiNumber}, Val${value}`);
+        // console.log(`[ControlGrid] MIDI ${midiType}: Ch${midiChannel + 1}, Num${midiNumber}, Val${value}`);
     }
 
     /**

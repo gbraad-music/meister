@@ -89,7 +89,7 @@ class MeisterController {
     async setupMIDI() {
         try {
             this.midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-            console.log('MIDI Access granted (with SysEx)');
+            // console.log('MIDI Access granted (with SysEx)');
             this.populateMIDIOutputs();
             this.setupMIDIInputs();
             this.midiAccess.onstatechange = () => {
@@ -107,12 +107,12 @@ class MeisterController {
             return;
         }
 
-        console.log('[Meister] Setting up MIDI input listeners...');
+        // console.log('[Meister] Setting up MIDI input listeners...');
         let count = 0;
 
         // If no enabled inputs are configured, enable all inputs by default
         if (!this.enabledMidiInputs || this.enabledMidiInputs.size === 0) {
-            console.log('[Meister] No enabled inputs configured, enabling all inputs by default');
+            // console.log('[Meister] No enabled inputs configured, enabling all inputs by default');
             this.enabledMidiInputs = new Set(Array.from(this.midiAccess.inputs.values()).map(input => input.name));
             this.saveConfig();
         }
@@ -136,13 +136,13 @@ class MeisterController {
                 const handler = (event) => this.handleMIDIMessage(event);
                 this.midiInputHandlers.set(input.name, handler);
                 input.addEventListener('midimessage', handler);
-                console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
+                // console.log(`[Meister] ✓ Listener attached to: ${input.name}`);
                 count++;
             } else {
-                console.log(`[Meister] ✗ Skipped (disabled): ${input.name}`);
+                // console.log(`[Meister] ✗ Skipped (disabled): ${input.name}`);
             }
         }
-        console.log(`[Meister] ${count} MIDI input(s) configured (${this.midiAccess.inputs.size} total available)`);
+        // console.log(`[Meister] ${count} MIDI input(s) configured (${this.midiAccess.inputs.size} total available)`);
     }
 
     handleMIDIMessage(event) {
@@ -198,7 +198,7 @@ class MeisterController {
         if (status === 0xFA && this.receiveSPP) {
             this.currentPosition = 0;
             this.updatePositionBar();
-            console.log('MIDI Start received - position reset');
+            // console.log('MIDI Start received - position reset');
 
             // Forward to sequencer if active
             this.notifySequencerStart();
@@ -208,7 +208,7 @@ class MeisterController {
         if (status === 0xFC && this.receiveSPP) {
             // Position stays where it is
             this.updatePositionBar();
-            console.log('MIDI Stop received');
+            // console.log('MIDI Stop received');
 
             // Forward to sequencer if active
             this.notifySequencerStop();
@@ -232,7 +232,7 @@ class MeisterController {
 
         // Only log non-state commands to reduce spam (0x60 = GET_PLAYER_STATE, 0x61 = PLAYER_STATE_RESPONSE, 0x62 = GET_SEQUENCE_STATE, 0x63 = SEQUENCE_STATE_RESPONSE, 0x64 = GET_PROGRAM_STATE, 0x65 = PROGRAM_STATE_RESPONSE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE, 0x7F = FX_STATE_RESPONSE)
         if (command !== 0x60 && command !== 0x61 && command !== 0x62 && command !== 0x63 && command !== 0x64 && command !== 0x65 && command !== 0x71 && command !== 0x7E && command !== 0x7F) {
-            console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
+            // console.log(`[SysEx] Received command ${command.toString(16)} from device ${deviceId}`);
         }
 
         // Check for registered handlers (upload/download etc)
@@ -278,13 +278,13 @@ class MeisterController {
 
     // Register a handler for a specific SysEx command
     registerSysExHandler(command, callback) {
-        console.log(`[Meister] Registered SysEx handler for command 0x${command.toString(16)}`);
+        // console.log(`[Meister] Registered SysEx handler for command 0x${command.toString(16)}`);
         this.sysexHandlers.set(command, callback);
     }
 
     // Unregister a handler for a specific SysEx command
     unregisterSysExHandler(command) {
-        console.log(`[Meister] Unregistered SysEx handler for command 0x${command.toString(16)}`);
+        // console.log(`[Meister] Unregistered SysEx handler for command 0x${command.toString(16)}`);
         this.sysexHandlers.delete(command);
     }
 
@@ -339,7 +339,7 @@ class MeisterController {
                     if (this.midiOutput) {
                         this.updateConnectionStatus(true);
                         // Note: State polling is now managed by scene manager, not globally
-                        console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
+                        // console.log(`[MIDI] Restored output: ${this.midiOutput.name}`);
                     }
                 }
             }
@@ -611,7 +611,7 @@ class MeisterController {
                         seqBpmInput.value = this.clockBPM;
                     }
 
-                    console.log(`[Sequencer] BPM synced from global clock: ${this.clockBPM}`);
+                    // console.log(`[Sequencer] BPM synced from global clock: ${this.clockBPM}`);
                 }
             }
 
@@ -1347,7 +1347,7 @@ class MeisterController {
                 if (actionIdInt >= 700 && actionIdInt <= 702) {
                     const sceneId = document.getElementById('pad-sequencer-scene-select')?.value || '';
 
-                    console.log(`[Pad Save] Action ${actionIdInt}: Scene selector value = "${sceneId}"`);
+                    // console.log(`[Pad Save] Action ${actionIdInt}: Scene selector value = "${sceneId}"`);
 
                     // Validate scene selection
                     if (!sceneId) {
@@ -1357,7 +1357,7 @@ class MeisterController {
                     }
 
                     padConfig.parameter = sceneId; // Store scene ID as string
-                    console.log(`[Pad Save] Saved action ${actionIdInt} with parameter (sceneId): "${sceneId}"`);
+                    // console.log(`[Pad Save] Saved action ${actionIdInt} with parameter (sceneId): "${sceneId}"`);
                 }
                 // Meister track actions (710-711: mute/solo track)
                 else if (actionIdInt === 710 || actionIdInt === 711) {
@@ -1378,7 +1378,7 @@ class MeisterController {
                     const deviceStringId = document.getElementById('pad-device-seq-device-select')?.value || '';
                     const slot = parseInt(document.getElementById('pad-device-seq-slot-select')?.value) || 0;
 
-                    console.log(`[Pad Save] Action ${actionIdInt}: Device="${deviceStringId}", Slot=${slot}`);
+                    // console.log(`[Pad Save] Action ${actionIdInt}: Device="${deviceStringId}", Slot=${slot}`);
 
                     // Validate device selection
                     if (!deviceStringId) {
@@ -1395,7 +1395,7 @@ class MeisterController {
                     const devices = this.deviceManager?.getAllDevices() || [];
                     const deviceIndex = devices.findIndex(d => d.id === deviceStringId);
                     padConfig.parameter = (deviceIndex << 8) | slot;
-                    console.log(`[Pad Save] Saved action ${actionIdInt} with deviceId="${deviceStringId}", slot=${slot}, index=${deviceIndex}`);
+                    // console.log(`[Pad Save] Saved action ${actionIdInt} with deviceId="${deviceStringId}", slot=${slot}, index=${deviceIndex}`);
                 }
                 else {
                     padConfig.parameter = 0;
@@ -1524,9 +1524,9 @@ class MeisterController {
         // Check if we're editing a custom scene's pads or the default pads
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
 
-        console.log(`[Pad Save] Final padConfig for pad ${this.editingPadIndex}:`, JSON.stringify(padConfig, null, 2));
-        console.log(`[Pad Save] hasMessage = ${hasMessage}, messageType = ${messageType}`);
-        console.log(`[Pad Save] Saving to: ${isCustomScene ? 'scene "' + this.currentPadSceneId + '"' : 'global config'}`);
+        // console.log(`[Pad Save] Final padConfig for pad ${this.editingPadIndex}:`, JSON.stringify(padConfig, null, 2));
+        // console.log(`[Pad Save] hasMessage = ${hasMessage}, messageType = ${messageType}`);
+        // console.log(`[Pad Save] Saving to: ${isCustomScene ? 'scene "' + this.currentPadSceneId + '"' : 'global config'}`);
 
         if (isCustomScene) {
             // Save to scene's pads array
@@ -1540,7 +1540,7 @@ class MeisterController {
                     scene.pads[this.editingPadIndex] = null;
                 } else {
                     scene.pads[this.editingPadIndex] = padConfig;
-                    console.log(`[Pad Save] ✓ Saved to scene.pads[${this.editingPadIndex}]`);
+                    // console.log(`[Pad Save] ✓ Saved to scene.pads[${this.editingPadIndex}]`);
                 }
 
                 // Save scene config to localStorage
@@ -1687,7 +1687,7 @@ class MeisterController {
                         // Add device name as a note
                         const deviceNote = `[${device.name}]`;
                         sublabel = sublabel ? `${sublabel}\n${deviceNote}` : deviceNote;
-                        console.log(`[Pad ${index}] Added device label: ${device.name}`);
+                        // console.log(`[Pad ${index}] Added device label: ${device.name}`);
                     } else {
                         console.warn(`[Pad ${index}] Device binding "${padConfig.deviceBinding}" not found`);
                     }
@@ -1924,7 +1924,7 @@ class MeisterController {
     swapPads(fromIndex, toIndex) {
         if (fromIndex === toIndex) return;
 
-        console.log(`Swapping pad ${fromIndex} with pad ${toIndex}`);
+        // console.log(`Swapping pad ${fromIndex} with pad ${toIndex}`);
 
         // Check if we're in a custom scene (like split scene)
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
@@ -1997,20 +1997,20 @@ class MeisterController {
             const actionId = parseInt(detail.action);
             let parameter = 0;
 
-            console.log(`[Pad Press] Pad ${padIndex} pressed - action=${detail.action}`);
-            console.log(`[Pad Press] Pad element dataset:`, padElement.dataset);
+            // console.log(`[Pad Press] Pad ${padIndex} pressed - action=${detail.action}`);
+            // console.log(`[Pad Press] Pad element dataset:`, padElement.dataset);
 
             // Get parameter from pad element's dataset
             if (padElement.dataset.actionParameter !== undefined) {
                 const paramValue = padElement.dataset.actionParameter;
                 // Parameter can be string (MIDI input ID) or number
                 parameter = isNaN(paramValue) ? paramValue : parseInt(paramValue);
-                console.log(`[Pad Press] Found parameter in dataset: "${paramValue}" → parsed as:`, parameter);
+                // console.log(`[Pad Press] Found parameter in dataset: "${paramValue}" → parsed as:`, parameter);
             } else {
                 console.warn(`[Pad Press] WARNING: No actionParameter in dataset!`);
             }
 
-            console.log(`[Pad Press] Executing action ${actionId} with parameter:`, parameter, `(type: ${typeof parameter})`);
+            // console.log(`[Pad Press] Executing action ${actionId} with parameter:`, parameter, `(type: ${typeof parameter})`);
 
             // Execute action through action system (added by meister-actions-integration.js)
             if (this.executeAction) {
@@ -2020,7 +2020,7 @@ class MeisterController {
                 if (actionId === 602) {
                     setTimeout(() => {
                         const routingInfo = this.getRoutingDisplayInfo(parameter);
-                        console.log(`[Pad] Routing info after switch:`, routingInfo);
+                        // console.log(`[Pad] Routing info after switch:`, routingInfo);
 
                         if (routingInfo) {
                             // Get device binding info if it exists (non-routing related sublabel)
@@ -2041,7 +2041,7 @@ class MeisterController {
                                 ? `${deviceBindingInfo}\n${routingInfo}`
                                 : routingInfo;
 
-                            console.log(`[Pad] Updating sublabel to:`, newSublabel);
+                            // console.log(`[Pad] Updating sublabel to:`, newSublabel);
                             padElement.setAttribute('sublabel', newSublabel);
                         }
                     }, 100); // Increased delay to ensure route switch completes
@@ -2131,7 +2131,7 @@ class MeisterController {
         } else if (detail.note !== undefined && detail.note !== null) {
             // Use string ID for Note messages (needs MIDI channel lookup)
             const noteProgram = detail.noteProgram !== undefined ? parseInt(detail.noteProgram) : null;
-            console.log(`[Pad Click] Sending note ${detail.note}, program=${noteProgram}, deviceStringId="${deviceStringId}"`);
+            // console.log(`[Pad Click] Sending note ${detail.note}, program=${noteProgram}, deviceStringId="${deviceStringId}"`);
             this.sendNote(parseInt(detail.note), 127, noteProgram, deviceStringId);
         }
     }
@@ -2167,7 +2167,7 @@ class MeisterController {
         if (this.midiOutput) {
             const status = 0xB0 | this.midiChannel; // CC message with channel
             this.midiOutput.send([status, cc, value]);
-            console.log(`Sent CC ${cc}, value ${value} on channel ${this.midiChannel + 1}`);
+            // console.log(`Sent CC ${cc}, value ${value} on channel ${this.midiChannel + 1}`);
         } else {
             console.warn('No MIDI output selected');
         }
@@ -2177,13 +2177,13 @@ class MeisterController {
         if (this.midiOutput) {
             // Get MIDI channel - use device's channel if deviceId provided, else global channel
             let midiChannel = this.midiChannel;
-            console.log(`[sendNote] deviceId="${deviceId}", deviceManager=${!!this.deviceManager}`);
+            // console.log(`[sendNote] deviceId="${deviceId}", deviceManager=${!!this.deviceManager}`);
             if (deviceId !== null && this.deviceManager) {
                 const device = this.deviceManager.getDevice(deviceId);
-                console.log(`[sendNote] Found device:`, device);
+                // console.log(`[sendNote] Found device:`, device);
                 if (device) {
                     midiChannel = device.midiChannel;
-                    console.log(`[sendNote] Using device channel: ${midiChannel + 1}`);
+                    // console.log(`[sendNote] Using device channel: ${midiChannel + 1}`);
                 }
             }
 
@@ -2191,14 +2191,14 @@ class MeisterController {
             if (program !== null && program >= 0 && program <= 127) {
                 const programChange = 0xC0 | midiChannel;
                 this.midiOutput.send([programChange, program]);
-                console.log(`Sent Program Change ${program + 1} on channel ${midiChannel + 1}`);
+                // console.log(`Sent Program Change ${program + 1} on channel ${midiChannel + 1}`);
             }
 
             const noteOn = 0x90 | midiChannel;
 
             // Note On only (Note Off will be sent on release)
             this.midiOutput.send([noteOn, note, velocity]);
-            console.log(`Sent Note On ${note}, velocity ${velocity} on channel ${midiChannel + 1}`);
+            // console.log(`Sent Note On ${note}, velocity ${velocity} on channel ${midiChannel + 1}`);
         } else {
             console.warn('No MIDI output selected');
         }
@@ -2219,7 +2219,7 @@ class MeisterController {
 
             // Note Off (velocity 0)
             this.midiOutput.send([noteOff, note, 0]);
-            console.log(`Sent Note Off ${note} on channel ${midiChannel + 1}`);
+            // console.log(`Sent Note Off ${note} on channel ${midiChannel + 1}`);
         } else {
             console.warn('No MIDI output selected');
         }
@@ -2578,7 +2578,7 @@ class MeisterController {
         message.push(0xF7); // SysEx end
 
         this.midiOutput.send(message);
-        console.log(`Sent MMC to device ${deviceId}: ${command} (0x${cmdByte.toString(16).toUpperCase()})`, params);
+        // console.log(`Sent MMC to device ${deviceId}: ${command} (0x${cmdByte.toString(16).toUpperCase()})`, params);
     }
 
     // SysEx Helper Functions for Regroove
@@ -2603,7 +2603,7 @@ class MeisterController {
         // Only log non-polling commands to reduce console spam
         // 0x60 = GET_PLAYER_STATE, 0x71 = FX_EFFECT_SET, 0x7E = FX_GET_ALL_STATE
         if (command !== 0x60 && command !== 0x71 && command !== 0x7E) {
-            console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
+            // console.log(`[Meister] sendSysEx: Sending to device ${deviceId}, command 0x${command.toString(16).toUpperCase()}, message: [${message.join(', ')}]`);
         }
         midiOutput.send(message);
     }
@@ -2836,9 +2836,9 @@ class MeisterController {
                         }
                     }
                 } else if (type === 'started') {
-                    console.log(`[MIDI Clock] Worker started: BPM=${bpm}, interval=${interval}ms`);
+                    // console.log(`[MIDI Clock] Worker started: BPM=${bpm}, interval=${interval}ms`);
                 } else if (type === 'stopped') {
-                    console.log(`[MIDI Clock] Worker stopped`);
+                    // console.log(`[MIDI Clock] Worker stopped`);
                 } else if (type === 'error') {
                     console.error(`[MIDI Clock] Worker error:`, e.data.message);
                 }
@@ -2848,7 +2848,7 @@ class MeisterController {
                 console.error('[MIDI Clock] Worker error:', error);
             };
 
-            console.log('[MIDI Clock] Worker initialized successfully');
+            // console.log('[MIDI Clock] Worker initialized successfully');
         } catch (error) {
             console.error('[MIDI Clock] Failed to initialize worker:', error);
             this.clockWorker = null;
@@ -2858,7 +2858,7 @@ class MeisterController {
     // MIDI Clock Master functions
     startClock() {
         if (!this.midiOutput) {
-            console.log('[MIDI Clock] No MIDI output selected - clock will run internally only (no MIDI output)');
+            // console.log('[MIDI Clock] No MIDI output selected - clock will run internally only (no MIDI output)');
         }
 
         // Note: We do NOT send MIDI Start (0xFA) here
@@ -2881,7 +2881,7 @@ class MeisterController {
         const msPerBeat = 60000 / this.clockBPM;
         const interval = msPerBeat / PULSES_PER_QUARTER_NOTE;
 
-        console.log(`[MIDI Clock] Starting High-Precision Clock: BPM=${this.clockBPM}, interval=${interval.toFixed(2)}ms`);
+        // console.log(`[MIDI Clock] Starting High-Precision Clock: BPM=${this.clockBPM}, interval=${interval.toFixed(2)}ms`);
 
         // Shared pulse counter for sequencer to read (decoupled!)
         this.clockPulseCount = 0;
@@ -2901,7 +2901,7 @@ class MeisterController {
 
                 // Log every 96 pulses (4 beats)
                 if (this.clockPulseCount % 96 === 0) {
-                    console.log(`[MIDI Clock] Sent pulse ${this.clockPulseCount} (beat ${this.clockPulseCount / 24})`);
+                    // console.log(`[MIDI Clock] Sent pulse ${this.clockPulseCount} (beat ${this.clockPulseCount / 24})`);
                 }
             }
 
@@ -2940,7 +2940,7 @@ class MeisterController {
         // Update BPM dynamically without stopping/restarting
         if (this.clockWorker && this.clockInterval) {
             this.clockWorker.postMessage({ cmd: 'setBPM', bpm: bpm });
-            console.log(`[MIDI Clock] BPM updated to ${bpm} (seamless transition)`);
+            // console.log(`[MIDI Clock] BPM updated to ${bpm} (seamless transition)`);
         }
         // No fallback needed - if not using worker, clock isn't running
     }
@@ -3076,7 +3076,7 @@ class MeisterController {
         // Send SPP message: 0xF2 + LSB + MSB
         this.midiOutput.send([0xF2, lsb, msb]);
 
-        console.log(`[SPP] Sent SPP: position ${position} (beat ${Math.floor(position / 4)})`);
+        // console.log(`[SPP] Sent SPP: position ${position} (beat ${Math.floor(position / 4)})`);
 
         // Update local position for visual feedback
         this.currentPosition = position;
@@ -3132,7 +3132,7 @@ class MeisterController {
                 // Load enabled MIDI inputs (convert Array back to Set)
                 if (this.config.enabledMidiInputs && Array.isArray(this.config.enabledMidiInputs)) {
                     this.enabledMidiInputs = new Set(this.config.enabledMidiInputs);
-                    console.log(`[Meister] Loaded ${this.enabledMidiInputs.size} enabled MIDI input(s) from config`);
+                    // console.log(`[Meister] Loaded ${this.enabledMidiInputs.size} enabled MIDI input(s) from config`);
                 }
 
                 document.getElementById('clock-master').checked = this.clockMaster;
@@ -3174,7 +3174,7 @@ class MeisterController {
 
                 // Restore device manager data
                 if (devices && this.deviceManager) {
-                    console.log('[Config] Restoring device manager data...');
+                    // console.log('[Config] Restoring device manager data...');
 
                     // Clear existing devices
                     this.deviceManager.devices.clear();
@@ -3199,13 +3199,13 @@ class MeisterController {
                     this.deviceManager.saveDevices();
                     this.deviceManager.refreshDeviceList();
 
-                    console.log(`[Config] Restored ${devices.devices?.length || 0} device(s)`);
+                    // console.log(`[Config] Restored ${devices.devices?.length || 0} device(s)`);
                 }
 
                 // Restore custom scenes
                 if (customScenes && this.sceneEditor) {
                     try {
-                        console.log('[Config] Restoring custom scenes...');
+                        // console.log('[Config] Restoring custom scenes...');
                         this.sceneEditor.loadCustomScenes(customScenes);
                     } catch (sceneError) {
                         console.error('[Config] Error restoring custom scenes:', sceneError);
@@ -3226,7 +3226,7 @@ class MeisterController {
                 this.applyGridLayout();
                 this.saveConfig();
 
-                console.log('[Config] Configuration loaded from file');
+                // console.log('[Config] Configuration loaded from file');
                 window.nbDialog.alert('Configuration loaded successfully!');
             } catch (err) {
                 console.error('Failed to parse config file:', err);
@@ -3266,7 +3266,7 @@ class MeisterController {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        console.log('Configuration downloaded with devices and scenes');
+        // console.log('Configuration downloaded with devices and scenes');
     }
 
     startConnectionWatchdog() {
@@ -3278,7 +3278,7 @@ class MeisterController {
 
             if (timeSinceLastUpdate > this.stateTimeoutMs && this.isConnectedToRegroove) {
                 // Connection lost
-                console.log('[Regroove] Disconnected - no state updates for ' + Math.round(timeSinceLastUpdate / 1000) + 's');
+                // console.log('[Regroove] Disconnected - no state updates for ' + Math.round(timeSinceLastUpdate / 1000) + 's');
                 this.handleRegrooveDisconnect();
             }
         }, 1000); // Check every second

@@ -85,6 +85,19 @@
             margin-right: 4px;
         }
 
+        .seq-button.loop-end {
+            animation: pulse-yellow 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-yellow {
+            0%, 100% {
+                background: #3a3a1a;
+            }
+            50% {
+                background: #5a5a2a;
+            }
+        }
+
         /* Settings overlay - Full viewport mode */
         .settings-overlay {
             position: fixed;

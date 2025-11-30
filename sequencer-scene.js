@@ -53,7 +53,7 @@ export class SequencerScene {
         if (!skipRender) {
             this.render();
         } else {
-            console.log(`[Sequencer] Created instance in background (no render): ${this.name}`);
+            // console.log(`[Sequencer] Created instance in background (no render): ${this.name}`);
         }
     }
 
@@ -68,7 +68,7 @@ export class SequencerScene {
 
         // Sync BPM with global clock on render
         if (this.controller.clockBPM && this.engine.bpm !== this.controller.clockBPM) {
-            console.log(`[Sequencer] Syncing BPM on render: ${this.controller.clockBPM} (was ${this.engine.bpm})`);
+            // console.log(`[Sequencer] Syncing BPM on render: ${this.controller.clockBPM} (was ${this.engine.bpm})`);
             this.engine.bpm = this.controller.clockBPM;
             this.engine.msPerRow = this.engine.calculateMsPerRow();
         }
@@ -248,7 +248,7 @@ export class SequencerScene {
         `;
         syncClock.querySelector('input').addEventListener('change', (e) => {
             this.engine.syncToMIDIClock = e.target.checked;
-            console.log(`[Sequencer] MIDI Clock sync ${e.target.checked ? 'enabled' : 'disabled'}`);
+            // console.log(`[Sequencer] MIDI Clock sync ${e.target.checked ? 'enabled' : 'disabled'}`);
 
             // If playing, restart to switch timer modes (MIDI clock vs internal)
             if (this.engine.playing) {
@@ -268,11 +268,11 @@ export class SequencerScene {
 
         syncPlayback.querySelector('input').addEventListener('change', (e) => {
             this.engine.syncToGlobalClock = e.target.checked;
-            console.log(`[Sequencer] Sync Playback checkbox: ${e.target.checked} - engine.syncToGlobalClock is now: ${this.engine.syncToGlobalClock}`);
+            // console.log(`[Sequencer] Sync Playback checkbox: ${e.target.checked} - engine.syncToGlobalClock is now: ${this.engine.syncToGlobalClock}`);
 
             // If playing, restart to switch sync modes
             if (this.engine.playing) {
-                console.log('[Sequencer] Already playing - restarting with new sync mode');
+                // console.log('[Sequencer] Already playing - restarting with new sync mode');
                 this.engine.stopPlayback();
                 this.engine.startPlayback();
             }
@@ -421,7 +421,7 @@ export class SequencerScene {
             // Device change handler
             deviceSelect.addEventListener('change', (e) => {
                 this.engine.trackDeviceBindings[track] = e.target.value || null;
-                console.log(`[Sequencer] Track ${track + 1} device binding set to: ${e.target.value || 'default'}`);
+                // console.log(`[Sequencer] Track ${track + 1} device binding set to: ${e.target.value || 'default'}`);
             });
 
             trackHeader.appendChild(deviceSelect);
@@ -455,7 +455,7 @@ export class SequencerScene {
                 this.engine.trackPrograms[track] = Math.max(0, (this.engine.trackPrograms[track] || 0) - 1);
                 this.updateTrackHeaders();
                 this.triggerAutoSave(); // Save program change
-                console.log(`[Sequencer] Track ${track + 1} program: ${this.engine.trackPrograms[track]}`);
+                // console.log(`[Sequencer] Track ${track + 1} program: ${this.engine.trackPrograms[track]}`);
             });
             programControl.appendChild(programDec);
 
@@ -500,7 +500,7 @@ export class SequencerScene {
             programInc.addEventListener('click', () => {
                 this.engine.trackPrograms[track] = Math.min(32, (this.engine.trackPrograms[track] || 0) + 1);
                 this.updateTrackHeaders();
-                console.log(`[Sequencer] Track ${track + 1} program: ${this.engine.trackPrograms[track]}`);
+                // console.log(`[Sequencer] Track ${track + 1} program: ${this.engine.trackPrograms[track]}`);
             });
             programControl.appendChild(programInc);
 
@@ -789,7 +789,7 @@ export class SequencerScene {
                         seqBpmInput.value = newBpm;
                     }
 
-                    console.log(`[Sequencer] BPM synced from global: ${newBpm}`);
+                    // console.log(`[Sequencer] BPM synced from global: ${newBpm}`);
                 }
             };
             globalBpmInput.addEventListener('change', this.globalBpmListener);
@@ -887,7 +887,7 @@ export class SequencerScene {
             recordBtn.style.borderColor = this.recordMode ? '#5a3a3a' : '#3a3a3a';
         }
 
-        console.log(`[Sequencer] Record mode ${this.recordMode ? 'enabled' : 'disabled'}`);
+        // console.log(`[Sequencer] Record mode ${this.recordMode ? 'enabled' : 'disabled'}`);
     }
 
     openFileDialog() {
@@ -1359,7 +1359,7 @@ export class SequencerScene {
                 this.triggerAutoSave();
 
                 const separator = selectedNote.includes('#') ? '' : '-';
-                console.log(`[Sequencer] Filled track ${this.cursorTrack + 1} with ${selectedNote}${separator}${selectedOctave} every ${selectedInterval} rows from row ${this.cursorRow}`);
+                // console.log(`[Sequencer] Filled track ${this.cursorTrack + 1} with ${selectedNote}${separator}${selectedOctave} every ${selectedInterval} rows from row ${this.cursorRow}`);
             }
         );
     }
@@ -1617,7 +1617,7 @@ export class SequencerScene {
         a.click();
         URL.revokeObjectURL(url);
 
-        console.log(`[Sequencer] Exported MIDI file: ${a.download}`);
+        // console.log(`[Sequencer] Exported MIDI file: ${a.download}`);
     }
 
     showExportTrackDialog() {
@@ -1826,8 +1826,8 @@ export class SequencerScene {
             const ticksPerQuarterNote = (data[pos] << 8) | data[pos + 1];
             pos += 2;
 
-            console.log(`[Sequencer] MIDI Import: Format ${format}, ${numTracks} tracks, ${ticksPerQuarterNote} ticks/quarter, header length ${headerLength}`);
-            console.log(`[Sequencer] Importing to sequencer track ${targetTrack + 1}`);
+            // console.log(`[Sequencer] MIDI Import: Format ${format}, ${numTracks} tracks, ${ticksPerQuarterNote} ticks/quarter, header length ${headerLength}`);
+            // console.log(`[Sequencer] Importing to sequencer track ${targetTrack + 1}`);
 
             // Parse all tracks and import the first non-tempo track
             let midiTrackIndex = 0;
@@ -1858,17 +1858,17 @@ export class SequencerScene {
                 const trackData = data.slice(pos, pos + trackLength);
                 pos += trackLength;
 
-                console.log(`[Sequencer] Found MIDI track ${midiTrackIndex}, length ${trackLength} bytes`);
+                // console.log(`[Sequencer] Found MIDI track ${midiTrackIndex}, length ${trackLength} bytes`);
 
                 // Skip track 0 (usually tempo/meta track)
                 if (midiTrackIndex === 0) {
-                    console.log(`[Sequencer] Skipping track 0 (tempo/meta track)`);
+                    // console.log(`[Sequencer] Skipping track 0 (tempo/meta track)`);
                     midiTrackIndex++;
                     continue;
                 }
 
                 // Import the first non-tempo track we find
-                console.log(`[Sequencer] Importing MIDI track ${midiTrackIndex} to sequencer track ${targetTrack + 1}`);
+                // console.log(`[Sequencer] Importing MIDI track ${midiTrackIndex} to sequencer track ${targetTrack + 1}`);
                 this.importMIDITrack(trackData, targetTrack, ticksPerQuarterNote);
                 importedTrackCount++;
                 midiTrackIndex++;
@@ -1878,7 +1878,7 @@ export class SequencerScene {
             this.updateTrackerGrid();
 
             if (importedTrackCount > 0) {
-                console.log(`[Sequencer] MIDI import complete: imported ${importedTrackCount} track(s)`);
+                // console.log(`[Sequencer] MIDI import complete: imported ${importedTrackCount} track(s)`);
                 if (window.nbDialog) {
                     window.nbDialog.alert(`MIDI file imported successfully to track ${targetTrack + 1}!`);
                 }
@@ -1904,7 +1904,7 @@ export class SequencerScene {
         const ticksPerRow = ticksPerQuarterNote / 4; // 16th note resolution
         const noteEvents = [];
 
-        console.log(`[Sequencer] Parsing track data: ${trackData.length} bytes, ticksPerQuarterNote=${ticksPerQuarterNote}, ticksPerRow=${ticksPerRow}`);
+        // console.log(`[Sequencer] Parsing track data: ${trackData.length} bytes, ticksPerQuarterNote=${ticksPerQuarterNote}, ticksPerRow=${ticksPerRow}`);
 
         try {
             while (pos < trackData.length) {
@@ -1920,7 +1920,7 @@ export class SequencerScene {
 
                 // Check if we have enough data
                 if (pos >= trackData.length) {
-                    console.log(`[Sequencer] Reached end of track data at pos ${pos}`);
+                    // console.log(`[Sequencer] Reached end of track data at pos ${pos}`);
                     break;
                 }
 
@@ -1951,7 +1951,7 @@ export class SequencerScene {
                     if (messageType === 0x90 && velocity > 0) {
                         // Note On - only log occasionally to avoid spam
                         if (noteEvents.length < 5 || noteEvents.length % 10 === 0) {
-                            console.log(`[Sequencer] Note On: ${note} at tick ${time}, row ${row}, velocity ${velocity}`);
+                            // console.log(`[Sequencer] Note On: ${note} at tick ${time}, row ${row}, velocity ${velocity}`);
                         }
                         noteEvents.push({ row, note, velocity });
                     }
@@ -2020,7 +2020,7 @@ export class SequencerScene {
             }
         });
 
-        console.log(`[Sequencer] Imported ${noteEvents.length} notes to track ${targetTrack + 1}`);
+        // console.log(`[Sequencer] Imported ${noteEvents.length} notes to track ${targetTrack + 1}`);
     }
 
     uploadToDevice() {
@@ -2261,17 +2261,17 @@ export class SequencerScene {
             return;
         }
 
-        console.log(`[Sequencer] Uploading Track ${trackIndex + 1} to device: ${device.name} (SysEx ID: ${device.deviceId}), slot ${slot}, program UI=${programUI} wire=${programWire}`);
+        // console.log(`[Sequencer] Uploading Track ${trackIndex + 1} to device: ${device.name} (SysEx ID: ${device.deviceId}), slot ${slot}, program UI=${programUI} wire=${programWire}`);
 
         // Generate MIDI file for this track only
-        console.log(`[Sequencer] Generating MIDI file for track ${trackIndex + 1}...`);
+        // console.log(`[Sequencer] Generating MIDI file for track ${trackIndex + 1}...`);
         const midiFileData = this.exportSingleTrackMIDI(trackIndex);
         if (!midiFileData) {
             console.error('[Sequencer] Failed to generate MIDI file');
             return;
         }
 
-        console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
+        // console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
 
         // Create progress dialog
         if (!window.nbDialog) {
@@ -2353,7 +2353,7 @@ export class SequencerScene {
                 cancelBtn.addEventListener('click', () => {
                     uploadCancelled = true;
                     window.nbDialog.hide();
-                    console.log('[Sequencer] Upload cancelled by user');
+                    // console.log('[Sequencer] Upload cancelled by user');
                 });
             }
         }, 100);
@@ -2373,13 +2373,13 @@ export class SequencerScene {
                     if (progressText) progressText.textContent = `${percent}%`;
                     if (statusText) statusText.textContent = `Uploading chunk ${currentChunk}/${totalChunks}`;
 
-                    console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                    // console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
                 },
 
                 onComplete: () => {
                     if (uploadCancelled) return;
 
-                    console.log(`[Sequencer] Upload complete: Track ${trackIndex + 1} → slot S${slot + 1}`);
+                    // console.log(`[Sequencer] Upload complete: Track ${trackIndex + 1} → slot S${slot + 1}`);
                     const statusText = document.getElementById('upload-status');
                     if (statusText) statusText.textContent = 'Upload complete!';
 
@@ -2515,7 +2515,7 @@ export class SequencerScene {
             cancelBtn.addEventListener('click', () => {
                 uploadCancelled = true;
                 window.nbDialog.hide();
-                console.log('[Sequencer] Multi-track upload cancelled by user');
+                // console.log('[Sequencer] Multi-track upload cancelled by user');
             });
         }
 
@@ -2523,7 +2523,7 @@ export class SequencerScene {
         try {
             for (let track = 0; track < 4; track++) {
                 if (uploadCancelled) {
-                    console.log('[Sequencer] Multi-track upload cancelled');
+                    // console.log('[Sequencer] Multi-track upload cancelled');
                     return;
                 }
 
@@ -2552,7 +2552,7 @@ export class SequencerScene {
                     throw new Error(`MIDI output not available for device: ${device.name}`);
                 }
 
-                console.log(`[Sequencer] Uploading Track ${track + 1} to device: ${device.name}, slot ${slot}, program UI=${programUI} wire=${programWire}`);
+                // console.log(`[Sequencer] Uploading Track ${track + 1} to device: ${device.name}, slot ${slot}, program UI=${programUI} wire=${programWire}`);
 
                 // Generate MIDI file for this track
                 const midiFileData = this.exportSingleTrackMIDI(track);
@@ -2560,7 +2560,7 @@ export class SequencerScene {
                     throw new Error(`Failed to generate MIDI file for track ${track + 1}`);
                 }
 
-                console.log(`[Sequencer] MIDI file generated for track ${track + 1}: ${midiFileData.length} bytes`);
+                // console.log(`[Sequencer] MIDI file generated for track ${track + 1}: ${midiFileData.length} bytes`);
 
                 // Upload this track
                 await new Promise((resolve, reject) => {
@@ -2584,7 +2584,7 @@ export class SequencerScene {
 
                         onComplete: () => {
                             if (uploadCancelled) return;
-                            console.log(`[Sequencer] Track ${track + 1} upload complete`);
+                            // console.log(`[Sequencer] Track ${track + 1} upload complete`);
                             resolve();
                         },
 
@@ -2602,7 +2602,7 @@ export class SequencerScene {
 
             // All tracks uploaded
             if (!uploadCancelled) {
-                console.log('[Sequencer] All tracks uploaded successfully');
+                // console.log('[Sequencer] All tracks uploaded successfully');
                 const statusText = document.getElementById('upload-status');
                 if (statusText) statusText.textContent = 'All tracks uploaded!';
 
@@ -2643,7 +2643,7 @@ export class SequencerScene {
             return;
         }
 
-        console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
+        // console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
 
         // Get first available MIDI input (for receiving ACKs)
         if (!this.controller.midiAccess) {
@@ -2664,17 +2664,17 @@ export class SequencerScene {
         }
 
         const midiInput = inputs[0]; // Use first input
-        console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
+        // console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
 
         // Generate MIDI file
-        console.log('[Sequencer] Generating MIDI file for upload...');
+        // console.log('[Sequencer] Generating MIDI file for upload...');
         const midiFileData = this.exportMIDI(true);
         if (!midiFileData) {
             console.error('[Sequencer] Failed to generate MIDI file');
             return;
         }
 
-        console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
+        // console.log(`[Sequencer] MIDI file generated: ${midiFileData.length} bytes`);
 
         // Create progress dialog
         if (!window.nbDialog) {
@@ -2750,7 +2750,7 @@ export class SequencerScene {
                 cancelBtn.addEventListener('click', () => {
                     uploadCancelled = true;
                     window.nbDialog.hide();
-                    console.log('[Sequencer] Upload cancelled by user');
+                    // console.log('[Sequencer] Upload cancelled by user');
                 });
             }
         }, 100);
@@ -2771,13 +2771,13 @@ export class SequencerScene {
                     if (progressText) progressText.textContent = `${percent}%`;
                     if (statusText) statusText.textContent = `Uploading chunk ${currentChunk}/${totalChunks}`;
 
-                    console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                    // console.log(`[Sequencer] Upload progress: ${currentChunk}/${totalChunks} (${percent}%)`);
                 },
 
                 onComplete: () => {
                     if (uploadCancelled) return;
 
-                    console.log(`[Sequencer] Upload complete to slot ${slot}`);
+                    // console.log(`[Sequencer] Upload complete to slot ${slot}`);
                     const statusText = document.getElementById('upload-status');
                     if (statusText) statusText.textContent = 'Upload complete!';
 
@@ -2940,7 +2940,7 @@ export class SequencerScene {
             return;
         }
 
-        console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
+        // console.log(`[Sequencer] Using device: ${device.name} (SysEx ID: ${device.deviceId}) on MIDI output: ${midiOutput.name}`);
 
         // Get first available MIDI input (for receiving responses)
         if (!this.controller.midiAccess) {
@@ -2961,7 +2961,7 @@ export class SequencerScene {
         }
 
         const midiInput = inputs[0];
-        console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
+        // console.log(`[Sequencer] Using MIDI input: ${midiInput.name}`);
 
         // Create progress dialog with cancel button
         if (!window.nbDialog) {
@@ -3034,7 +3034,7 @@ export class SequencerScene {
                 cancelBtn.addEventListener('click', () => {
                     downloadCancelled = true;
                     window.nbDialog.hide();
-                    console.log('[Sequencer] Download cancelled by user');
+                    // console.log('[Sequencer] Download cancelled by user');
                 });
             }
         }, 100);
@@ -3054,13 +3054,13 @@ export class SequencerScene {
                     if (progressText) progressText.textContent = `${percent}%`;
                     if (statusText) statusText.textContent = `Downloading chunk ${currentChunk}/${totalChunks}`;
 
-                    console.log(`[Sequencer] Download progress: ${currentChunk}/${totalChunks} (${percent}%)`);
+                    // console.log(`[Sequencer] Download progress: ${currentChunk}/${totalChunks} (${percent}%)`);
                 },
 
                 onComplete: (midiData) => {
                     if (downloadCancelled) return;
 
-                    console.log(`[Sequencer] Download complete from slot ${slot}: ${midiData.length} bytes`);
+                    // console.log(`[Sequencer] Download complete from slot ${slot}: ${midiData.length} bytes`);
                     const statusText = document.getElementById('download-status');
                     if (statusText) statusText.textContent = 'Download complete! Importing...';
 
@@ -3105,7 +3105,7 @@ export class SequencerScene {
         try {
             // Reuse existing parseMIDIFile logic
             this.parseMIDIFile(midiData);
-            console.log('[Sequencer] MIDI data imported successfully');
+            // console.log('[Sequencer] MIDI data imported successfully');
         } catch (error) {
             console.error('[Sequencer] Error importing MIDI data:', error);
             if (window.nbDialog && window.nbDialog.alert) {
@@ -3157,19 +3157,19 @@ export class SequencerScene {
      * Pause scene (when switching away) - stop UI updates but keep playback
      */
     pause() {
-        console.log(`[Sequencer] Pausing scene: ${this.name} (${this.sceneId})`);
+        // console.log(`[Sequencer] Pausing scene: ${this.name} (${this.sceneId})`);
 
         // Clear UI update interval
         if (this.positionUpdateInterval) {
             clearInterval(this.positionUpdateInterval);
             this.positionUpdateInterval = null;
-            console.log(`[Sequencer] Cleared UI update interval`);
+            // console.log(`[Sequencer] Cleared UI update interval`);
         }
 
         // Remove keyboard listener when paused
         if (this.keydownHandler) {
             document.removeEventListener('keydown', this.keydownHandler);
-            console.log(`[Sequencer] Removed keyboard listener for paused scene`);
+            // console.log(`[Sequencer] Removed keyboard listener for paused scene`);
         }
 
         // Remove MIDI input listener to prevent note bleeding
@@ -3179,7 +3179,7 @@ export class SequencerScene {
                 input.removeEventListener('midimessage', this.midiInputListener);
                 listenerCount++;
             }
-            console.log(`[Sequencer] Removed MIDI input listener from ${listenerCount} MIDI input(s)`);
+            // console.log(`[Sequencer] Removed MIDI input listener from ${listenerCount} MIDI input(s)`);
         } else {
             console.warn(`[Sequencer] Could not remove MIDI listener: midiAccess=${!!this.controller.midiAccess}, listener=${!!this.midiInputListener}`);
         }
@@ -3189,18 +3189,18 @@ export class SequencerScene {
      * Resume scene (when switching back) - restart UI updates and MIDI input
      */
     resume() {
-        console.log(`[Sequencer] Resuming scene: ${this.name} (${this.sceneId})`);
+        // console.log(`[Sequencer] Resuming scene: ${this.name} (${this.sceneId})`);
 
         // Re-attach keyboard listener
         if (this.keydownHandler) {
             document.addEventListener('keydown', this.keydownHandler);
-            console.log(`[Sequencer] Re-attached keyboard listener for resumed scene`);
+            // console.log(`[Sequencer] Re-attached keyboard listener for resumed scene`);
         }
 
         // Restart UI update interval
         if (!this.positionUpdateInterval) {
             this.setupUIUpdateInterval();
-            console.log(`[Sequencer] Restarted UI update interval`);
+            // console.log(`[Sequencer] Restarted UI update interval`);
         }
 
         // Re-attach MIDI input listener
@@ -3210,7 +3210,7 @@ export class SequencerScene {
                 input.addEventListener('midimessage', this.midiInputListener);
                 listenerCount++;
             }
-            console.log(`[Sequencer] Re-attached MIDI input listener to ${listenerCount} MIDI input(s)`);
+            // console.log(`[Sequencer] Re-attached MIDI input listener to ${listenerCount} MIDI input(s)`);
         }
     }
 

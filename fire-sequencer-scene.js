@@ -55,7 +55,7 @@ class FireSequencerScene {
 
         // If sequencer instance doesn't exist yet, create it in background
         if (!scene.sequencerInstance) {
-            console.log(`[FireSequencer] Creating sequencer instance in background for: ${scene.name}`);
+            // console.log(`[FireSequencer] Creating sequencer instance in background for: ${scene.name}`);
             if (window.SequencerScene) {
                 scene.sequencerInstance = new window.SequencerScene(
                     this.sceneManager.controller,
@@ -86,7 +86,7 @@ class FireSequencerScene {
         container.style.gridTemplateColumns = '1fr';
         container.style.gridTemplateRows = 'auto auto 1fr auto'; // top, track rows, bottom
         container.style.gap = '8px';
-        container.style.padding = '12px';
+        container.style.padding = '20px 12px';
         container.style.height = 'calc(100vh - 60px)';
         container.innerHTML = '';
 
@@ -102,7 +102,7 @@ class FireSequencerScene {
             this.setupLinkedMode();
         }
 
-        console.log(`[FireSequencer] Rendered in ${this.isLinkedMode() ? 'Linked' : 'Compatible'} mode`);
+        // console.log(`[FireSequencer] Rendered in ${this.isLinkedMode() ? 'Linked' : 'Compatible'} mode`);
     }
 
     /**
@@ -116,7 +116,7 @@ class FireSequencerScene {
             grid-template-rows: 1fr;
             gap: 12px;
             padding: 16px;
-            background: #1a1a1a;
+            background: #0a0a0a;
             border-radius: 4px;
             align-items: center;
         `;
@@ -185,7 +185,7 @@ class FireSequencerScene {
         const enterBtn = this.createButton('', '#4a9eff', () => {
             // Toggle USER mode (same as MODE button behavior)
             this.userMode = !this.userMode;
-            console.log(`[FireSequencer] ENTER (USER mode): ${this.userMode}`);
+            // console.log(`[FireSequencer] ENTER (USER mode): ${this.userMode}`);
             this.render();
         }, 0x19, false);  // Note 0x19 - ENCODER_PRESS
         enterBtn.style.height = '40px';
@@ -244,8 +244,8 @@ class FireSequencerScene {
             grid-template-rows: repeat(4, 1fr);
             gap: 4px;
             row-gap: 12px;
-            padding: 8px;
-            background: #1a1a1a;
+            padding: 24px 8px;
+            background: #0a0a0a;
             border-radius: 4px;
             flex: 1;
         `;
@@ -293,7 +293,7 @@ class FireSequencerScene {
                             this.trackSolos[unmutedTracks[0]] = true;
                         }
 
-                        console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
+                        // console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
                     }
                 } else {
                     // Compatible mode: manual toggle
@@ -354,7 +354,7 @@ class FireSequencerScene {
             grid-template-rows: 1fr;
             gap: 12px;
             padding: 16px;
-            background: #1a1a1a;
+            background: #0a0a0a;
             border-radius: 4px;
             align-items: center;
         `;
@@ -472,7 +472,8 @@ class FireSequencerScene {
         knob.setAttribute('max', '127');
         knob.style.cssText = 'width: 100%; height: 100%;';
 
-        knob.addEventListener('knob-change', (e) => {
+        // pad-knob emits 'cc-change' event, not 'knob-change'
+        knob.addEventListener('cc-change', (e) => {
             onChange(e.detail.value);
         });
 
@@ -502,7 +503,7 @@ class FireSequencerScene {
 
         // Listen for pad-press event
         btn.addEventListener('pad-press', (e) => {
-            console.log(`[FireSequencer] pad-press event: ${label}, note: ${midiNote}`);
+            // console.log(`[FireSequencer] pad-press event: ${label}, note: ${midiNote}`);
             onClick();
         });
 
@@ -543,7 +544,7 @@ class FireSequencerScene {
             const sequencer = this.getLinkedSequencer();
             if (sequencer) {
                 // TODO: Map to sequencer parameters
-                console.log(`[FireSequencer] Top knob ${knobIndex} = ${value} (linked mode)`);
+                // console.log(`[FireSequencer] Top knob ${knobIndex} = ${value} (linked mode)`);
             }
         } else {
             // Compatible mode: send MIDI CC per Akai Fire spec
@@ -557,9 +558,18 @@ class FireSequencerScene {
      * Handle track knob changes
      */
     handleTrackKnobChange(track, value) {
+        // console.log(`[FireSequencer] handleTrackKnobChange CALLED: track=${track}, value=${value}, isLinked=${this.isLinkedMode()}`);
         if (this.isLinkedMode()) {
-            // Linked mode: control track parameter
-            console.log(`[FireSequencer] Track ${track} knob = ${value} (linked mode)`);
+            // Linked mode: control track volume in sequencer (internal mapping)
+            const sequencer = this.getLinkedSequencer();
+            // console.log(`[FireSequencer] handleTrackKnobChange track=${track}, value=${value}, sequencer=`, sequencer);
+            if (sequencer) {
+                // Set track volume in sequencer engine (0-127)
+                // This multiplies note velocities during playback
+                // console.log(`[FireSequencer] Before: trackVolumes=`, sequencer.engine.trackVolumes);
+                sequencer.engine.setTrackVolume(track, value);
+                // console.log(`[FireSequencer] After: trackVolumes=`, sequencer.engine.trackVolumes);
+            }
         } else {
             // Compatible mode: send MIDI CC
             const cc = 21 + track;
@@ -591,7 +601,7 @@ class FireSequencerScene {
                         this.trackSolos[unmutedTracks[0]] = true;
                     }
 
-                    console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
+                    // console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
                 }
             } else {
                 // Compatible mode: manual toggle
@@ -612,12 +622,12 @@ class FireSequencerScene {
                 }
             }
 
-            console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}`);
+            // console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}`);
 
             // Check if all tracks are now muted - if so, clear all solo states
             const allMuted = this.trackMutes.every(muted => muted);
             if (allMuted) {
-                console.log('[FireSequencer] All tracks muted - clearing solo states');
+                // console.log('[FireSequencer] All tracks muted - clearing solo states');
                 this.trackSolos = [false, false, false, false];
             }
 
@@ -625,7 +635,7 @@ class FireSequencerScene {
             const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
             if (unmutedTracks.length === 1) {
                 const soloTrack = unmutedTracks[0];
-                console.log(`[FireSequencer] Only track ${soloTrack} is unmuted - marking as soloed`);
+                // console.log(`[FireSequencer] Only track ${soloTrack} is unmuted - marking as soloed`);
                 this.trackSolos = [false, false, false, false];
                 this.trackSolos[soloTrack] = true;
             } else if (unmutedTracks.length > 1) {
@@ -656,7 +666,7 @@ class FireSequencerScene {
             const sequencer = this.getLinkedSequencer();
             if (sequencer && sequencer.engine) {
                 this.writeStepToSequencer(track, step, this.stepStates[track][step]);
-                console.log(`[FireSequencer] Step ${track},${step} = ${this.stepStates[track][step]} (linked mode)`);
+                // console.log(`[FireSequencer] Step ${track},${step} = ${this.stepStates[track][step]} (linked mode)`);
             }
         } else {
             // Compatible mode: send MIDI note (pad grid: 0x36-0x75)
@@ -673,7 +683,7 @@ class FireSequencerScene {
      * Grid Left=0x22, Grid Right=0x23, Pattern Up=0x1F, Pattern Down=0x20
      */
     handleNavButton(direction) {
-        console.log(`[FireSequencer] Nav: ${direction}`);
+        // console.log(`[FireSequencer] Nav: ${direction}`);
 
         if (this.isLinkedMode()) {
             // In linked mode, L/R navigate through 64-row pattern in banks of 16
@@ -682,14 +692,14 @@ class FireSequencerScene {
                 if (this.gridOffset > 0) {
                     this.gridOffset -= 16;
                     this.loadPatternFromSequencer();
-                    console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
+                    // console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
                 }
             } else if (direction === '▶') {
                 // Right - next bank of 16 steps
                 if (this.gridOffset < 48) {
                     this.gridOffset += 16;
                     this.loadPatternFromSequencer();
-                    console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
+                    // console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
                 }
             }
             // U/D could be used for other functions (bank selection, pattern selection, etc.)
@@ -708,13 +718,13 @@ class FireSequencerScene {
         // Handle modifiers
         if (btn.label === 'SHIFT') {
             this.shiftPressed = !this.shiftPressed;
-            console.log(`[FireSequencer] SHIFT: ${this.shiftPressed}`);
+            // console.log(`[FireSequencer] SHIFT: ${this.shiftPressed}`);
             return;
         }
 
         if (btn.label === 'ALT') {
             this.altPressed = !this.altPressed;
-            console.log(`[FireSequencer] ALT: ${this.altPressed}`);
+            // console.log(`[FireSequencer] ALT: ${this.altPressed}`);
             return;
         }
 
@@ -722,7 +732,7 @@ class FireSequencerScene {
             // KNOB_MODE button - cycles through CHANNEL/MIXER/USER1/USER2 modes
             // For now, just toggle userMode (can expand to 4 modes later)
             this.userMode = !this.userMode;
-            console.log(`[FireSequencer] MODE (USER mode): ${this.userMode}`);
+            // console.log(`[FireSequencer] MODE (USER mode): ${this.userMode}`);
             this.render();  // Re-render to update knob labels
             return;
         }
@@ -730,14 +740,14 @@ class FireSequencerScene {
         // Transport controls (PLAY=0x33, STOP=0x34, RECORD=0x35)
         if (btn.label === 'PLAY') {
             // PLAY
-            console.log('[FireSequencer] PLAY button pressed');
+            // console.log('[FireSequencer] PLAY button pressed');
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
-                console.log('[FireSequencer] Got sequencer:', !!sequencer);
+                // console.log('[FireSequencer] Got sequencer:', !!sequencer);
                 if (sequencer) {
-                    console.log('[FireSequencer] Calling sequencer.engine.startPlayback()');
+                    // console.log('[FireSequencer] Calling sequencer.engine.startPlayback()');
                     sequencer.engine.startPlayback();
-                    console.log('[FireSequencer] Started linked sequencer playback');
+                    // console.log('[FireSequencer] Started linked sequencer playback');
                     this.updateTransportButtons();
                 } else {
                     console.error('[FireSequencer] PLAY: No sequencer found!');
@@ -748,13 +758,13 @@ class FireSequencerScene {
             }
         } else if (btn.label === 'STOP') {
             // STOP
-            console.log('[FireSequencer] STOP button pressed');
+            // console.log('[FireSequencer] STOP button pressed');
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
                 if (sequencer) {
-                    console.log('[FireSequencer] Calling sequencer.engine.stopPlayback()');
+                    // console.log('[FireSequencer] Calling sequencer.engine.stopPlayback()');
                     sequencer.engine.stopPlayback();
-                    console.log('[FireSequencer] Stopped linked sequencer playback');
+                    // console.log('[FireSequencer] Stopped linked sequencer playback');
                     this.updateTransportButtons();
                 } else {
                     console.error('[FireSequencer] STOP: No sequencer found!');
@@ -770,7 +780,7 @@ class FireSequencerScene {
                 if (sequencer) {
                     // Toggle record mode on sequencer
                     sequencer.recordMode = !sequencer.recordMode;
-                    console.log(`[FireSequencer] Sequencer record mode: ${sequencer.recordMode}`);
+                    // console.log(`[FireSequencer] Sequencer record mode: ${sequencer.recordMode}`);
                 }
             } else {
                 this.sendMIDINote(0x35, 127);
@@ -778,7 +788,7 @@ class FireSequencerScene {
             }
         } else {
             // Other buttons
-            console.log(`[FireSequencer] Button: ${btn.label}`);
+            // console.log(`[FireSequencer] Button: ${btn.label}`);
             if (!this.isLinkedMode() && btn.note) {
                 this.sendMIDINote(btn.note, 127);
                 setTimeout(() => this.sendMIDINote(btn.note, 0), 100);
@@ -859,7 +869,7 @@ class FireSequencerScene {
         const sequencer = this.getLinkedSequencer();
         const isPlaying = sequencer && sequencer.engine.playing;
 
-        console.log(`[FireSequencer] Updating transport buttons - isPlaying: ${isPlaying}`);
+        // console.log(`[FireSequencer] Updating transport buttons - isPlaying: ${isPlaying}`);
 
         // Update UI buttons
         const playBtn = document.querySelector('.transport-play');
@@ -868,11 +878,11 @@ class FireSequencerScene {
 
         if (playBtn) {
             playBtn.setAttribute('color', isPlaying ? '#26A626' : '#888');
-            console.log(`[FireSequencer] PLAY button color: ${isPlaying ? 'green' : 'gray'}`);
+            // console.log(`[FireSequencer] PLAY button color: ${isPlaying ? 'green' : 'gray'}`);
         }
         if (stopBtn) {
             stopBtn.setAttribute('color', !isPlaying ? '#CF1A37' : '#888');
-            console.log(`[FireSequencer] STOP button color: ${!isPlaying ? 'red' : 'gray'}`);
+            // console.log(`[FireSequencer] STOP button color: ${!isPlaying ? 'red' : 'gray'}`);
         }
         if (recBtn) {
             recBtn.setAttribute('color', '#888');
@@ -895,8 +905,8 @@ class FireSequencerScene {
      * Setup linked mode - connect to sequencer
      */
     setupLinkedMode() {
-        console.log(`[FireSequencer] ===== SETUP LINKED MODE =====`);
-        console.log(`[FireSequencer] Linked sequencer ID: ${this.scene.linkedSequencer}`);
+        // console.log(`[FireSequencer] ===== SETUP LINKED MODE =====`);
+        // console.log(`[FireSequencer] Linked sequencer ID: ${this.scene.linkedSequencer}`);
 
         const sequencer = this.getLinkedSequencer();
         if (!sequencer) {
@@ -904,15 +914,18 @@ class FireSequencerScene {
             return;
         }
 
-        console.log(`[FireSequencer] ✓ Got sequencer instance:`, sequencer);
-        console.log(`[FireSequencer] ✓ Engine exists:`, !!sequencer.engine);
-        console.log(`[FireSequencer] ✓ Pattern exists:`, !!sequencer.engine?.pattern);
+        // console.log(`[FireSequencer] ✓ Got sequencer instance:`, sequencer);
+        // console.log(`[FireSequencer] ✓ Engine exists:`, !!sequencer.engine);
+        // console.log(`[FireSequencer] ✓ Pattern exists:`, !!sequencer.engine?.pattern);
 
         // Load current pattern data from sequencer (first 16 rows)
         this.loadPatternFromSequencer();
 
         // Sync mute states
         this.syncMutesFromSequencer();
+
+        // Sync track volumes from sequencer to Fire knobs
+        this.syncTrackVolumesFromSequencer();
 
         // If a MIDI input device is specified, listen to it
         if (this.scene.midiInputDevice) {
@@ -928,7 +941,7 @@ class FireSequencerScene {
         // Setup pattern length bar and click handlers
         this.setupPatternLengthBar();
 
-        console.log(`[FireSequencer] ===== LINKED MODE SETUP COMPLETE =====`);
+        // console.log(`[FireSequencer] ===== LINKED MODE SETUP COMPLETE =====`);
     }
 
     /**
@@ -939,7 +952,7 @@ class FireSequencerScene {
         const sequencer = this.getLinkedSequencer();
         if (!sequencer) return;
 
-        console.log(`[FireSequencer] Loading pattern from sequencer (offset: ${this.gridOffset})`);
+        // console.log(`[FireSequencer] Loading pattern from sequencer (offset: ${this.gridOffset})`);
 
         // Map 16 rows (starting from gridOffset) of sequencer pattern to Fire grid
         for (let track = 0; track < 4; track++) {
@@ -948,13 +961,13 @@ class FireSequencerScene {
                 const entry = sequencer.engine.pattern.getEntry(sequencerRow, track);
                 // Step is active if entry has a note
                 this.stepStates[track][step] = entry && !entry.isEmpty();
-                console.log(`[FireSequencer] Track ${track}, Step ${step} (row ${sequencerRow}): ${this.stepStates[track][step]}`);
+                // console.log(`[FireSequencer] Track ${track}, Step ${step} (row ${sequencerRow}): ${this.stepStates[track][step]}`);
             }
         }
 
         // Update visual display
         this.updateAllStepVisuals();
-        console.log('[FireSequencer] Pattern loaded and visuals updated');
+        // console.log('[FireSequencer] Pattern loaded and visuals updated');
     }
 
     /**
@@ -964,7 +977,7 @@ class FireSequencerScene {
         const sequencer = this.getLinkedSequencer();
         if (!sequencer) return;
 
-        console.log('[FireSequencer] Syncing mute states from sequencer:', sequencer.engine.trackMutes);
+        // console.log('[FireSequencer] Syncing mute states from sequencer:', sequencer.engine.trackMutes);
 
         // Load mute states
         for (let track = 0; track < 4; track++) {
@@ -979,13 +992,36 @@ class FireSequencerScene {
         if (unmutedTracks.length === 1) {
             const soloTrack = unmutedTracks[0];
             this.trackSolos[soloTrack] = true;
-            console.log(`[FireSequencer] Track ${soloTrack} is effectively SOLOED`);
+            // console.log(`[FireSequencer] Track ${soloTrack} is effectively SOLOED`);
         }
 
         // Update visuals
         for (let track = 0; track < 4; track++) {
             this.updateMuteButtonVisual(track);
-            console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}, solo: ${this.trackSolos[track]}`);
+            // console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}, solo: ${this.trackSolos[track]}`);
+        }
+    }
+
+    /**
+     * Sync track volumes from sequencer
+     */
+    syncTrackVolumesFromSequencer() {
+        const sequencer = this.getLinkedSequencer();
+        if (!sequencer) return;
+
+        // console.log('[FireSequencer] Syncing track volumes from sequencer:', sequencer.engine.trackVolumes);
+
+        // Load track volume states from sequencer engine
+        for (let track = 0; track < 4; track++) {
+            const volume = sequencer.engine.trackVolumes[track];
+            this.trackKnobs[track] = volume;
+
+            // Update knob visual in UI
+            const knobElement = document.querySelector(`pad-knob[label="T${track + 1}"]`);
+            if (knobElement) {
+                knobElement.setAttribute('value', volume);
+                // console.log(`[FireSequencer] Track ${track} knob synced to ${volume}`);
+            }
         }
     }
 
@@ -1062,7 +1098,7 @@ class FireSequencerScene {
 
         // Update the pattern
         sequencer.engine.pattern.setEntry(sequencerRow, track, entry);
-        console.log(`[FireSequencer] Wrote step ${track},${step} (row ${sequencerRow}) to sequencer: ${active ? 'ON' : 'OFF'}`);
+        // console.log(`[FireSequencer] Wrote step ${track},${step} (row ${sequencerRow}) to sequencer: ${active ? 'ON' : 'OFF'}`);
     }
 
     /**
@@ -1112,7 +1148,7 @@ class FireSequencerScene {
                 // Button index 0 = 4 rows, button 15 = 64 rows
                 const newPlaybackLength = (index + 1) * 4;
 
-                console.log(`[FireSequencer] Setting playback length to ${newPlaybackLength} rows (button ${index})`);
+                // console.log(`[FireSequencer] Setting playback length to ${newPlaybackLength} rows (button ${index})`);
                 sequencer.engine.playbackLength = newPlaybackLength;
 
                 // If current row is beyond new playback length, wrap it
@@ -1176,14 +1212,14 @@ class FireSequencerScene {
             }
         });
 
-        console.log(`[FireSequencer] Playback length bar: ${playbackLength} rows (button ${maxBeatIndex} marked with loop-end)`);
+        // console.log(`[FireSequencer] Playback length bar: ${playbackLength} rows (button ${maxBeatIndex} marked with loop-end)`);
     }
 
     /**
      * Setup compatible mode MIDI listeners
      */
     setupCompatibleModeMIDI() {
-        console.log('[FireSequencer] Compatible mode - listening for MIDI input');
+        // console.log('[FireSequencer] Compatible mode - listening for MIDI input');
 
         // Listen for incoming MIDI notes to update step grid
         // This would connect to the MIDI input system
@@ -1219,7 +1255,7 @@ class FireSequencerScene {
 
         // Attach listener
         foundInput.addEventListener('midimessage', this.midiInputListener);
-        console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInputDevice}`);
+        // console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInputDevice}`);
     }
 
     /**
@@ -1271,7 +1307,7 @@ class FireSequencerScene {
                 else if (note === 0x1A) this.handleBottomButton({ label: 'MODE' });  // KNOB_MODE
                 else if (note === 0x19) {  // ENCODER_PRESS (ENTER)
                     this.userMode = !this.userMode;
-                    console.log(`[FireSequencer] ENTER pressed (USER mode): ${this.userMode}`);
+                    // console.log(`[FireSequencer] ENTER pressed (USER mode): ${this.userMode}`);
                     this.render();
                 }
                 else if (note === 0x33) this.handleBottomButton({ label: 'PLAY' });
@@ -1294,11 +1330,17 @@ class FireSequencerScene {
                 return;
             }
 
-            // Track knobs: assuming CC 21-24
+            // Track knobs: CC 21-24 (Fire hardware sends these for T1-T4 knobs)
             if (cc >= 21 && cc <= 24) {
                 const track = cc - 21;
                 this.trackKnobs[track] = value;
                 this.handleTrackKnobChange(track, value);
+
+                // Update knob visual in UI
+                const knobElement = document.querySelector(`pad-knob[label="T${track + 1}"]`);
+                if (knobElement) {
+                    knobElement.setAttribute('value', value);
+                }
             }
         }
     }
@@ -1359,7 +1401,7 @@ class FireSequencerScene {
             const channel = this.scene.midiChannel || 0;
             const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
             midiOutput.send([statusByte, note, velocity]);
-            console.log(`[FireSequencer] MIDI Note: ${note}, vel: ${velocity}`);
+            // console.log(`[FireSequencer] MIDI Note: ${note}, vel: ${velocity}`);
         } else {
             console.warn('[FireSequencer] No MIDI output available');
         }
@@ -1374,9 +1416,9 @@ class FireSequencerScene {
             const channel = this.scene.midiChannel || 0;
             const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
             midiOutput.send([statusByte, note, velocity]);
-            console.log(`[FireSequencer] Fire LED: Note ${note}, vel: ${velocity}`);
+            // console.log(`[FireSequencer] Fire LED: Note ${note}, vel: ${velocity}`);
         } else {
-            console.log('[FireSequencer] No Fire controller output (LED update skipped)');
+            // console.log('[FireSequencer] No Fire controller output (LED update skipped)');
         }
     }
 
@@ -1389,7 +1431,7 @@ class FireSequencerScene {
             const channel = this.scene.midiChannel || 0;
             const statusByte = 0xB0 + channel;
             midiOutput.send([statusByte, cc, value]);
-            console.log(`[FireSequencer] MIDI CC: ${cc}, value: ${value}`);
+            // console.log(`[FireSequencer] MIDI CC: ${cc}, value: ${value}`);
         } else {
             console.warn('[FireSequencer] No MIDI output available');
         }
@@ -1399,7 +1441,7 @@ class FireSequencerScene {
      * Clean up
      */
     cleanup() {
-        console.log('[FireSequencer] Cleanup');
+        // console.log('[FireSequencer] Cleanup');
 
         // Stop playback position update
         if (this.playbackUpdateInterval) {
@@ -1414,7 +1456,7 @@ class FireSequencerScene {
                 for (let input of midiAccess.inputs.values()) {
                     if (input.name === this.scene.midiInputDevice) {
                         input.removeEventListener('midimessage', this.midiInputListener);
-                        console.log(`[FireSequencer] ✓ Removed MIDI listener from: ${this.scene.midiInputDevice}`);
+                        // console.log(`[FireSequencer] ✓ Removed MIDI listener from: ${this.scene.midiInputDevice}`);
                         break;
                     }
                 }
