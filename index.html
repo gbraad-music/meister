@@ -1690,7 +1690,7 @@
                     <div style="background: #1a1a1a; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.7em; line-height: 1.6;">
                         <div style="color: #4a9eff; font-weight: bold; margin-bottom: 8px;">TOP ROW:</div>
                         <div style="color: #888; margin-left: 10px;">
-                            4 Knobs (VOL, PAN, FILT, RES) | LCD Display | SELECT Knob | Nav (L/R/U/D)
+                            4 Knobs (VOL, PAN, FILT, RES) | LCD Display | SELECT Knob | ENTER (0x19) | Nav (L/R/U/D)
                         </div>
                         <div style="color: #4a9eff; font-weight: bold; margin: 12px 0 8px 0;">TRACK ROWS:</div>
                         <div style="color: #888; margin-left: 10px;">
@@ -1701,7 +1701,10 @@
                             Left: STEP (0x2C), NOTE (0x2D), DRUM (0x2E), PERF (0x2F), SHIFT (0x30), ALT (0x31)
                         </div>
                         <div style="color: #888; margin-left: 10px; margin-top: 4px;">
-                            Right: USER (0x19), BRWSR (0x21), PTRN (0x32), PLAY (0x33), STOP (0x34), RECORD (0x35)
+                            Right: MODE (0x1A), BRWSR (0x21), PTRN (0x32), PLAY (0x33), STOP (0x34), RECORD (0x35)
+                        </div>
+                        <div style="color: #666; font-size: 0.9em; margin-top: 8px; margin-left: 10px;">
+                            Note: SELECT is rotary encoder (CC 0x76). ENTER (0x19) toggles USER mode (VOL/PAN/LOW/HIGH).
                         </div>
                     </div>
                 </div>

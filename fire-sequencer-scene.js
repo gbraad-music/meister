@@ -80,7 +80,7 @@ class FireSequencerScene {
         const topSection = document.createElement('div');
         topSection.style.cssText = `
             display: grid;
-            grid-template-columns: repeat(4, 80px) 1fr 80px repeat(4, 60px);
+            grid-template-columns: repeat(4, 80px) 1fr 80px 60px repeat(4, 60px);
             grid-template-rows: 1fr;
             gap: 12px;
             padding: 16px;
@@ -126,12 +126,41 @@ class FireSequencerScene {
             : `FIRE CONTROLLER`;
         topSection.appendChild(lcdDisplay);
 
-        // 5th knob (SELECT)
-        const selectKnob = this.createKnob(this.userMode ? 'SEL' : 'SEL', this.topKnobs[4], (value) => {
+        // 5th knob (SELECT) - rotary encoder
+        const selectKnob = this.createKnob('SEL', this.topKnobs[4], (value) => {
             this.topKnobs[4] = value;
             this.handleTopKnobChange(4, value);
         });
         topSection.appendChild(selectKnob);
+
+        // ENTER button (SELECT knob press equivalent - Note 0x19)
+        const enterContainer = document.createElement('div');
+        enterContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        `;
+
+        const enterLabel = document.createElement('div');
+        enterLabel.textContent = 'ENTER';
+        enterLabel.style.cssText = `
+            text-align: center;
+            font-size: 0.7em;
+            color: #888;
+            font-weight: bold;
+        `;
+
+        const enterBtn = this.createButton('↵', '#4a9eff', () => {
+            // Toggle USER mode (same as MODE button behavior)
+            this.userMode = !this.userMode;
+            console.log(`[FireSequencer] ENTER (USER mode): ${this.userMode}`);
+            this.render();
+        }, 0x19, false);  // Note 0x19 - ENCODER_PRESS
+        enterBtn.style.height = '40px';
+
+        enterContainer.appendChild(enterLabel);
+        enterContainer.appendChild(enterBtn);
+        topSection.appendChild(enterContainer);
 
         // Navigation buttons with labels (4 buttons on the right: L, R, U, D)
         const navButtons = [
@@ -279,7 +308,7 @@ class FireSequencerScene {
         ];
 
         const rightButtons = [
-            { label: 'USER', note: 0x19, isModifier: true },
+            { label: 'MODE', note: 0x1A },  // KNOB_MODE - cycles CHANNEL/MIXER/USER1/USER2
             { label: 'BRWSR', note: 0x21 },
             { label: 'PTRN', note: 0x32 },
             { label: 'PLAY', note: 0x33, color: '#4aff9a' },
@@ -549,15 +578,17 @@ class FireSequencerScene {
             return;
         }
 
-        if (btn.label === 'USER') {
+        if (btn.label === 'MODE') {
+            // KNOB_MODE button - cycles through CHANNEL/MIXER/USER1/USER2 modes
+            // For now, just toggle userMode (can expand to 4 modes later)
             this.userMode = !this.userMode;
-            console.log(`[FireSequencer] USER mode: ${this.userMode}`);
+            console.log(`[FireSequencer] MODE (USER mode): ${this.userMode}`);
             this.render();  // Re-render to update knob labels
             return;
         }
 
         // Transport controls (PLAY=0x33, STOP=0x34, RECORD=0x35)
-        if (btn.label === '▶') {
+        if (btn.label === 'PLAY') {
             // PLAY
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
@@ -566,8 +597,9 @@ class FireSequencerScene {
                 }
             } else {
                 this.sendMIDINote(0x33, 127);
+                setTimeout(() => this.sendMIDINote(0x33, 0), 100);
             }
-        } else if (btn.label === '■') {
+        } else if (btn.label === 'STOP') {
             // STOP
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
@@ -576,11 +608,15 @@ class FireSequencerScene {
                 }
             } else {
                 this.sendMIDINote(0x34, 127);
+                setTimeout(() => this.sendMIDINote(0x34, 0), 100);
             }
-        } else if (btn.label === '●') {
+        } else if (btn.label === 'REC') {
             // RECORD
             console.log(`[FireSequencer] Record`);
-            this.sendMIDINote(0x35, 127);
+            if (!this.isLinkedMode()) {
+                this.sendMIDINote(0x35, 127);
+                setTimeout(() => this.sendMIDINote(0x35, 0), 100);
+            }
         } else {
             // Other buttons
             console.log(`[FireSequencer] Button: ${btn.label}`);
@@ -743,9 +779,15 @@ class FireSequencerScene {
             if (isNoteOn) {
                 if (note === 0x30) this.shiftPressed = !this.shiftPressed;
                 else if (note === 0x31) this.altPressed = !this.altPressed;
-                else if (note === 0x33) this.handleBottomButton({ label: '▶' });
-                else if (note === 0x34) this.handleBottomButton({ label: '■' });
-                else if (note === 0x35) this.handleBottomButton({ label: '●' });
+                else if (note === 0x1A) this.handleBottomButton({ label: 'MODE' });  // KNOB_MODE
+                else if (note === 0x19) {  // ENCODER_PRESS (ENTER)
+                    this.userMode = !this.userMode;
+                    console.log(`[FireSequencer] ENTER pressed (USER mode): ${this.userMode}`);
+                    this.render();
+                }
+                else if (note === 0x33) this.handleBottomButton({ label: 'PLAY' });
+                else if (note === 0x34) this.handleBottomButton({ label: 'STOP' });
+                else if (note === 0x35) this.handleBottomButton({ label: 'REC' });
             }
         }
 
@@ -773,15 +815,44 @@ class FireSequencerScene {
     }
 
     /**
+     * Get MIDI output for this scene
+     * In compatible mode, uses deviceBinding or global output
+     * In linked mode, MIDI is handled by the linked sequencer
+     */
+    getMIDIOutput() {
+        // Linked mode doesn't send MIDI directly
+        if (this.isLinkedMode()) {
+            return null;
+        }
+
+        // Compatible mode: use specific output or global
+        const controller = this.sceneManager.controller;
+
+        // If deviceBinding is specified, find that specific output
+        if (this.scene.deviceBinding && controller.midiAccess) {
+            for (let output of controller.midiAccess.outputs.values()) {
+                if (output.name === this.scene.deviceBinding) {
+                    return output;
+                }
+            }
+        }
+
+        // Fall back to global output
+        return controller.midiOutput;
+    }
+
+    /**
      * Send MIDI note
      */
     sendMIDINote(note, velocity) {
-        const midiOutput = this.sceneManager.controller.midiOutput;
+        const midiOutput = this.getMIDIOutput();
         if (midiOutput) {
             const channel = this.scene.midiChannel || 0;
             const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
             midiOutput.send([statusByte, note, velocity]);
             console.log(`[FireSequencer] MIDI Note: ${note}, vel: ${velocity}`);
+        } else {
+            console.warn('[FireSequencer] No MIDI output available');
         }
     }
 
@@ -789,12 +860,14 @@ class FireSequencerScene {
      * Send MIDI CC
      */
     sendMIDICC(cc, value) {
-        const midiOutput = this.sceneManager.controller.midiOutput;
+        const midiOutput = this.getMIDIOutput();
         if (midiOutput) {
             const channel = this.scene.midiChannel || 0;
             const statusByte = 0xB0 + channel;
             midiOutput.send([statusByte, cc, value]);
             console.log(`[FireSequencer] MIDI CC: ${cc}, value: ${value}`);
+        } else {
+            console.warn('[FireSequencer] No MIDI output available');
         }
     }
 
