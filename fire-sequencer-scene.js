@@ -925,6 +925,9 @@ class FireSequencerScene {
         // Update transport button states
         this.updateTransportButtons();
 
+        // Setup pattern length bar and click handlers
+        this.setupPatternLengthBar();
+
         console.log(`[FireSequencer] ===== LINKED MODE SETUP COMPLETE =====`);
     }
 
@@ -1011,6 +1014,8 @@ class FireSequencerScene {
             if (!sequencer) return;
 
             const currentRow = sequencer.engine.currentRow;
+
+            // Update Fire grid position indicator
             // Show position only if current row is within visible grid range
             if (currentRow >= this.gridOffset && currentRow < this.gridOffset + 16) {
                 // Convert sequencer row to Fire grid step (0-15)
@@ -1087,6 +1092,66 @@ class FireSequencerScene {
                 }
             }
         }
+    }
+
+    /**
+     * Setup pattern length bar - add click handlers and update display
+     */
+    setupPatternLengthBar() {
+        const buttons = document.querySelectorAll('.seq-button');
+
+        buttons.forEach((button, index) => {
+            // Add additional click handler for playback length (don't remove existing SPP handler)
+            button.addEventListener('click', () => {
+                const sequencer = this.getLinkedSequencer();
+                if (!sequencer) return;
+
+                // Button index 0 = 4 rows, button 15 = 64 rows
+                const newPlaybackLength = (index + 1) * 4;
+
+                console.log(`[FireSequencer] Setting playback length to ${newPlaybackLength} rows (button ${index})`);
+                sequencer.engine.playbackLength = newPlaybackLength;
+
+                // If current row is beyond new playback length, wrap it
+                if (sequencer.engine.currentRow >= newPlaybackLength) {
+                    sequencer.engine.currentRow = sequencer.engine.currentRow % newPlaybackLength;
+                }
+
+                // Update visual
+                this.updatePatternLengthBar();
+            });
+        });
+
+        // Initial update
+        this.updatePatternLengthBar();
+    }
+
+    /**
+     * Update global position bar to show playback length
+     * Shows which button represents the current max playback length
+     */
+    updatePatternLengthBar() {
+        const sequencer = this.getLinkedSequencer();
+        if (!sequencer) return;
+
+        // Get playback length from sequencer (in rows)
+        const playbackLength = sequencer.engine.playbackLength || 64;
+
+        // Position bar has 16 buttons, each representing 4 rows (1 beat)
+        // Button index for playback length = (playbackLength / 4) - 1
+        // e.g., 4 rows = button 0, 16 rows = button 3, 64 rows = button 15
+        const buttons = document.querySelectorAll('.seq-button');
+        const maxBeatIndex = Math.floor(playbackLength / 4) - 1;
+
+        buttons.forEach((button, index) => {
+            if (index === maxBeatIndex) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        });
+
+        console.log(`[FireSequencer] Playback length bar: ${playbackLength} rows (button ${maxBeatIndex} active)`);
     }
 
     /**

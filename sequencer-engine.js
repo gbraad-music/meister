@@ -191,6 +191,7 @@ export class SequencerEngine {
         // Initialize BPM from global clock BPM
         this.bpm = controller.clockBPM || 120;
         this.deviceId = null; // Target device ID
+        this.playbackLength = 64; // Playback loop length (defaults to full 64 rows, can be set to 4, 8, 16, 32)
 
         // Track state
         this.trackMutes = [false, false, false, false];
@@ -453,8 +454,8 @@ export class SequencerEngine {
                 }
             }
 
-            // Advance to next row
-            this.currentRow = (this.currentRow + 1) % this.pattern.rows;
+            // Advance to next row (wrap at playbackLength, not pattern.rows)
+            this.currentRow = (this.currentRow + 1) % this.playbackLength;
 
             // Schedule next tick with drift compensation
             this.nextTickTime += this.msPerRow;
@@ -793,8 +794,8 @@ export class SequencerEngine {
                 }
             }
 
-            // Advance to next row
-            this.currentRow = (this.currentRow + 1) % this.pattern.rows;
+            // Advance to next row (wrap at playbackLength, not pattern.rows)
+            this.currentRow = (this.currentRow + 1) % this.playbackLength;
         }
     }
 
