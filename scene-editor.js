@@ -1546,13 +1546,17 @@ export class SceneEditor {
                 pollInterval: scene.pollInterval,
                 layout: scene.layout, // For grid-type scenes
                 octave: scene.octave, // For piano scenes
-                midiChannel: scene.midiChannel, // For piano scenes
+                midiChannel: scene.midiChannel, // For piano scenes (also for fire-sequencer in compatible mode)
                 program: scene.program, // For piano scenes
-                deviceBinding: scene.deviceBinding, // For effects, piano, and control-grid scenes
+                deviceBinding: scene.deviceBinding, // For effects, piano, control-grid, and fire-sequencer scenes
                 programId: scene.programId, // For effects scenes
                 padLayout: scene.padLayout, // For split scenes
                 padSide: scene.padSide, // For split scenes
                 pads: scene.pads, // For split scenes (and custom pad scenes)
+                linkedSequencer: scene.linkedSequencer, // For fire-sequencer scenes
+                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes
+                tracks: scene.tracks, // For fire-sequencer scenes
+                stepsPerTrack: scene.stepsPerTrack, // For fire-sequencer scenes
                 engine: scene.sequencerInstance ? scene.sequencerInstance.engine.toJSON() : scene.engine // For sequencer scenes
             };
         });
@@ -1564,13 +1568,15 @@ export class SceneEditor {
     loadScenesFromStorage() {
         try {
             const saved = localStorage.getItem('meisterScenes');
+            console.log('[SceneEditor] Loading scenes from localStorage:', saved ? 'Found' : 'Not found');
             if (saved) {
                 const scenes = JSON.parse(saved);
+                console.log('[SceneEditor] Parsed scenes:', Object.keys(scenes));
 
                 // Load saved scenes BEFORE registering defaults
                 // This allows saved mixer scene to override the default
                 Object.entries(scenes).forEach(([id, config]) => {
-                    // console.log(`[SceneEditor] Loading saved scene: ${id}`);
+                    console.log(`[SceneEditor] Loading saved scene: ${id}, type: ${config.type}, linkedSequencer: ${config.linkedSequencer}`);
                     this.sceneManager.addScene(id, config);
                 });
 
@@ -1579,6 +1585,8 @@ export class SceneEditor {
 
                 // Initialize any sequencer instances that were loaded
                 this.sceneManager.initializeSequencerInstances();
+            } else {
+                console.log('[SceneEditor] No scenes in localStorage');
             }
         } catch (e) {
             console.error('Failed to load scenes from storage:', e);
@@ -1609,13 +1617,17 @@ export class SceneEditor {
                 pollInterval: scene.pollInterval,
                 layout: scene.layout, // For grid-type scenes
                 octave: scene.octave, // For piano scenes
-                midiChannel: scene.midiChannel, // For piano scenes
+                midiChannel: scene.midiChannel, // For piano scenes (also for fire-sequencer in compatible mode)
                 program: scene.program, // For piano scenes
-                deviceBinding: scene.deviceBinding, // For effects and piano scenes
+                deviceBinding: scene.deviceBinding, // For effects, piano, and fire-sequencer scenes
                 programId: scene.programId, // For effects scenes
                 padLayout: scene.padLayout, // For split scenes
                 padSide: scene.padSide, // For split scenes
-                pads: scene.pads // For split scenes (and custom pad scenes)
+                pads: scene.pads, // For split scenes (and custom pad scenes)
+                linkedSequencer: scene.linkedSequencer, // For fire-sequencer scenes
+                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes
+                tracks: scene.tracks, // For fire-sequencer scenes
+                stepsPerTrack: scene.stepsPerTrack // For fire-sequencer scenes
             };
         });
         return scenes;
@@ -1808,6 +1820,11 @@ export class SceneEditor {
         this.currentSceneId = sceneId;
         const isLinked = sceneId ? this.sceneManager.scenes.get(sceneId)?.linkedSequencer : false;
 
+        // Populate dropdowns FIRST before setting values
+        this.populateFireMIDIInputs();
+        this.populateFireMIDIOutputs();
+        this.populateFireSequencerList();
+
         if (sceneId) {
             // Edit existing scene
             const scene = this.sceneManager.scenes.get(sceneId);
@@ -1842,21 +1859,12 @@ export class SceneEditor {
             document.getElementById('delete-fire-scene').style.display = 'none';
         }
 
-        // Populate dropdowns
-        this.populateFireMIDIInputs();
-        this.populateFireMIDIOutputs();
-
         // Show/hide fields based on mode
         const mode = document.getElementById('fire-scene-mode').value;
         const linkedMode = mode === 'linked';
         document.getElementById('fire-linked-sequencer-field').style.display = linkedMode ? 'block' : 'none';
         document.getElementById('fire-compatible-output-field').style.display = linkedMode ? 'none' : 'block';
         document.getElementById('fire-compatible-channel-field').style.display = linkedMode ? 'none' : 'block';
-
-        // Populate sequencer list if in linked mode
-        if (linkedMode) {
-            this.populateFireSequencerList();
-        }
 
         // Show overlay
         document.getElementById('fire-scene-editor-overlay').classList.add('active');

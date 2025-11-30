@@ -196,7 +196,7 @@ class RegroovePad extends HTMLElement {
 
             <div class="pad ${isEmpty ? 'empty' : ''}">
                 ${!isEmpty ? `
-                    ${label ? `<div class="label">${label}</div>` : '<div class="label">•</div>'}
+                    ${label ? `<div class="label">${label}</div>` : ''}
                     ${sublabel ? `<div class="sublabel">${sublabel}</div>` : ''}
                 ` : ''}
                 <slot></slot>

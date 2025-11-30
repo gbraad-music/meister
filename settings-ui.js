@@ -89,6 +89,7 @@ export class SettingsUI {
             else if (scene.type === 'piano') typeLabel = 'Piano';
             else if (scene.type === 'split') typeLabel = 'Split';
             else if (scene.type === 'sequencer') typeLabel = 'Sequencer';
+            else if (scene.type === 'fire-sequencer') typeLabel = 'Fire Sequencer';
 
             return `
                 <div class="scene-item ${isActive ? 'active' : ''}" data-scene-id="${scene.id}" style="opacity: ${isEnabled ? '1' : '0.5'};">
@@ -143,6 +144,11 @@ export class SettingsUI {
                     // Open sequencer scene editor for renaming
                     if (this.controller.sceneEditor) {
                         this.controller.sceneEditor.openSequencerSceneEditor(sceneId);
+                    }
+                } else if (scene.type === 'fire-sequencer') {
+                    // Open Fire sequencer scene editor
+                    if (this.controller.sceneEditor) {
+                        this.controller.sceneEditor.openFireSceneEditor(sceneId);
                     }
                 } else {
                     this.controller.sceneEditor.openSceneEditor(sceneId);

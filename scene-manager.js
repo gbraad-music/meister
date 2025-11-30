@@ -541,6 +541,7 @@ export class SceneManager {
             scene.tracks = config.tracks || 4;
             scene.stepsPerTrack = config.stepsPerTrack || 16;
             scene.render = () => this.renderFireSequencerScene(id);
+            console.log(`[Scene] Added Fire scene: ${config.name}, linkedSequencer: ${scene.linkedSequencer}, deviceBinding: ${scene.deviceBinding}`);
         }
 
         this.scenes.set(id, scene);
@@ -557,11 +558,19 @@ export class SceneManager {
             return;
         }
 
-        // Pause sequencer scene when switching away (keeps playback running)
+        // Cleanup previous scene
         const previousScene = this.scenes.get(this.currentScene);
-        if (previousScene && previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
-            console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
-            previousScene.sequencerInstance.pause();
+        if (previousScene) {
+            // Pause sequencer scene when switching away (keeps playback running)
+            if (previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
+                console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
+                previousScene.sequencerInstance.pause();
+            }
+            // Cleanup Fire sequencer scene when switching away
+            if (previousScene.type === 'fire-sequencer' && previousScene.fireInstance) {
+                console.log(`[Scene] Cleaning up Fire scene: ${previousScene.name}`);
+                previousScene.fireInstance.cleanup();
+            }
         }
 
         // console.log(`[Scene] Switching to: ${scene.name}`);
