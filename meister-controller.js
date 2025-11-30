@@ -621,12 +621,8 @@ class MeisterController {
         // Receive SPP
         document.getElementById('receive-spp').addEventListener('change', (e) => {
             this.receiveSPP = e.target.checked;
-            const sequencer = document.getElementById('position-sequencer');
-            sequencer.style.display = this.receiveSPP ? 'flex' : 'none';
-
-            if (this.receiveSPP) {
-                this.createSequencerButtons();
-            }
+            // Position bar is always visible now (used for playback position + loop length)
+            // receiveSPP only controls whether we respond to incoming SPP messages
 
             this.saveConfig();
         });
@@ -3145,12 +3141,10 @@ class MeisterController {
 
                 // Global polling interval UI removed - polling is now per-scene
 
+                // Always show position bar and create buttons (used for playback + loop length)
                 const sequencer = document.getElementById('position-sequencer');
-                sequencer.style.display = this.receiveSPP ? 'flex' : 'none';
-
-                if (this.receiveSPP) {
-                    this.createSequencerButtons();
-                }
+                sequencer.style.display = 'flex';
+                this.createSequencerButtons();
 
                 // Auto-start clock if it was enabled (runs even without MIDI output for internal sequencer sync)
                 if (this.clockMaster) {

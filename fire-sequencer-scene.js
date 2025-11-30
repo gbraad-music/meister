@@ -375,7 +375,7 @@ class FireSequencerScene {
             { label: 'MODE', note: 0x1A },  // KNOB_MODE - cycles CHANNEL/MIXER/USER1/USER2
             { label: 'BRWSR', note: 0x21 },
             { label: 'PTRN', note: 0x32 },
-            { label: 'PLAY', note: 0x33, color: isPlaying ? '#4aff9a' : '#888' },
+            { label: 'PLAY', note: 0x33, color: isPlaying ? '#26A626' : '#888' },
             { label: 'STOP', note: 0x34, color: !isPlaying ? '#CF1A37' : '#888' },
             { label: 'REC', note: 0x35, color: '#888' }
         ];
@@ -867,7 +867,7 @@ class FireSequencerScene {
         const recBtn = document.querySelector('.transport-rec');
 
         if (playBtn) {
-            playBtn.setAttribute('color', isPlaying ? '#4aff9a' : '#888');
+            playBtn.setAttribute('color', isPlaying ? '#26A626' : '#888');
             console.log(`[FireSequencer] PLAY button color: ${isPlaying ? 'green' : 'gray'}`);
         }
         if (stopBtn) {
@@ -1024,6 +1024,9 @@ class FireSequencerScene {
             } else {
                 this.updatePlaybackPosition(-1); // Clear position indicator
             }
+
+            // Update global position bar to show current playback position
+            this.updateGlobalPositionBar(currentRow);
         }, 50);
     }
 
@@ -1127,8 +1130,28 @@ class FireSequencerScene {
     }
 
     /**
+     * Update global position bar to show current playback position
+     * Uses 'active' class just like SPP does
+     */
+    updateGlobalPositionBar(currentRow) {
+        // Position bar has 16 buttons, each representing 4 rows (1 beat)
+        // currentRow is 0-63, so button index = floor(currentRow / 4)
+        const buttons = document.querySelectorAll('.seq-button');
+        const currentBeat = Math.floor(currentRow / 4);
+
+        buttons.forEach((button, index) => {
+            if (index === currentBeat) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        });
+    }
+
+    /**
      * Update global position bar to show playback length
-     * Shows which button represents the current max playback length
+     * Uses 'loop-end' class to mark the last beat of the loop
+     * IMPORTANT: Don't touch 'quarter' class - it's for every 4th button spacing
      */
     updatePatternLengthBar() {
         const sequencer = this.getLinkedSequencer();
@@ -1143,15 +1166,17 @@ class FireSequencerScene {
         const buttons = document.querySelectorAll('.seq-button');
         const maxBeatIndex = Math.floor(playbackLength / 4) - 1;
 
+        // Use 'loop-end' class to mark the loop end (red border)
+        // Don't remove 'quarter' class - it's permanent on every 4th button
         buttons.forEach((button, index) => {
             if (index === maxBeatIndex) {
-                button.classList.add('active');
+                button.classList.add('loop-end');
             } else {
-                button.classList.remove('active');
+                button.classList.remove('loop-end');
             }
         });
 
-        console.log(`[FireSequencer] Playback length bar: ${playbackLength} rows (button ${maxBeatIndex} active)`);
+        console.log(`[FireSequencer] Playback length bar: ${playbackLength} rows (button ${maxBeatIndex} marked with loop-end)`);
     }
 
     /**
