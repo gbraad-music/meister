@@ -630,6 +630,7 @@
                         <button id="new-piano-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW PIANO SCENE</button>
                         <button id="new-split-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SPLIT SCENE</button>
                         <button id="new-sequencer-scene-btn" style="padding: 12px; font-size: 0.95em;">➕ NEW SEQUENCER SCENE</button>
+                        <button id="new-fire-scene-btn" style="padding: 12px; font-size: 0.95em;">🔥 NEW FIRE SEQUENCER</button>
                     </div>
                 </div>
             </div>
@@ -1603,6 +1604,116 @@
         </div>
     </div>
 
+    <!-- Fire Sequencer Scene Editor -->
+    <div class="settings-overlay" id="fire-scene-editor-overlay">
+        <div class="settings-panel">
+            <div class="settings-panel-header">
+                <div class="settings-header" id="fire-scene-editor-title">NEW FIRE SEQUENCER</div>
+                <button class="close-settings" id="close-fire-scene-editor">✕ CLOSE</button>
+            </div>
+
+            <div class="settings-panel-content">
+                <div class="setting-group">
+                    <label class="setting-label">SCENE NAME</label>
+                    <input type="text" id="fire-scene-name" placeholder="Fire Controller" style="width: 100%;">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MODE</label>
+                    <select id="fire-scene-mode" style="width: 100%;">
+                        <option value="compatible">Fire Compatible (Standalone)</option>
+                        <option value="linked">Linked to Sequencer</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        <strong>Compatible:</strong> Acts as Akai Fire hardware replacement<br>
+                        <strong>Linked:</strong> Controls internal sequencer scene
+                    </div>
+                </div>
+
+                <div class="setting-group" id="fire-linked-sequencer-field" style="display: none;">
+                    <label class="setting-label">LINKED SEQUENCER</label>
+                    <select id="fire-linked-sequencer" style="width: 100%;">
+                        <option value="">-- Select Sequencer --</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Which sequencer scene to control (device routing is handled by the sequencer)
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI INPUT DEVICE</label>
+                    <select id="fire-midi-input-device" style="width: 100%;">
+                        <option value="">None (Software Only)</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Connect physical Akai Fire controller to control this scene
+                    </div>
+                </div>
+
+                <div class="setting-group" id="fire-compatible-output-field">
+                    <label class="setting-label">MIDI OUTPUT DEVICE</label>
+                    <select id="fire-midi-output" style="width: 100%;">
+                        <option value="">Default MIDI Output</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        MIDI output for Fire Compatible mode
+                    </div>
+                </div>
+
+                <div class="setting-group" id="fire-compatible-channel-field">
+                    <label class="setting-label">MIDI CHANNEL</label>
+                    <select id="fire-midi-channel" style="width: 100%;">
+                        <option value="0">Channel 1</option>
+                        <option value="1">Channel 2</option>
+                        <option value="2">Channel 3</option>
+                        <option value="3">Channel 4</option>
+                        <option value="4">Channel 5</option>
+                        <option value="5">Channel 6</option>
+                        <option value="6">Channel 7</option>
+                        <option value="7">Channel 8</option>
+                        <option value="8">Channel 9</option>
+                        <option value="9">Channel 10</option>
+                        <option value="10">Channel 11</option>
+                        <option value="11">Channel 12</option>
+                        <option value="12">Channel 13</option>
+                        <option value="13">Channel 14</option>
+                        <option value="14">Channel 15</option>
+                        <option value="15">Channel 16</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        MIDI channel for Fire Compatible mode
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">BUTTON LAYOUT REFERENCE</label>
+                    <div style="background: #1a1a1a; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.7em; line-height: 1.6;">
+                        <div style="color: #4a9eff; font-weight: bold; margin-bottom: 8px;">TOP ROW:</div>
+                        <div style="color: #888; margin-left: 10px;">
+                            4 Knobs (VOL, PAN, FILT, RES) | LCD Display | SELECT Knob | Nav (L/R/U/D)
+                        </div>
+                        <div style="color: #4a9eff; font-weight: bold; margin: 12px 0 8px 0;">TRACK ROWS:</div>
+                        <div style="color: #888; margin-left: 10px;">
+                            4 Tracks × (Knob + SOLO/MUTE stack + 16 Steps grouped 4-4-4-4)
+                        </div>
+                        <div style="color: #4a9eff; font-weight: bold; margin: 12px 0 8px 0;">BOTTOM ROW:</div>
+                        <div style="color: #888; margin-left: 10px;">
+                            Left: STEP (0x2C), NOTE (0x2D), DRUM (0x2E), PERF (0x2F), SHIFT (0x30), ALT (0x31)
+                        </div>
+                        <div style="color: #888; margin-left: 10px; margin-top: 4px;">
+                            Right: USER (0x19), BRWSR (0x21), PTRN (0x32), PLAY (0x33), STOP (0x34), RECORD (0x35)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="save-fire-scene">💾 SAVE SCENE</button>
+                    <button id="delete-fire-scene" style="display: none;">🗑️ DELETE SCENE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Control Grid Scene Editor -->
     <div class="settings-overlay" id="control-grid-scene-editor-overlay">
         <div class="settings-panel">
@@ -1920,9 +2031,11 @@
         import { DeviceManager } from './device-manager.js';
         import { InputRouter } from './input-router.js';
         import { SequencerScene } from './sequencer-scene.js';
+        import { FireSequencerScene } from './fire-sequencer-scene.js';
 
-        // Expose SequencerScene globally for scene manager
+        // Expose scene classes globally for scene manager
         window.SequencerScene = SequencerScene;
+        window.FireSequencerScene = FireSequencerScene;
 
         // Wait for controller to be initialized
         function waitForController() {

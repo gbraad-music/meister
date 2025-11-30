@@ -533,6 +533,14 @@ export class SceneManager {
             scene.cols = config.cols || 8;
             scene.cells = config.cells || [];
             scene.render = () => this.renderControlGridScene(id);
+        } else if (config.type === 'fire-sequencer') {
+            scene.linkedSequencer = config.linkedSequencer || null;
+            scene.deviceBinding = config.deviceBinding || null;
+            scene.midiInputDevice = config.midiInputDevice || null;  // Physical Fire controller input
+            scene.midiChannel = config.midiChannel !== undefined ? config.midiChannel : 0;
+            scene.tracks = config.tracks || 4;
+            scene.stepsPerTrack = config.stepsPerTrack || 16;
+            scene.render = () => this.renderFireSequencerScene(id);
         }
 
         this.scenes.set(id, scene);
@@ -3888,5 +3896,24 @@ export class SceneManager {
                 this.renderControlGridScene(sceneId);
             });
         }, 100);
+    }
+
+    /**
+     * Render Fire Sequencer scene
+     */
+    renderFireSequencerScene(sceneId) {
+        const scene = this.scenes.get(sceneId);
+        if (!scene) {
+            console.error(`[FireSequencer] Scene "${sceneId}" not found`);
+            return;
+        }
+
+        // Create or get Fire sequencer instance
+        if (!scene.fireInstance) {
+            scene.fireInstance = new FireSequencerScene(this, sceneId);
+        }
+
+        // Render the Fire interface
+        scene.fireInstance.render();
     }
 }

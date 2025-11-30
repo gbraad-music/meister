@@ -83,6 +83,42 @@ export class SceneEditor {
             this.createSequencerScene();
         });
 
+        // New Fire scene button
+        document.getElementById('new-fire-scene-btn')?.addEventListener('click', () => {
+            this.createFireScene();
+        });
+
+        // Close Fire scene editor
+        document.getElementById('close-fire-scene-editor')?.addEventListener('click', () => {
+            this.closeFireSceneEditor();
+        });
+
+        // Save Fire scene
+        document.getElementById('save-fire-scene')?.addEventListener('click', () => {
+            this.saveFireScene();
+        });
+
+        // Delete Fire scene
+        document.getElementById('delete-fire-scene')?.addEventListener('click', () => {
+            this.deleteFireScene();
+        });
+
+        // Fire scene mode change
+        document.getElementById('fire-scene-mode')?.addEventListener('change', (e) => {
+            const isLinked = e.target.value === 'linked';
+
+            // Show/hide linked mode fields
+            document.getElementById('fire-linked-sequencer-field').style.display = isLinked ? 'block' : 'none';
+
+            // Show/hide compatible mode fields
+            document.getElementById('fire-compatible-output-field').style.display = isLinked ? 'none' : 'block';
+            document.getElementById('fire-compatible-channel-field').style.display = isLinked ? 'none' : 'block';
+
+            if (isLinked) {
+                this.populateFireSequencerList();
+            }
+        });
+
         // Close control grid scene editor
         document.getElementById('close-control-grid-scene-editor')?.addEventListener('click', () => {
             this.closeControlGridSceneEditor();
@@ -1755,6 +1791,231 @@ export class SceneEditor {
             this.sceneManager.switchScene(sceneId);
 
             console.log(`[SceneEditor] Created sequencer scene: ${name}`);
+        }
+    }
+
+    /**
+     * Create Fire sequencer scene
+     */
+    createFireScene() {
+        this.openFireSceneEditor();
+    }
+
+    /**
+     * Open Fire scene editor
+     */
+    openFireSceneEditor(sceneId = null) {
+        this.currentSceneId = sceneId;
+        const isLinked = sceneId ? this.sceneManager.scenes.get(sceneId)?.linkedSequencer : false;
+
+        if (sceneId) {
+            // Edit existing scene
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'fire-sequencer') {
+                document.getElementById('fire-scene-editor-title').textContent = 'EDIT FIRE SEQUENCER';
+                document.getElementById('fire-scene-name').value = scene.name;
+                document.getElementById('fire-scene-mode').value = scene.linkedSequencer ? 'linked' : 'compatible';
+                document.getElementById('fire-linked-sequencer').value = scene.linkedSequencer || '';
+                document.getElementById('fire-midi-input-device').value = scene.midiInputDevice || '';
+
+                // Set compatible mode fields (MIDI output and channel)
+                if (!scene.linkedSequencer) {
+                    const outputSelect = document.getElementById('fire-midi-output');
+                    if (outputSelect) outputSelect.value = scene.deviceBinding || '';
+                    document.getElementById('fire-midi-channel').value = scene.midiChannel || '0';
+                }
+
+                document.getElementById('delete-fire-scene').style.display = 'block';
+            }
+        } else {
+            // New scene
+            document.getElementById('fire-scene-editor-title').textContent = 'NEW FIRE SEQUENCER';
+            document.getElementById('fire-scene-name').value = 'Fire ' + (this.sceneManager.scenes.size + 1);
+            document.getElementById('fire-scene-mode').value = 'compatible';
+            document.getElementById('fire-linked-sequencer').value = '';
+            document.getElementById('fire-midi-input-device').value = '';
+
+            const outputSelect = document.getElementById('fire-midi-output');
+            if (outputSelect) outputSelect.value = '';
+            document.getElementById('fire-midi-channel').value = '0';
+
+            document.getElementById('delete-fire-scene').style.display = 'none';
+        }
+
+        // Populate dropdowns
+        this.populateFireMIDIInputs();
+        this.populateFireMIDIOutputs();
+
+        // Show/hide fields based on mode
+        const mode = document.getElementById('fire-scene-mode').value;
+        const linkedMode = mode === 'linked';
+        document.getElementById('fire-linked-sequencer-field').style.display = linkedMode ? 'block' : 'none';
+        document.getElementById('fire-compatible-output-field').style.display = linkedMode ? 'none' : 'block';
+        document.getElementById('fire-compatible-channel-field').style.display = linkedMode ? 'none' : 'block';
+
+        // Populate sequencer list if in linked mode
+        if (linkedMode) {
+            this.populateFireSequencerList();
+        }
+
+        // Show overlay
+        document.getElementById('fire-scene-editor-overlay').classList.add('active');
+    }
+
+    /**
+     * Close Fire scene editor
+     */
+    closeFireSceneEditor() {
+        document.getElementById('fire-scene-editor-overlay').classList.remove('active');
+        this.currentSceneId = null;
+    }
+
+    /**
+     * Populate Fire MIDI input devices
+     */
+    populateFireMIDIInputs() {
+        const select = document.getElementById('fire-midi-input-device');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">None (Software Only)</option>';
+
+        if (this.sceneManager.controller.midiAccess) {
+            for (let input of this.sceneManager.controller.midiAccess.inputs.values()) {
+                const option = document.createElement('option');
+                option.value = input.name;
+                option.textContent = input.name;
+                select.appendChild(option);
+            }
+        }
+    }
+
+    /**
+     * Populate Fire MIDI outputs (for compatible mode)
+     */
+    populateFireMIDIOutputs() {
+        const select = document.getElementById('fire-midi-output');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Default MIDI Output</option>';
+
+        if (this.sceneManager.controller.midiAccess) {
+            for (let output of this.sceneManager.controller.midiAccess.outputs.values()) {
+                const option = document.createElement('option');
+                option.value = output.name;
+                option.textContent = output.name;
+                select.appendChild(option);
+            }
+        }
+    }
+
+    /**
+     * Populate Fire sequencer list
+     */
+    populateFireSequencerList() {
+        const select = document.getElementById('fire-linked-sequencer');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">-- Select Sequencer --</option>';
+
+        for (let [id, scene] of this.sceneManager.scenes) {
+            if (scene.type === 'sequencer') {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = scene.name;
+                select.appendChild(option);
+            }
+        }
+    }
+
+    /**
+     * Save Fire scene
+     */
+    saveFireScene() {
+        const name = document.getElementById('fire-scene-name').value.trim();
+        const mode = document.getElementById('fire-scene-mode').value;
+        const isLinked = mode === 'linked';
+        const midiInputDevice = document.getElementById('fire-midi-input-device').value || null;
+
+        if (!name) {
+            alert('Please enter a scene name');
+            return;
+        }
+
+        let linkedSequencer = null;
+        let deviceBinding = null;
+        let midiChannel = 0;
+
+        if (isLinked) {
+            // Linked mode: only need sequencer (device routing handled by sequencer)
+            linkedSequencer = document.getElementById('fire-linked-sequencer').value || null;
+
+            if (!linkedSequencer) {
+                alert('Please select a sequencer to link to');
+                return;
+            }
+        } else {
+            // Compatible mode: use MIDI output and channel
+            deviceBinding = document.getElementById('fire-midi-output').value || null;
+            midiChannel = parseInt(document.getElementById('fire-midi-channel').value);
+        }
+
+        const sceneId = this.currentSceneId || `fire-${Date.now()}`;
+
+        const config = {
+            name,
+            type: 'fire-sequencer',
+            enabled: true,
+            linkedSequencer,
+            deviceBinding,
+            midiInputDevice,
+            midiChannel,
+            tracks: 4,
+            stepsPerTrack: 16
+        };
+
+        if (this.currentSceneId) {
+            // Update existing scene
+            this.sceneManager.scenes.delete(sceneId);
+        }
+
+        this.sceneManager.addScene(sceneId, config);
+        this.saveScenesToStorage();
+        this.closeFireSceneEditor();
+
+        // Refresh scenes list
+        if (this.sceneManager.controller.settingsUI) {
+            this.sceneManager.controller.settingsUI.refreshScenesList();
+        }
+
+        // Switch to the new scene
+        this.sceneManager.switchScene(sceneId);
+
+        console.log(`[SceneEditor] Created Fire scene: ${name} (${isLinked ? 'Linked' : 'Compatible'} mode)`);
+    }
+
+    /**
+     * Delete Fire scene
+     */
+    deleteFireScene() {
+        if (!this.currentSceneId) return;
+
+        const scene = this.sceneManager.scenes.get(this.currentSceneId);
+        if (!scene) return;
+
+        if (confirm(`Delete Fire scene "${scene.name}"?`)) {
+            this.sceneManager.scenes.delete(this.currentSceneId);
+            this.saveScenesToStorage();
+            this.closeFireSceneEditor();
+
+            // Refresh scenes list
+            if (this.sceneManager.controller.settingsUI) {
+                this.sceneManager.controller.settingsUI.refreshScenesList();
+            }
+
+            // Switch to default scene
+            this.sceneManager.switchScene('pads');
+
+            console.log(`[SceneEditor] Deleted Fire scene: ${scene.name}`);
         }
     }
 }
