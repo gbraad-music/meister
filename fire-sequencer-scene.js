@@ -84,10 +84,10 @@ class FireSequencerScene {
         container.style.display = 'grid';
         // Simple 1-column grid, each section manages its own layout
         container.style.gridTemplateColumns = '1fr';
-        container.style.gridTemplateRows = 'auto auto 1fr auto'; // top, track rows, bottom
+        container.style.gridTemplateRows = 'auto 1fr auto'; // top, track rows (flex), bottom
         container.style.gap = '8px';
-        container.style.padding = '20px 12px';
-        container.style.height = 'calc(100vh - 60px)';
+        container.style.padding = '8px';
+        container.style.minHeight = '0';  // Allow flex shrinking
         container.innerHTML = '';
 
         // Build layout
@@ -115,7 +115,7 @@ class FireSequencerScene {
             grid-template-columns: repeat(4, 80px) 1fr 80px 60px repeat(4, 60px);
             grid-template-rows: 1fr;
             gap: 12px;
-            padding: 16px;
+            padding: 8px;
             background: #0a0a0a;
             border-radius: 4px;
             align-items: center;
@@ -241,13 +241,15 @@ class FireSequencerScene {
         tracksSection.style.cssText = `
             display: grid;
             grid-template-columns: 80px 60px 12px repeat(4, 1fr) 12px repeat(4, 1fr) 12px repeat(4, 1fr) 12px repeat(4, 1fr);
-            grid-template-rows: repeat(4, 1fr);
+            grid-template-rows: repeat(4, minmax(0, 1fr));
             gap: 4px;
-            row-gap: 12px;
-            padding: 24px 8px;
+            row-gap: 4px;
+            padding: 8px;
             background: #0a0a0a;
             border-radius: 4px;
             flex: 1;
+            min-height: 0;
+            overflow: hidden;
         `;
 
         for (let track = 0; track < 4; track++) {
@@ -353,7 +355,7 @@ class FireSequencerScene {
             grid-template-columns: repeat(6, 80px) 1fr repeat(6, 80px);
             grid-template-rows: 1fr;
             gap: 12px;
-            padding: 16px;
+            padding: 8px;
             background: #0a0a0a;
             border-radius: 4px;
             align-items: center;

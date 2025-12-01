@@ -20,7 +20,8 @@
             color: #888888;
             overflow: hidden;
             width: 100vw;
-            height: 100vh;
+            height: 100vh; /* Fallback for browsers without custom properties */
+            height: calc(var(--vh, 1vh) * 100); /* Use JS-calculated viewport height */
         }
 
         .container {
@@ -38,17 +39,23 @@
             gap: 10px;
             padding: 10px 10px 4px 10px;
             min-height: 0; /* Important for flex children with grid */
+            max-height: 100%; /* Prevent overflow */
+            overflow: auto; /* Allow scrolling if needed */
         }
 
         /* Position Sequencer */
         .position-sequencer {
             height: 50px;
+            min-height: 50px;
+            max-height: 50px;
             background: #000000;
             border-top: 2px solid #000000;
             flex-shrink: 0;
+            flex-grow: 0;
             display: flex;
             align-items: center;
             padding: 6px 10px;
+            overflow: visible;
         }
 
         .sequencer-buttons {
@@ -2124,6 +2131,20 @@
                 setTimeout(waitForController, 50);
             }
         }
+
+        // Fix mobile viewport height (for browser mode vs PWA mode)
+        function setViewportHeight() {
+            // Get actual viewport height (excludes browser UI)
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        // Set on load
+        setViewportHeight();
+
+        // Update on resize (e.g., when address bar shows/hides)
+        window.addEventListener('resize', setViewportHeight);
+        window.addEventListener('orientationchange', setViewportHeight);
 
         // Start waiting for controller
         if (document.readyState === 'loading') {
