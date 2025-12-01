@@ -110,11 +110,11 @@ class MeisterController {
         // console.log('[Meister] Setting up MIDI input listeners...');
         let count = 0;
 
-        // If no enabled inputs are configured, enable all inputs by default
-        if (!this.enabledMidiInputs || this.enabledMidiInputs.size === 0) {
-            // console.log('[Meister] No enabled inputs configured, enabling all inputs by default');
-            this.enabledMidiInputs = new Set(Array.from(this.midiAccess.inputs.values()).map(input => input.name));
-            this.saveConfig();
+        // If no enabled inputs are configured, start with empty set (user must explicitly enable inputs)
+        // This prevents locking all MIDI devices on platforms like Windows
+        if (!this.enabledMidiInputs) {
+            this.enabledMidiInputs = new Set();
+            // console.log('[Meister] No enabled inputs configured, starting with none enabled to avoid device locks');
         }
 
         // Store the handler function reference for each input so we can remove it later
