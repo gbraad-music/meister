@@ -678,8 +678,8 @@ class FireSequencerScene {
      * On Physical Fire: SHIFT + MUTE button
      */
     handleSoloButton(track) {
-        // SHIFT + SOLO = UNMUTE ALL (clear all solos and mutes)
-        if (this.shiftPressed) {
+        // SHIFT + SOLO on already-solo'd track = UNMUTE ALL
+        if (this.shiftPressed && this.trackSolos[track]) {
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
                 if (sequencer) {
@@ -743,71 +743,32 @@ class FireSequencerScene {
         for (let t = 0; t < 4; t++) {
             this.updateMuteButtonVisual(t);
         }
-
-        // Auto-clear SHIFT after processing SOLO (Web UI only)
-        if (this.shiftPressed) {
-            this.shiftPressed = false;
-            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
-            if (shiftBtn) {
-                shiftBtn.setAttribute('color', '#888');  // Back to gray
-            }
-            this.updateButtonLabels();  // Restore button labels
-        }
     }
 
     /**
      * Handle mute button
+     * In Web UI: dedicated MUTE button
+     * On Physical Fire: The single button (handled in MIDI input with smart logic)
      */
     handleMuteButton(track) {
-        if (this.shiftPressed) {
-            // SHIFT + MUTE = SOLO
-            if (this.isLinkedMode()) {
-                // Use sequencer's toggleSolo - it handles all the mute logic
-                const sequencer = this.getLinkedSequencer();
-                if (sequencer) {
-                    sequencer.engine.toggleSolo(track);
+        // MUTE button: just toggle mute
+        this.trackMutes[track] = !this.trackMutes[track];
 
-                    // Read back mute states from sequencer
-                    for (let t = 0; t < 4; t++) {
-                        this.trackMutes[t] = sequencer.engine.trackMutes[t];
-                    }
-
-                    // Infer solo state: only one track unmuted = that track is soloed
-                    const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
-                    this.trackSolos = [false, false, false, false];
-                    if (unmutedTracks.length === 1) {
-                        this.trackSolos[unmutedTracks[0]] = true;
-                    }
-
-                    // console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
-                }
-            } else {
-                // Compatible mode: manual toggle
-                this.trackSolos[track] = !this.trackSolos[track];
-                if (this.trackSolos[track]) {
-                    this.trackMutes[track] = false;
-                }
+        if (this.isLinkedMode()) {
+            // Update linked sequencer
+            const sequencer = this.getLinkedSequencer();
+            if (sequencer) {
+                sequencer.engine.trackMutes[track] = this.trackMutes[track];
             }
+        }
+
+        // Auto-detect solo: if only one track is unmuted, mark it as soloed
+        const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
+        if (unmutedTracks.length === 1) {
+            this.trackSolos = [false, false, false, false];
+            this.trackSolos[unmutedTracks[0]] = true;
         } else {
-            // Normal MUTE
-            this.trackMutes[track] = !this.trackMutes[track];
-
-            if (this.isLinkedMode()) {
-                // Update linked sequencer
-                const sequencer = this.getLinkedSequencer();
-                if (sequencer) {
-                    sequencer.engine.trackMutes[track] = this.trackMutes[track];
-                }
-            }
-
-            // Auto-detect solo: if only one track is unmuted, mark it as soloed
-            const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
-            if (unmutedTracks.length === 1) {
-                this.trackSolos = [false, false, false, false];
-                this.trackSolos[unmutedTracks[0]] = true;
-            } else {
-                this.trackSolos = [false, false, false, false];
-            }
+            this.trackSolos = [false, false, false, false];
         }
 
         // Update ALL button visuals (mute states affect solo display)
@@ -818,16 +779,6 @@ class FireSequencerScene {
         // Send MIDI in compatible mode (Solo buttons: 0x24-0x27)
         if (!this.isLinkedMode()) {
             this.sendMIDINote(0x24 + track, this.trackMutes[track] ? 127 : 0);
-        }
-
-        // Auto-clear SHIFT after processing MUTE (Web UI only)
-        if (this.shiftPressed) {
-            this.shiftPressed = false;
-            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
-            if (shiftBtn) {
-                shiftBtn.setAttribute('color', '#888');  // Back to gray
-            }
-            this.updateButtonLabels();  // Restore button labels
         }
     }
 
@@ -1666,18 +1617,19 @@ class FireSequencerScene {
             if (note >= 0x24 && note <= 0x27 && isNoteOn) {
                 const track = note - 0x24;
 
-                // Button logic based on SHIFT state:
-                // SHIFT + button → SOLO (unmute all if pressed on any track)
-                // No SHIFT + solo'd track → un-solo
-                // No SHIFT + non-solo'd track → mute/unmute
+                // Physical Fire has ONE button per track:
+                // SHIFT + button → SOLO/UN-SOLO
+                // Button alone → ALWAYS mute (un-solo first if needed, then mute)
                 if (this.shiftPressed) {
-                    // SHIFT + button = SOLO behavior (unmute all)
-                    this.handleSoloButton(track);
-                } else if (this.trackSolos[track]) {
-                    // Track is currently SOLO'd, pressing should un-solo
+                    // SHIFT + button = SOLO/UN-SOLO
                     this.handleSoloButton(track);
                 } else {
-                    // Track is not solo'd, pressing should mute/unmute
+                    // Button alone = ALWAYS MUTE
+                    // If track is solo'd, clear solo first
+                    if (this.trackSolos[track]) {
+                        this.trackSolos[track] = false;
+                    }
+                    // Then mute/unmute
                     this.handleMuteButton(track);
                 }
                 return;
