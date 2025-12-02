@@ -184,9 +184,16 @@ class FireOLEDAdapter {
         const output = this.getMidiOutput();
 
         if (!output) {
-            console.warn('[FireOLED] No MIDI output available for physical Fire');
+            // Warn only once to avoid flooding console (affects playback timing)
+            if (!this.noOutputWarned) {
+                console.warn('[FireOLED] No MIDI output available for physical Fire (reconnect via settings)');
+                this.noOutputWarned = true;
+            }
             return;
         }
+
+        // Reset warning flag when output is available
+        this.noOutputWarned = false;
 
         for (let packet of packets) {
             output.send(packet);

@@ -10,7 +10,7 @@ class FireSequencerScene {
         // State
         this.shiftPressed = false;
         this.altPressed = false;
-        this.userMode = false;
+        this.knobMode = 'CHANNEL';  // CHANNEL, MIXER, USER1, USER2
 
         // Grid view offset (which bank of 16 steps we're viewing: 0, 16, 32, or 48)
         this.gridOffset = 0;  // 0-15, 16-31, 32-47, 48-63
@@ -218,10 +218,9 @@ class FireSequencerScene {
         `;
 
         const enterBtn = this.createButton('', '#4a9eff', () => {
-            // Toggle USER mode (same as MODE button behavior)
-            this.userMode = !this.userMode;
-            // console.log(`[FireSequencer] ENTER (USER mode): ${this.userMode}`);
-            this.render();
+            // ENTER button - encoder press (TODO: implement selection/confirm behavior)
+            // For now, does nothing (MODE button changes knob modes)
+            console.log('[FireSequencer] ENTER pressed (not implemented)');
         }, 0x19, false);  // Note 0x19 - ENCODER_PRESS
         enterBtn.style.height = '40px';
 
@@ -322,14 +321,14 @@ class FireSequencerScene {
             // SOLO button (top) - starts gray, updateMuteButtonVisual will set to green when soloed
             const soloBtn = this.createButton('S', '#888', () => {
                 this.handleSoloButton(track);
-            }, 0x24 + track);
+            }, 0x28 + track);  // SOLO indicator LED note (not button press note)
             soloBtn.classList.add(`track-${track}-solo`);
             controlStack.appendChild(soloBtn);
 
             // MUTE button (bottom) - starts gray, updateMuteButtonVisual will set to red when muted
             const muteBtn = this.createButton('M', '#888', () => {
                 this.handleMuteButton(track);
-            }, 0x24 + track);
+            }, 0x24 + track);  // MUTE button press note
             muteBtn.classList.add(`track-${track}-mute`);
             controlStack.appendChild(muteBtn);
 
@@ -550,6 +549,87 @@ class FireSequencerScene {
     }
 
     /**
+     * Update top knob labels based on knobMode (without full re-render)
+     */
+    updateTopKnobLabels() {
+        let knobLabels;
+        switch (this.knobMode) {
+            case 'CHANNEL':
+                knobLabels = ['VOL', 'PAN', 'FILT', 'RES'];
+                break;
+            case 'MIXER':
+                knobLabels = ['VOL', 'PAN', 'LOW', 'HIGH'];
+                break;
+            case 'USER1':
+                // TODO: Make these configurable in scene editor
+                // Could map to: Master Volume, Master Pan, Device Parameter 1, Device Parameter 2
+                knobLabels = ['U1-1', 'U1-2', 'U1-3', 'U1-4'];
+                break;
+            case 'USER2':
+                // TODO: Make these configurable in scene editor
+                // Could map to: Fader info, Device controls, etc.
+                knobLabels = ['U2-1', 'U2-2', 'U2-3', 'U2-4'];
+                break;
+            default:
+                knobLabels = ['VOL', 'PAN', 'FILT', 'RES'];
+        }
+
+        // Find and update the first 4 knobs
+        const knobs = document.querySelectorAll('pad-knob');
+        for (let i = 0; i < Math.min(4, knobs.length); i++) {
+            knobs[i].setAttribute('label', knobLabels[i]);
+        }
+
+        // Update LCD display to show current mode
+        this.updateFireDisplay();
+    }
+
+    /**
+     * Update button labels based on SHIFT state (without full re-render)
+     */
+    updateButtonLabels() {
+        // Left buttons labels (SHIFT changes them)
+        const leftLabels = this.shiftPressed
+            ? ['ACCENT', 'SNAP', 'TAP', 'OVERVIEW', 'SHIFT', 'ALT']
+            : ['STEP', 'NOTE', 'DRUM', 'PERF', 'SHIFT', 'ALT'];
+
+        // Right buttons labels (SHIFT changes some)
+        const rightLabels = this.shiftPressed
+            ? ['MODE', 'BRWSR', 'METRO', 'WAIT', 'CNTDN', 'LOOP']
+            : ['MODE', 'BRWSR', 'PTRN', 'PLAY', 'STOP', 'REC'];
+
+        // Update left button labels (find by note)
+        const leftNotes = [0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31];
+        leftNotes.forEach((note, index) => {
+            const btn = document.querySelector(`regroove-pad[note="${note}"]`);
+            if (btn) {
+                const parent = btn.parentElement;
+                if (parent) {
+                    const labelDiv = parent.querySelector('div');
+                    if (labelDiv) {
+                        labelDiv.innerHTML = `${leftLabels[index]}<br><span style="font-size: 0.65em; color: #555;">0x${note.toString(16).toUpperCase()}</span>`;
+                    }
+                }
+            }
+        });
+
+        // Update right button labels
+        const rightNotes = [0x1A, 0x21, 0x32, 0x33, 0x34, 0x35];
+        rightNotes.forEach((note, index) => {
+            const btn = document.querySelector(`regroove-pad[note="${note}"]`);
+            if (btn) {
+                const parent = btn.parentElement;
+                if (parent) {
+                    const labelDiv = parent.querySelector('div');
+                    if (labelDiv) {
+                        labelDiv.innerHTML = `${rightLabels[index]}<br><span style="font-size: 0.65em; color: #555;">0x${note.toString(16).toUpperCase()}</span>`;
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Handle top knob changes
      * CC: Volume=0x10, Pan=0x11, Filter=0x12, Resonance=0x13, Select=0x76
      */
@@ -594,9 +674,11 @@ class FireSequencerScene {
 
     /**
      * Handle solo button
+     * In Web UI: dedicated SOLO button
+     * On Physical Fire: SHIFT + MUTE button
      */
     handleSoloButton(track) {
-        // SHIFT + SOLO = MUTE ALL (clear all solos and mutes)
+        // SHIFT + SOLO = UNMUTE ALL (clear all solos and mutes)
         if (this.shiftPressed) {
             if (this.isLinkedMode()) {
                 const sequencer = this.getLinkedSequencer();
@@ -621,7 +703,7 @@ class FireSequencerScene {
             return;
         }
 
-        // Normal SOLO behavior (no SHIFT)
+        // Normal SOLO behavior (toggle solo)
         if (this.isLinkedMode()) {
             const sequencer = this.getLinkedSequencer();
             if (sequencer) {
@@ -660,6 +742,16 @@ class FireSequencerScene {
         // Update all button visuals (all tracks affected by solo)
         for (let t = 0; t < 4; t++) {
             this.updateMuteButtonVisual(t);
+        }
+
+        // Auto-clear SHIFT after processing SOLO (Web UI only)
+        if (this.shiftPressed) {
+            this.shiftPressed = false;
+            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
+            if (shiftBtn) {
+                shiftBtn.setAttribute('color', '#888');  // Back to gray
+            }
+            this.updateButtonLabels();  // Restore button labels
         }
     }
 
@@ -726,6 +818,16 @@ class FireSequencerScene {
         // Send MIDI in compatible mode (Solo buttons: 0x24-0x27)
         if (!this.isLinkedMode()) {
             this.sendMIDINote(0x24 + track, this.trackMutes[track] ? 127 : 0);
+        }
+
+        // Auto-clear SHIFT after processing MUTE (Web UI only)
+        if (this.shiftPressed) {
+            this.shiftPressed = false;
+            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
+            if (shiftBtn) {
+                shiftBtn.setAttribute('color', '#888');  // Back to gray
+            }
+            this.updateButtonLabels();  // Restore button labels
         }
     }
 
@@ -830,27 +932,46 @@ class FireSequencerScene {
      * Handle bottom section buttons
      */
     handleBottomButton(btn) {
-        // Handle modifiers
+        // Handle modifiers (note: these are toggled in Web UI, but hold in physical Fire)
         if (btn.label === 'SHIFT') {
             this.shiftPressed = !this.shiftPressed;
             // console.log(`[FireSequencer] SHIFT: ${this.shiftPressed}`);
+
+            // Highlight SHIFT button when active
+            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
+            if (shiftBtn) {
+                shiftBtn.setAttribute('color', this.shiftPressed ? '#CF1A37' : '#888');  // RED when active, gray when off
+            }
+
+            this.updateButtonLabels();  // Update labels when SHIFT changes
             return;
         }
 
         if (btn.label === 'ALT') {
             this.altPressed = !this.altPressed;
             // console.log(`[FireSequencer] ALT: ${this.altPressed}`);
+
+            // Highlight ALT button when active
+            const altBtn = document.querySelector('regroove-pad[note="49"]');  // 0x31 = 49
+            if (altBtn) {
+                altBtn.setAttribute('color', this.altPressed ? '#FF8000' : '#888');  // ORANGE when active, gray when off
+            }
             return;
         }
 
         if (btn.label === 'MODE') {
             // KNOB_MODE button - cycles through CHANNEL/MIXER/USER1/USER2 modes
-            // For now, just toggle userMode (can expand to 4 modes later)
-            this.userMode = !this.userMode;
-            // console.log(`[FireSequencer] MODE (USER mode): ${this.userMode}`);
-            this.render();  // Re-render to update knob labels
+            const modes = ['CHANNEL', 'MIXER', 'USER1', 'USER2'];
+            const currentIndex = modes.indexOf(this.knobMode);
+            this.knobMode = modes[(currentIndex + 1) % 4];
+            // console.log(`[FireSequencer] MODE: ${this.knobMode}`);
+            this.updateTopKnobLabels();
             return;
         }
+
+        // Auto-clear SHIFT after processing any other button (Web UI only)
+        // Physical Fire handles this naturally with Note Off
+        const shouldClearShift = this.shiftPressed && btn.label !== 'SHIFT' && btn.label !== 'ALT';
 
         // Transport controls (PLAY=0x33, STOP=0x34, RECORD=0x35)
         if (btn.label === 'PLAY') {
@@ -908,6 +1029,16 @@ class FireSequencerScene {
                 this.sendMIDINote(btn.note, 127);
                 setTimeout(() => this.sendMIDINote(btn.note, 0), 100);
             }
+        }
+
+        // Auto-clear SHIFT after processing button (Web UI only, makes it act like modifier key)
+        if (shouldClearShift) {
+            this.shiftPressed = false;
+            const shiftBtn = document.querySelector('regroove-pad[note="48"]');  // 0x30 = 48
+            if (shiftBtn) {
+                shiftBtn.setAttribute('color', '#888');  // Back to gray
+            }
+            this.updateButtonLabels();  // Restore button labels
         }
     }
 
@@ -1236,9 +1367,6 @@ class FireSequencerScene {
             }
         }
 
-        // Mode: normal or user (USER mode changes top knobs to VOL/PAN/LOW/HIGH)
-        const mode = this.userMode ? 'User' : 'Normal';
-
         const message = {
             type: 'display_message',
             deviceId: 'fire-virtual',
@@ -1247,7 +1375,7 @@ class FireSequencerScene {
                 `${this.scene.name}`,
                 this.isLinkedMode() ? `> ${sequencerName}` : 'Fire Compatible',
                 `BPM: ${bpm}  Step: ${currentRow}/${playbackLength}`,
-                `Offset: ${String(this.gridOffset).padStart(2, '0')}  Mode: ${mode}`
+                `Offset: ${String(this.gridOffset).padStart(2, '0')}  Mode: ${this.knobMode}`
             ],
             metadata: { category: 'status', priority: 'normal' }
         };
@@ -1409,15 +1537,13 @@ class FireSequencerScene {
      * Sets sequencer mode and clears all LEDs
      */
     initializeFireHardware() {
-        console.log('[FireSequencer] Initializing physical Fire hardware...');
-
         const midiOutput = this.getFireControllerOutput();
         if (!midiOutput) {
-            console.error('[FireSequencer] ❌ NO MIDI OUTPUT FOUND for Fire initialization');
+            // No MIDI output - running in disconnected mode (user will reconnect via settings)
             return;
         }
 
-        console.log(`[FireSequencer] ✓ MIDI Output found: ${midiOutput.name}, state: ${midiOutput.state}, connection: ${midiOutput.connection}`);
+        console.log('[FireSequencer] Initializing physical Fire hardware');
 
         // Clear LED state cache to avoid stale data
         this.ledStates.clear();
@@ -1569,6 +1695,7 @@ class FireSequencerScene {
             // SHIFT and ALT are hold buttons (not toggle)
             if (note === 0x30) {
                 this.shiftPressed = isNoteOn;  // Press = true, Release = false
+                this.updateButtonLabels();  // Update labels when SHIFT changes
                 return;
             }
             if (note === 0x31) {
@@ -1579,9 +1706,8 @@ class FireSequencerScene {
             if (isNoteOn) {
                 if (note === 0x1A) this.handleBottomButton({ label: 'MODE' });  // KNOB_MODE
                 else if (note === 0x19) {  // ENCODER_PRESS (ENTER)
-                    this.userMode = !this.userMode;
-                    // console.log(`[FireSequencer] ENTER pressed (USER mode): ${this.userMode}`);
-                    this.render();
+                    // ENTER button - encoder press (not used for mode switching)
+                    console.log('[FireSequencer] ENTER pressed (not implemented)');
                 }
                 else if (note === 0x33) this.handleBottomButton({ label: 'PLAY' });
                 else if (note === 0x34) this.handleBottomButton({ label: 'STOP' });
