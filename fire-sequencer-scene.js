@@ -26,6 +26,19 @@ class FireSequencerScene {
         // Knob values
         this.topKnobs = [64, 64, 64, 64, 64];  // Volume, Pan, Filter, Resonance, Select
         this.trackKnobs = [64, 64, 64, 64];
+
+        // LED state cache (note -> velocity) to avoid flooding MIDI output
+        this.ledStates = new Map();
+        this.lastDisplayUpdate = 0;  // Timestamp for display throttling
+
+        // Fire pad note translation matrix (physical layout is inverted)
+        // Row 0 (top) = notes 102-117, Row 3 (bottom) = notes 54-69
+        this.FIRE_PAD_MATRIX = [
+            102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,  // Row 0
+             86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,  97,  98,  99, 100, 101,  // Row 1
+             70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  // Row 2
+             54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69   // Row 3
+        ];
     }
 
     /**
@@ -105,12 +118,23 @@ class FireSequencerScene {
         // Initialize Fire display adapter if not already created
         if (!this.fireDisplayAdapter && window.FireOLEDAdapter) {
             const renderMode = this.scene.renderMode || 'text';
+            // Use 'physical' mode if MIDI input device is configured (physical Fire connected)
+            const displayMode = this.scene.midiInputDevice ? 'physical' : 'virtual';
+
+            // Create device binding for adapter (pass controller for MIDI output access)
+            const deviceBinding = {
+                id: 'fire-virtual',
+                deviceId: 0,
+                controller: this.sceneManager.controller,
+                deviceBinding: this.scene.deviceBinding  // For finding specific Fire output
+            };
+
             this.fireDisplayAdapter = new window.FireOLEDAdapter(
-                { id: 'fire-virtual', deviceId: 0 },
-                'virtual',
+                deviceBinding,
+                displayMode,
                 renderMode
             );
-            console.log(`[FireSequencer] Initialized Fire OLED display with render mode: ${renderMode}`);
+            console.log(`[FireSequencer] Initialized Fire OLED display (mode: ${displayMode}, render: ${renderMode})`);
         }
 
         // console.log(`[FireSequencer] Rendered in ${this.isLinkedMode() ? 'Linked' : 'Compatible'} mode`);
@@ -207,10 +231,10 @@ class FireSequencerScene {
 
         // Navigation buttons with labels (4 buttons on the right: L, R, U, D)
         const navButtons = [
-            { symbol: '◀', note: 0x22 },  // Grid Left
-            { symbol: '▶', note: 0x23 },  // Grid Right
-            { symbol: '▲', note: 0x1F },  // Pattern Up
-            { symbol: '▼', note: 0x20 }   // Pattern Down
+            { symbol: '◀', note: 0x22, class: 'nav-grid-left' },  // Grid Left
+            { symbol: '▶', note: 0x23, class: 'nav-grid-right' },  // Grid Right
+            { symbol: '▲', note: 0x1F, class: 'nav-pattern-up' },  // Pattern Up
+            { symbol: '▼', note: 0x20, class: 'nav-pattern-down' }   // Pattern Down
         ];
 
         navButtons.forEach(btn => {
@@ -230,10 +254,19 @@ class FireSequencerScene {
                 font-weight: bold;
             `;
 
-            const navBtn = this.createButton('', '#4a9eff', () => {
+            // Initial color based on current state
+            let initialColor = '#888';  // OFF by default
+            if (btn.symbol === '◀') {
+                initialColor = this.gridOffset > 0 ? '#CF1A37' : '#888';  // RED if can go left, OFF otherwise
+            } else if (btn.symbol === '▶') {
+                initialColor = this.gridOffset < 48 ? '#CF1A37' : '#888';  // RED if can go right, OFF otherwise
+            }
+
+            const navBtn = this.createButton('', initialColor, () => {
                 this.handleNavButton(btn.symbol);
             }, btn.note, false);
             navBtn.style.height = '40px';
+            navBtn.classList.add(btn.class);
 
             navContainer.appendChild(labelDiv);
             navContainer.appendChild(navBtn);
@@ -286,46 +319,15 @@ class FireSequencerScene {
             controlStack.style.gridRow = `${row}`;
             controlStack.style.gridColumn = '2';
 
-            // SOLO button (top)
-            const soloBtn = this.createButton('S', '#CF1A37', () => {
-                if (this.isLinkedMode()) {
-                    // Use sequencer's toggleSolo - it handles all the mute logic
-                    const sequencer = this.getLinkedSequencer();
-                    if (sequencer) {
-                        sequencer.engine.toggleSolo(track);
-
-                        // Read back mute states from sequencer
-                        for (let t = 0; t < 4; t++) {
-                            this.trackMutes[t] = sequencer.engine.trackMutes[t];
-                        }
-
-                        // Infer solo state: only one track unmuted = that track is soloed
-                        const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
-                        this.trackSolos = [false, false, false, false];
-                        if (unmutedTracks.length === 1) {
-                            this.trackSolos[unmutedTracks[0]] = true;
-                        }
-
-                        // console.log(`[FireSequencer] After toggleSolo(${track}), mutes:`, this.trackMutes, 'solos:', this.trackSolos);
-                    }
-                } else {
-                    // Compatible mode: manual toggle
-                    this.trackSolos[track] = !this.trackSolos[track];
-                    if (this.trackSolos[track]) {
-                        this.trackMutes[track] = false;
-                    }
-                }
-
-                // Update all button visuals (all tracks affected by solo)
-                for (let t = 0; t < 4; t++) {
-                    this.updateMuteButtonVisual(t);
-                }
+            // SOLO button (top) - starts gray, updateMuteButtonVisual will set to green when soloed
+            const soloBtn = this.createButton('S', '#888', () => {
+                this.handleSoloButton(track);
             }, 0x24 + track);
             soloBtn.classList.add(`track-${track}-solo`);
             controlStack.appendChild(soloBtn);
 
-            // MUTE button (bottom)
-            const muteBtn = this.createButton('M', '#CF1A37', () => {
+            // MUTE button (bottom) - starts gray, updateMuteButtonVisual will set to red when muted
+            const muteBtn = this.createButton('M', '#888', () => {
                 this.handleMuteButton(track);
             }, 0x24 + track);
             muteBtn.classList.add(`track-${track}-mute`);
@@ -373,7 +375,7 @@ class FireSequencerScene {
         `;
 
         const leftButtons = [
-            { label: 'STEP', note: 0x2C },
+            { label: 'STEP', note: 0x2C, color: '#CF1A37' },  // RED - active by default in sequencer mode
             { label: 'NOTE', note: 0x2D },
             { label: 'DRUM', note: 0x2E },
             { label: 'PERF', note: 0x2F },
@@ -388,8 +390,8 @@ class FireSequencerScene {
             { label: 'MODE', note: 0x1A },  // KNOB_MODE - cycles CHANNEL/MIXER/USER1/USER2
             { label: 'BRWSR', note: 0x21 },
             { label: 'PTRN', note: 0x32 },
-            { label: 'PLAY', note: 0x33, color: isPlaying ? '#26A626' : '#888' },
-            { label: 'STOP', note: 0x34, color: !isPlaying ? '#CF1A37' : '#888' },
+            { label: 'PLAY', note: 0x33, color: isPlaying ? '#26A626' : '#888' },  // GREEN when playing
+            { label: 'STOP', note: 0x34, color: !isPlaying ? '#FF8000' : '#888' },  // ORANGE when stopped
             { label: 'REC', note: 0x35, color: '#888' }
         ];
 
@@ -591,6 +593,77 @@ class FireSequencerScene {
     }
 
     /**
+     * Handle solo button
+     */
+    handleSoloButton(track) {
+        // SHIFT + SOLO = MUTE ALL (clear all solos and mutes)
+        if (this.shiftPressed) {
+            if (this.isLinkedMode()) {
+                const sequencer = this.getLinkedSequencer();
+                if (sequencer) {
+                    // Unmute all tracks
+                    for (let t = 0; t < 4; t++) {
+                        sequencer.engine.trackMutes[t] = false;
+                        this.trackMutes[t] = false;
+                    }
+                    this.trackSolos = [false, false, false, false];
+                }
+            } else {
+                // Compatible mode: clear all
+                this.trackMutes = [false, false, false, false];
+                this.trackSolos = [false, false, false, false];
+            }
+
+            // Update all button visuals
+            for (let t = 0; t < 4; t++) {
+                this.updateMuteButtonVisual(t);
+            }
+            return;
+        }
+
+        // Normal SOLO behavior (no SHIFT)
+        if (this.isLinkedMode()) {
+            const sequencer = this.getLinkedSequencer();
+            if (sequencer) {
+                // Check if this track is currently soloed
+                const wasSoloed = this.trackSolos[track];
+
+                if (wasSoloed) {
+                    // Un-solo: unmute all tracks
+                    for (let t = 0; t < 4; t++) {
+                        sequencer.engine.trackMutes[t] = false;
+                        this.trackMutes[t] = false;
+                    }
+                    this.trackSolos = [false, false, false, false];
+                } else {
+                    // Solo this track: use sequencer's toggleSolo
+                    sequencer.engine.toggleSolo(track);
+
+                    // Read back mute states
+                    for (let t = 0; t < 4; t++) {
+                        this.trackMutes[t] = sequencer.engine.trackMutes[t];
+                    }
+
+                    // Mark as soloed
+                    this.trackSolos = [false, false, false, false];
+                    this.trackSolos[track] = true;
+                }
+            }
+        } else {
+            // Compatible mode: manual toggle
+            this.trackSolos[track] = !this.trackSolos[track];
+            if (this.trackSolos[track]) {
+                this.trackMutes[track] = false;
+            }
+        }
+
+        // Update all button visuals (all tracks affected by solo)
+        for (let t = 0; t < 4; t++) {
+            this.updateMuteButtonVisual(t);
+        }
+    }
+
+    /**
      * Handle mute button
      */
     handleMuteButton(track) {
@@ -635,24 +708,12 @@ class FireSequencerScene {
                 }
             }
 
-            // console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}`);
-
-            // Check if all tracks are now muted - if so, clear all solo states
-            const allMuted = this.trackMutes.every(muted => muted);
-            if (allMuted) {
-                // console.log('[FireSequencer] All tracks muted - clearing solo states');
-                this.trackSolos = [false, false, false, false];
-            }
-
-            // Check if only one track is unmuted - if so, mark it as soloed
+            // Auto-detect solo: if only one track is unmuted, mark it as soloed
             const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
             if (unmutedTracks.length === 1) {
-                const soloTrack = unmutedTracks[0];
-                // console.log(`[FireSequencer] Only track ${soloTrack} is unmuted - marking as soloed`);
                 this.trackSolos = [false, false, false, false];
-                this.trackSolos[soloTrack] = true;
-            } else if (unmutedTracks.length > 1) {
-                // Multiple tracks unmuted - clear solo states
+                this.trackSolos[unmutedTracks[0]] = true;
+            } else {
                 this.trackSolos = [false, false, false, false];
             }
         }
@@ -705,6 +766,7 @@ class FireSequencerScene {
                 if (this.gridOffset > 0) {
                     this.gridOffset -= 16;
                     this.loadPatternFromSequencer();
+                    this.updateNavigationLEDs();
                     // console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
                 }
             } else if (direction === '▶') {
@@ -712,6 +774,7 @@ class FireSequencerScene {
                 if (this.gridOffset < 48) {
                     this.gridOffset += 16;
                     this.loadPatternFromSequencer();
+                    this.updateNavigationLEDs();
                     // console.log(`[FireSequencer] Grid offset: ${this.gridOffset}-${this.gridOffset + 15}`);
                 }
             }
@@ -722,6 +785,45 @@ class FireSequencerScene {
             this.sendMIDINote(noteMap[direction], 127);
             setTimeout(() => this.sendMIDINote(noteMap[direction], 0), 100);
         }
+    }
+
+    /**
+     * Update navigation button LEDs based on current offset
+     */
+    updateNavigationLEDs() {
+        // Grid Left/Right (ARROW buttons): RED LEDs - value 3 for full brightness
+
+        const canGoLeft = this.gridOffset > 0;
+        const canGoRight = this.gridOffset < 48;
+
+        // Grid Left (0x22) - RED when offset > 0 (can go left), OFF at start
+        this.sendFireLED(0x22, canGoLeft ? 3 : 0);
+
+        // Grid Right (0x23) - RED when offset < 48 (can go right), OFF at end
+        this.sendFireLED(0x23, canGoRight ? 3 : 0);
+
+        // Update Web UI button colors to match Fire hardware
+        const gridLeftBtn = document.querySelector('.nav-grid-left');
+        const gridRightBtn = document.querySelector('.nav-grid-right');
+        const patternUpBtn = document.querySelector('.nav-pattern-up');
+        const patternDownBtn = document.querySelector('.nav-pattern-down');
+
+        if (gridLeftBtn) {
+            gridLeftBtn.setAttribute('color', canGoLeft ? '#CF1A37' : '#888');  // RED or OFF
+        }
+        if (gridRightBtn) {
+            gridRightBtn.setAttribute('color', canGoRight ? '#CF1A37' : '#888');  // RED or OFF
+        }
+        if (patternUpBtn) {
+            patternUpBtn.setAttribute('color', '#888');  // OFF for now
+        }
+        if (patternDownBtn) {
+            patternDownBtn.setAttribute('color', '#888');  // OFF for now
+        }
+
+        // Pattern Up/Down - off for now
+        this.sendFireLED(0x1F, 0);
+        this.sendFireLED(0x20, 0);
     }
 
     /**
@@ -819,7 +921,7 @@ class FireSequencerScene {
         const isMuted = this.trackMutes[track];
         const isSoloed = this.trackSolos[track];
 
-        // Update UI buttons
+        // Update UI buttons to match Fire hardware (bi-color LEDs: GREEN for solo, RED for mute)
         if (muteBtn) {
             if (isMuted) {
                 muteBtn.setAttribute('color', '#CF1A37');  // Red when muted
@@ -830,49 +932,67 @@ class FireSequencerScene {
 
         if (soloBtn) {
             if (isSoloed) {
-                soloBtn.setAttribute('color', '#CF1A37');  // Red when soloed
+                soloBtn.setAttribute('color', '#26A626');  // Green when soloed (matches Fire)
             } else {
                 soloBtn.setAttribute('color', '#888');  // Gray when not soloed
             }
         }
 
         // Send MIDI to physical Fire controller LEDs (if available)
-        // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
-        // MUTE/SOLO buttons share the same note (0x24-0x27)
-        // Muted = Red/Amber (4), Soloed = Yellow/Amber (2), Off = 0
-        const note = 0x24 + track;
+        // Button indicators use CCs 0x28-0x2B (not 0x24-0x27 which are button press notes)
+        const indicatorCC = 0x28 + track;
 
-        if (isMuted) {
-            // Muted: Red/Amber full brightness
-            this.sendFireLED(note, 4);  // AMBER_FULL
-        } else if (isSoloed) {
-            // Soloed: Yellow/Amber half brightness
-            this.sendFireLED(note, 2);  // AMBER_HALF
-        } else {
-            // Off
-            this.sendFireLED(note, 0);  // OFF
+        // SOLO/MUTE indicators are BI-COLOR LEDs
+        // Testing values: 0=OFF, 3=RED (confirmed), trying 4 for GREEN
+        let ledValue = 0;
+        if (isSoloed) {
+            ledValue = 4;  // Trying value 4 for GREEN
+        } else if (isMuted) {
+            ledValue = 3;  // RED (confirmed working)
         }
+
+        this.sendFireLED(indicatorCC, ledValue);
     }
 
     /**
      * Update step button visual
      */
     updateStepButtonVisual(track, step) {
+        const isActive = this.stepStates[track][step];
+        const isCurrentStep = (step === this.currentStep);
+
+        // Update DOM button (match Fire colors: GREEN=active, AMBER=playing)
         const btn = document.querySelector(`.step-${track}-${step}`);
         if (btn) {
-            const isActive = this.stepStates[track][step];
-            btn.setAttribute('color', isActive ? '#4a9eff' : '#2a2a2a');
+            if (isCurrentStep && isActive) {
+                btn.setAttribute('color', '#ff8000');  // AMBER_FULL (playing + active)
+            } else if (isCurrentStep) {
+                btn.setAttribute('color', '#ff6000');  // AMBER_HALF (playing, no note)
+            } else if (isActive) {
+                btn.setAttribute('color', '#00ff00');  // GREEN_FULL (active step)
+            } else {
+                btn.setAttribute('color', '#1a1a1a');  // OFF
+            }
         }
 
         // Send MIDI to physical Fire controller LED (if available)
         // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
-        // Step grid: Notes 0x36-0x75 (54-117), 4 rows × 16 columns
-        const stepNote = 0x36 + (track * 16) + step;
-        const isActive = this.stepStates[track][step];
+        // Fire is inverted: UI T1 (top, track 0) = Fire bottom row (matrix row 3)
+        const fireRow = 3 - track;
+        const matrixIndex = fireRow * 16 + step;
+        const stepNote = this.FIRE_PAD_MATRIX[matrixIndex];
 
-        // Active steps: Blue (use GREEN for visibility on hardware)
-        // Inactive steps: Off
-        this.sendFireLED(stepNote, isActive ? 3 : 0);  // GREEN_FULL or OFF
+        // Playback position: AMBER (brighter), Active: GREEN, Inactive: OFF
+        let ledValue = 0;  // OFF by default
+        if (isCurrentStep && isActive) {
+            ledValue = 4;  // AMBER_FULL (playing step)
+        } else if (isCurrentStep) {
+            ledValue = 2;  // AMBER_HALF (playing on empty step)
+        } else if (isActive) {
+            ledValue = 3;  // GREEN_FULL (active step)
+        }
+
+        this.sendFireLED(stepNote, ledValue);
     }
 
     /**
@@ -902,15 +1022,16 @@ class FireSequencerScene {
         }
 
         // Send MIDI to physical Fire controller LEDs (if available)
-        // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
+        // PLAY: GREEN LED - value 3 seems to be max before color changes
+        // STOP: ORANGE LED - value 3 for brightness
 
-        // PLAY button LED (Note 0x33) - Green when playing
-        this.sendFireLED(0x33, isPlaying ? 3 : 0);  // GREEN_FULL or OFF
+        // PLAY button LED (0x33) - GREEN when playing
+        this.sendFireLED(0x33, isPlaying ? 3 : 0);  // GREEN (value 3)
 
-        // STOP button LED (Note 0x34) - Red/Amber when stopped
-        this.sendFireLED(0x34, !isPlaying ? 4 : 0);  // AMBER_FULL or OFF
+        // STOP button LED (0x34) - ORANGE when stopped (try higher value for brighter)
+        this.sendFireLED(0x34, !isPlaying ? 127 : 0);  // ORANGE (try max brightness)
 
-        // REC button LED (Note 0x35) - off for now
+        // REC button LED (0x35) - off for now
         this.sendFireLED(0x35, 0);
     }
 
@@ -934,22 +1055,27 @@ class FireSequencerScene {
         // Load current pattern data from sequencer (first 16 rows)
         this.loadPatternFromSequencer();
 
-        // Sync mute states
+        // If a MIDI input device is specified, listen to it
+        if (this.scene.midiInputDevice) {
+            this.setupMIDIInputListener();
+            // Initialize physical Fire hardware (clears all LEDs)
+            this.initializeFireHardware();
+        }
+
+        // Sync mute states AFTER initializing hardware (so LEDs aren't cleared)
         this.syncMutesFromSequencer();
 
         // Sync track volumes from sequencer to Fire knobs
         this.syncTrackVolumesFromSequencer();
-
-        // If a MIDI input device is specified, listen to it
-        if (this.scene.midiInputDevice) {
-            this.setupMIDIInputListener();
-        }
 
         // Start playback position update loop
         this.startPlaybackPositionUpdate();
 
         // Update transport button states
         this.updateTransportButtons();
+
+        // Update navigation button LEDs
+        this.updateNavigationLEDs();
 
         // Setup pattern length bar and click handlers
         this.setupPatternLengthBar();
@@ -1077,8 +1203,12 @@ class FireSequencerScene {
             // Update global position bar to show current playback position
             this.updateGlobalPositionBar(currentRow);
 
-            // Update Fire display (integrated with playback update to avoid separate timer)
-            this.updateFireDisplay();
+            // Update Fire display (throttled to every 500ms to avoid flooding)
+            const now = Date.now();
+            if (!this.lastDisplayUpdate || now - this.lastDisplayUpdate >= 500) {
+                this.updateFireDisplay();
+                this.lastDisplayUpdate = now;
+            }
         }, 50);
     }
 
@@ -1117,7 +1247,7 @@ class FireSequencerScene {
                 `${this.scene.name}`,
                 this.isLinkedMode() ? `> ${sequencerName}` : 'Fire Compatible',
                 `BPM: ${bpm}  Step: ${currentRow}/${playbackLength}`,
-                `Offset: ${this.gridOffset}  Mode: ${mode}`
+                `Offset: ${String(this.gridOffset).padStart(2, '0')}  Mode: ${mode}`
             ],
             metadata: { category: 'status', priority: 'normal' }
         };
@@ -1164,29 +1294,20 @@ class FireSequencerScene {
      * @param {number} step - Current step (0-15, or -1 to clear)
      */
     updatePlaybackPosition(step) {
-        // Clear previous position indicator
-        if (this.currentStep !== -1 && this.currentStep !== step) {
+        const oldStep = this.currentStep;
+        this.currentStep = step;
+
+        // Update visuals for old position (restore normal state)
+        if (oldStep !== -1 && oldStep !== step) {
             for (let track = 0; track < 4; track++) {
-                const btn = document.querySelector(`.step-${track}-${this.currentStep}`);
-                if (btn) {
-                    const isActive = this.stepStates[track][this.currentStep];
-                    btn.setAttribute('color', isActive ? '#4a9eff' : '#2a2a2a');
-                }
+                this.updateStepButtonVisual(track, oldStep);
             }
         }
 
-        // Update current step
-        this.currentStep = step;
-
-        // Highlight current position
+        // Update visuals for new position (highlight)
         if (step >= 0 && step < 16) {
             for (let track = 0; track < 4; track++) {
-                const btn = document.querySelector(`.step-${track}-${step}`);
-                if (btn) {
-                    const isActive = this.stepStates[track][step];
-                    // Brighter color for current playback position
-                    btn.setAttribute('color', isActive ? '#6affff' : '#4a4a4a');
-                }
+                this.updateStepButtonVisual(track, step);
             }
         }
     }
@@ -1284,6 +1405,76 @@ class FireSequencerScene {
     }
 
     /**
+     * Initialize physical Fire hardware
+     * Sets sequencer mode and clears all LEDs
+     */
+    initializeFireHardware() {
+        console.log('[FireSequencer] Initializing physical Fire hardware...');
+
+        const midiOutput = this.getFireControllerOutput();
+        if (!midiOutput) {
+            console.error('[FireSequencer] ❌ NO MIDI OUTPUT FOUND for Fire initialization');
+            return;
+        }
+
+        console.log(`[FireSequencer] ✓ MIDI Output found: ${midiOutput.name}, state: ${midiOutput.state}, connection: ${midiOutput.connection}`);
+
+        // Clear LED state cache to avoid stale data
+        this.ledStates.clear();
+        console.log('[FireSequencer] Cleared LED state cache');
+
+        // Fire is stateless - no mode switch needed, just send LED states
+        // Clear all step pad LEDs by setting all to OFF (RGB 0,0,0)
+        for (let i = 0; i < this.FIRE_PAD_MATRIX.length; i++) {
+            this.sendFireLED(this.FIRE_PAD_MATRIX[i], 0);  // OFF
+        }
+
+        // Clear all button LEDs (navigation, transport, mode buttons)
+        // Navigation: Grid L/R (0x22-0x23), Pattern U/D (0x1F-0x20)
+        this.sendFireLED(0x1F, 0);  // Pattern Up
+        this.sendFireLED(0x20, 0);  // Pattern Down
+        this.sendFireLED(0x22, 0);  // Grid Left
+        this.sendFireLED(0x23, 0);  // Grid Right
+
+        // SOLO/MUTE button press notes (0x24-0x27) - these don't have LEDs
+        // SOLO/MUTE LED indicators (0x28-0x2B) - bi-color LEDs
+        for (let note = 0x28; note <= 0x2B; note++) {
+            this.sendFireLED(note, 0);  // Clear indicator LEDs
+        }
+
+        // Bottom left: STEP, NOTE, DRUM, PERF, SHIFT, ALT (0x2C-0x31)
+        for (let note = 0x2C; note <= 0x31; note++) {
+            this.sendFireLED(note, 0);
+        }
+
+        // Bottom right: MODE, BRWSR, PTRN, PLAY, STOP, REC (0x1A, 0x21, 0x32-0x35)
+        this.sendFireLED(0x1A, 0);  // MODE
+        this.sendFireLED(0x21, 0);  // BRWSR
+        this.sendFireLED(0x32, 0);  // PTRN
+        this.sendFireLED(0x33, 0);  // PLAY
+        this.sendFireLED(0x34, 0);  // STOP
+        this.sendFireLED(0x35, 0);  // REC
+
+        // Set STEP button active (default mode in sequencer)
+        this.sendFireLED(0x2C, 3);  // BRIGHT RED (value 3 for brightness)
+
+        // Force full grid refresh to show current step states
+        for (let track = 0; track < 4; track++) {
+            for (let step = 0; step < 16; step++) {
+                this.updateStepButtonVisual(track, step);
+            }
+        }
+
+        // Force immediate OLED display update
+        setTimeout(() => {
+            this.updateFireDisplay();
+            console.log('[FireSequencer] Sent initial OLED display');
+        }, 100);  // Small delay
+
+        console.log('[FireSequencer] Fire hardware initialized (64 pads + buttons)');
+    }
+
+    /**
      * Setup MIDI input listener for physical Fire controller
      */
     setupMIDIInputListener() {
@@ -1331,11 +1522,13 @@ class FireSequencerScene {
             const velocity = data[2];
             const isNoteOn = messageType === 0x90 && velocity > 0;
 
-            // Pad grid: 0x36-0x75
-            if (note >= 0x36 && note <= 0x75) {
-                const padIndex = note - 0x36;
-                const track = Math.floor(padIndex / 16);
-                const step = padIndex % 16;
+            // Pad grid: notes 54-117 (but not sequential - use matrix)
+            const matrixIndex = this.FIRE_PAD_MATRIX.indexOf(note);
+            if (matrixIndex !== -1) {
+                const fireRow = Math.floor(matrixIndex / 16);
+                const step = matrixIndex % 16;
+                // Fire is inverted: Fire top row (row 0) = UI T4 (track 3)
+                const track = 3 - fireRow;
 
                 if (isNoteOn) {
                     this.handleStepButton(track, step);
@@ -1343,10 +1536,24 @@ class FireSequencerScene {
                 return;
             }
 
-            // Solo/Mute buttons: 0x24-0x27
+            // Solo/Mute buttons: 0x24-0x27 (top to bottom on Fire)
             if (note >= 0x24 && note <= 0x27 && isNoteOn) {
                 const track = note - 0x24;
-                this.handleMuteButton(track);
+
+                // Button logic based on SHIFT state:
+                // SHIFT + button → SOLO (unmute all if pressed on any track)
+                // No SHIFT + solo'd track → un-solo
+                // No SHIFT + non-solo'd track → mute/unmute
+                if (this.shiftPressed) {
+                    // SHIFT + button = SOLO behavior (unmute all)
+                    this.handleSoloButton(track);
+                } else if (this.trackSolos[track]) {
+                    // Track is currently SOLO'd, pressing should un-solo
+                    this.handleSoloButton(track);
+                } else {
+                    // Track is not solo'd, pressing should mute/unmute
+                    this.handleMuteButton(track);
+                }
                 return;
             }
 
@@ -1359,10 +1566,18 @@ class FireSequencerScene {
             }
 
             // Bottom buttons
+            // SHIFT and ALT are hold buttons (not toggle)
+            if (note === 0x30) {
+                this.shiftPressed = isNoteOn;  // Press = true, Release = false
+                return;
+            }
+            if (note === 0x31) {
+                this.altPressed = isNoteOn;  // Press = true, Release = false
+                return;
+            }
+
             if (isNoteOn) {
-                if (note === 0x30) this.shiftPressed = !this.shiftPressed;
-                else if (note === 0x31) this.altPressed = !this.altPressed;
-                else if (note === 0x1A) this.handleBottomButton({ label: 'MODE' });  // KNOB_MODE
+                if (note === 0x1A) this.handleBottomButton({ label: 'MODE' });  // KNOB_MODE
                 else if (note === 0x19) {  // ENCODER_PRESS (ENTER)
                     this.userMode = !this.userMode;
                     // console.log(`[FireSequencer] ENTER pressed (USER mode): ${this.userMode}`);
@@ -1437,10 +1652,24 @@ class FireSequencerScene {
     getFireControllerOutput() {
         const controller = this.sceneManager.controller;
 
-        // If deviceBinding is specified, use that
-        if (this.scene.deviceBinding && controller.midiAccess) {
+        if (!controller.midiAccess) {
+            console.warn('[FireSequencer] No MIDI access available');
+            return null;
+        }
+
+        // Try deviceBinding first (specific output device)
+        if (this.scene.deviceBinding) {
             for (let output of controller.midiAccess.outputs.values()) {
                 if (output.name === this.scene.deviceBinding) {
+                    return output;
+                }
+            }
+        }
+
+        // Try midiInputDevice (match output to input device name)
+        if (this.scene.midiInputDevice) {
+            for (let output of controller.midiAccess.outputs.values()) {
+                if (output.name === this.scene.midiInputDevice) {
                     return output;
                 }
             }
@@ -1467,16 +1696,64 @@ class FireSequencerScene {
 
     /**
      * Send LED update to Fire controller (works in both linked and compatible modes)
+     * Only sends if state changed to avoid flooding MIDI output
+     * Pads (notes 54-117): RGB SysEx with pad index (note - 54)
+     * Buttons (other notes): CC messages
      */
     sendFireLED(note, velocity) {
+        // Check if LED state changed
+        const currentState = this.ledStates.get(note);
+        if (currentState === velocity) {
+            return;  // No change, skip MIDI send
+        }
+
+        // Update cache
+        this.ledStates.set(note, velocity);
+
         const midiOutput = this.getFireControllerOutput();
-        if (midiOutput) {
-            const channel = this.scene.midiChannel || 0;
-            const statusByte = velocity > 0 ? (0x90 + channel) : (0x80 + channel);
-            midiOutput.send([statusByte, note, velocity]);
-            // console.log(`[FireSequencer] Fire LED: Note ${note}, vel: ${velocity}`);
+        if (!midiOutput) return;
+
+        // Check if this is a pad (notes 54-117) or button (other notes)
+        if (note >= 54 && note <= 117) {
+            // PAD: Use RGB SysEx with pad index (note - 54)
+            // Map velocity to RGB (Fire uses bi-color LEDs: Green/Amber)
+            let r = 0, g = 0, b = 0;
+            switch(velocity) {
+                case 0:  // OFF
+                    r = 0; g = 0; b = 0;
+                    break;
+                case 1:  // GREEN_HALF
+                    r = 0; g = 64; b = 0;
+                    break;
+                case 2:  // AMBER_HALF
+                    r = 64; g = 32; b = 0;
+                    break;
+                case 3:  // GREEN_FULL
+                    r = 0; g = 127; b = 0;
+                    break;
+                case 4:  // AMBER_FULL
+                    r = 127; g = 64; b = 0;
+                    break;
+                default:
+                    r = 0; g = 0; b = 0;
+            }
+
+            // RGB SysEx: F0 47 7F 43 65 <len_hi> <len_lo> <pad_index> <r> <g> <b> F7
+            const padIndex = note - 54;  // Convert note to pad index (0-63)
+            const length = 4;  // 1 pad × 4 bytes (pad_index + r + g + b)
+            const sysex = new Uint8Array([
+                0xF0, 0x47, 0x7F, 0x43, 0x65,
+                Math.floor(length / 128), length % 128,
+                padIndex, r, g, b,
+                0xF7
+            ]);
+            midiOutput.send(sysex);
         } else {
-            // console.log('[FireSequencer] No Fire controller output (LED update skipped)');
+            // BUTTON/INDICATOR: Use CC message
+            // CC values: 0=OFF, 1=GREEN, 2=DIM_RED, 3=BRIGHT_RED (tested on physical Fire)
+            const channel = this.scene.midiChannel || 0;
+            const statusByte = 0xB0 + channel;
+            midiOutput.send([statusByte, note, velocity]);
         }
     }
 
@@ -1495,11 +1772,18 @@ class FireSequencerScene {
         }
     }
 
+
     /**
      * Clean up
      */
     cleanup() {
         // console.log('[FireSequencer] Cleanup');
+
+        // Stop LED sweep test if running
+        if (this.ledSweepInterval) {
+            clearInterval(this.ledSweepInterval);
+            this.ledSweepInterval = null;
+        }
 
         // Stop playback position update
         if (this.playbackUpdateInterval) {

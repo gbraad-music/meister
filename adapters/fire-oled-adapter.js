@@ -52,12 +52,11 @@ class FireOLEDAdapter {
         // Step 1: Render DisplayMessage to canvas (text + graphics)
         this.renderToCanvas(message);
 
-        // Step 2: Route based on mode
-        if (this.mode === 'virtual') {
-            // Virtual mode: Update Fire sequencer scene LCD in UI
-            this.updateVirtualDisplay();
-        } else if (this.mode === 'physical') {
-            // Physical mode: Send Fire OLED SysEx to actual hardware
+        // Step 2: Always update virtual display (webpage)
+        this.updateVirtualDisplay();
+
+        // Step 3: If physical mode, also send to hardware
+        if (this.mode === 'physical') {
             this.sendToPhysicalFire();
         }
     }
@@ -203,10 +202,11 @@ class FireOLEDAdapter {
         for (let stripe = 0; stripe < this.NUM_STRIPES; stripe++) {
             for (let y = 0; y < this.height / 8; y++) {
                 for (let x = 0; x < this.width; x++) {
-                    const pixelIndex = ((y * 8 + stripe) * this.width + x) * 4;
-                    const blue = imageData.data[pixelIndex];
+                    // Row = stripe * 8 + y (stripe 0 = rows 0-7, stripe 1 = rows 8-15, etc.)
+                    const pixelIndex = ((stripe * 8 + y) * this.width + x) * 4;
+                    const red = imageData.data[pixelIndex];      // Canvas is RGBA, not BGRA
                     const green = imageData.data[pixelIndex + 1];
-                    const red = imageData.data[pixelIndex + 2];
+                    const blue = imageData.data[pixelIndex + 2];
 
                     const xpos = x + 128 * Math.floor(y / 8);
                     const ypos = y % 8;
@@ -245,10 +245,15 @@ class FireOLEDAdapter {
             }
 
             // Build Fire OLED SysEx packet
+            // Payload length = 4 (stripe/column params) + 147 (bitmap) = 151 bytes
+            const PACKET_SIZE = 4 + this.STRIPE_SIZE;  // 151
+            const lenMSB = Math.floor(PACKET_SIZE / 128);  // 151 / 128 = 1
+            const lenLSB = PACKET_SIZE % 128;              // 151 % 128 = 23
+
             const packet = [
                 ...this.FIRE_HEADER,      // F0 47 7F 43 (AKAI Fire)
                 this.WRITE_OLED,          // 0E (Write OLED command)
-                0x00, 0x93,               // Payload length (147 bytes = 0x93)
+                lenMSB, lenLSB,           // Payload length (151 = MSB:1, LSB:23)
                 stripe, stripe,           // Start/end stripe (8-pixel band)
                 0x00, 0x7F,               // Start/end column (0-127)
                 ...this.oledBitmap[stripe], // 147 bytes of bitmap data
@@ -308,10 +313,21 @@ class FireOLEDAdapter {
      * Get MIDI output for this device
      */
     getMidiOutput() {
-        // If device has deviceManager reference, use it
-        if (window.deviceManager && this.device.id) {
-            const output = window.deviceManager.getMidiOutput(this.device.id);
-            if (output) return output;
+        // If device has controller reference, use it to find MIDI output
+        if (this.device.controller && this.device.controller.midiAccess) {
+            const midiAccess = this.device.controller.midiAccess;
+
+            // If deviceBinding is specified, find that specific output
+            if (this.device.deviceBinding) {
+                for (let output of midiAccess.outputs.values()) {
+                    if (output.name === this.device.deviceBinding) {
+                        return output;
+                    }
+                }
+            }
+
+            // Fallback to controller's default output
+            return this.device.controller.midiOutput;
         }
 
         // Fallback: try device binding directly
