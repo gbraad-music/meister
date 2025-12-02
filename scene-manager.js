@@ -537,6 +537,7 @@ export class SceneManager {
             scene.linkedSequencer = config.linkedSequencer || null;
             scene.deviceBinding = config.deviceBinding || null;
             scene.midiInputDevice = config.midiInputDevice || null;  // Physical Fire controller input
+            scene.renderMode = config.renderMode || 'text';  // Display render mode: 'text' or 'graphic'
             scene.midiChannel = config.midiChannel !== undefined ? config.midiChannel : 0;
             scene.tracks = config.tracks || 4;
             scene.stepsPerTrack = config.stepsPerTrack || 16;

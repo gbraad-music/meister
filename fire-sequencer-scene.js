@@ -102,6 +102,17 @@ class FireSequencerScene {
             this.setupLinkedMode();
         }
 
+        // Initialize Fire display adapter if not already created
+        if (!this.fireDisplayAdapter && window.FireOLEDAdapter) {
+            const renderMode = this.scene.renderMode || 'text';
+            this.fireDisplayAdapter = new window.FireOLEDAdapter(
+                { id: 'fire-virtual', deviceId: 0 },
+                'virtual',
+                renderMode
+            );
+            console.log(`[FireSequencer] Initialized Fire OLED display with render mode: ${renderMode}`);
+        }
+
         // console.log(`[FireSequencer] Rendered in ${this.isLinkedMode() ? 'Linked' : 'Compatible'} mode`);
     }
 
@@ -1065,7 +1076,52 @@ class FireSequencerScene {
 
             // Update global position bar to show current playback position
             this.updateGlobalPositionBar(currentRow);
+
+            // Update Fire display (integrated with playback update to avoid separate timer)
+            this.updateFireDisplay();
         }, 50);
+    }
+
+    /**
+     * Update Fire OLED display
+     */
+    updateFireDisplay() {
+        if (!this.fireDisplayAdapter) return;
+
+        let bpm = 120;
+        let sequencerName = 'N/A';
+        let playing = false;
+        let currentRow = 0;
+        let playbackLength = 16;
+
+        if (this.isLinkedMode()) {
+            const sequencer = this.getLinkedSequencer();
+            if (sequencer) {
+                bpm = sequencer.engine?.bpm || 120;
+                playing = sequencer.engine?.playing || false;
+                currentRow = sequencer.engine?.currentRow || 0;
+                playbackLength = sequencer.engine?.playbackLength || 64;
+                const linkedScene = this.sceneManager.scenes.get(this.scene.linkedSequencer);
+                sequencerName = linkedScene?.name || 'Unknown';
+            }
+        }
+
+        // Mode: normal or user (USER mode changes top knobs to VOL/PAN/LOW/HIGH)
+        const mode = this.userMode ? 'User' : 'Normal';
+
+        const message = {
+            type: 'display_message',
+            deviceId: 'fire-virtual',
+            deviceType: 'fire',
+            lines: [
+                `${this.scene.name}`,
+                this.isLinkedMode() ? `> ${sequencerName}` : 'Fire Compatible',
+                `BPM: ${bpm}  Step: ${currentRow}/${playbackLength}`,
+                `Offset: ${this.gridOffset}  Mode: ${mode}`
+            ],
+            metadata: { category: 'status', priority: 'normal' }
+        };
+        this.fireDisplayAdapter.sendMessage(message);
     }
 
     /**

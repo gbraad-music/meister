@@ -1555,14 +1555,18 @@ export class SceneEditor {
                 pads: scene.pads, // For split scenes (and custom pad scenes)
                 linkedSequencer: scene.linkedSequencer, // For fire-sequencer scenes
                 midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes
+                renderMode: scene.renderMode, // For fire-sequencer scenes
                 tracks: scene.tracks, // For fire-sequencer scenes
                 stepsPerTrack: scene.stepsPerTrack, // For fire-sequencer scenes
                 engine: scene.sequencerInstance ? scene.sequencerInstance.engine.toJSON() : scene.engine // For sequencer scenes
             };
+            if (scene.type === 'fire-sequencer') {
+                console.log('[SceneEditor] Saving fire-sequencer to localStorage:', id, scenes[id]);
+            }
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
-        // console.log(`[SceneEditor] Saved ${Object.keys(scenes).length} scene(s) to localStorage`);
+        console.log('[SceneEditor] Saved to localStorage, fire scenes:', Object.keys(scenes).filter(k => scenes[k].type === 'fire-sequencer').map(k => ({id: k, renderMode: scenes[k].renderMode})));
     }
 
     loadScenesFromStorage() {
@@ -1834,6 +1838,7 @@ export class SceneEditor {
                 document.getElementById('fire-scene-mode').value = scene.linkedSequencer ? 'linked' : 'compatible';
                 document.getElementById('fire-linked-sequencer').value = scene.linkedSequencer || '';
                 document.getElementById('fire-midi-input-device').value = scene.midiInputDevice || '';
+                document.getElementById('fire-render-mode').value = scene.renderMode || 'text';
 
                 // Set compatible mode fields (MIDI output and channel)
                 if (!scene.linkedSequencer) {
@@ -1851,6 +1856,7 @@ export class SceneEditor {
             document.getElementById('fire-scene-mode').value = 'compatible';
             document.getElementById('fire-linked-sequencer').value = '';
             document.getElementById('fire-midi-input-device').value = '';
+            document.getElementById('fire-render-mode').value = 'text';
 
             const outputSelect = document.getElementById('fire-midi-output');
             if (outputSelect) outputSelect.value = '';
@@ -1943,6 +1949,8 @@ export class SceneEditor {
         const mode = document.getElementById('fire-scene-mode').value;
         const isLinked = mode === 'linked';
         const midiInputDevice = document.getElementById('fire-midi-input-device').value || null;
+        const renderMode = document.getElementById('fire-render-mode').value || 'text';
+        console.log('[SceneEditor] saveFireScene - renderMode:', renderMode);
 
         if (!name) {
             alert('Please enter a scene name');
@@ -1976,10 +1984,12 @@ export class SceneEditor {
             linkedSequencer,
             deviceBinding,
             midiInputDevice,
+            renderMode,
             midiChannel,
             tracks: 4,
             stepsPerTrack: 16
         };
+        console.log('[SceneEditor] saveFireScene - config:', JSON.stringify(config, null, 2));
 
         if (this.currentSceneId) {
             // Update existing scene

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v449';
+const CACHE_NAME = 'meister-v459';
 const ASSETS = [
     './',
     './index.html',
@@ -29,7 +29,14 @@ const ASSETS = [
     // Device management
     './regroove-state.js',
     './device-manager.js',
-    './input-router.js'
+    './input-router.js',
+    // Display Message System
+    './display-message-manager.js',
+    './adapters/basic-text-display-adapter.js',
+    './adapters/fire-oled-adapter.js',
+    './adapters/web-display-adapter.js',
+    './components/display-widget.js',
+    './utils/display-message-builder.js'
 ];
 
 // Install event - cache assets

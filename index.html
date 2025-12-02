@@ -552,6 +552,15 @@
     <script type="module" src="./regroove-pad.js"></script>
     <script type="module" src="./pad-knob.js"></script>
     <script src="./regroove-state.js"></script>
+
+    <!-- Display Message System -->
+    <script src="./display-message-manager.js"></script>
+    <script src="./adapters/basic-text-display-adapter.js"></script>
+    <script src="./adapters/fire-oled-adapter.js"></script>
+    <script src="./adapters/web-display-adapter.js"></script>
+    <script src="./components/display-widget.js"></script>
+    <script src="./utils/display-message-builder.js"></script>
+
     <script type="module" src="./meister-controller.js"></script>
 </head>
 <body>
@@ -1670,6 +1679,17 @@
                     </div>
                 </div>
 
+                <div class="setting-group">
+                    <label class="setting-label">DISPLAY RENDER MODE</label>
+                    <select id="fire-render-mode" style="width: 100%;">
+                        <option value="text">Text</option>
+                        <option value="graphic">Graphical</option>
+                    </select>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        Text mode for readability, Graphical mode to simulate physical Fire display
+                    </div>
+                </div>
+
                 <div class="setting-group" id="fire-compatible-output-field">
                     <label class="setting-label">MIDI OUTPUT DEVICE</label>
                     <select id="fire-midi-output" style="width: 100%;">
@@ -2059,6 +2079,8 @@
         // Expose scene classes globally for scene manager
         window.SequencerScene = SequencerScene;
         window.FireSequencerScene = FireSequencerScene;
+
+        // Fire display integration is now built into fire-sequencer-scene.js (no separate file needed)
 
         // Wait for controller to be initialized
         function waitForController() {
