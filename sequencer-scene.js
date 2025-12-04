@@ -910,8 +910,47 @@ export class SequencerScene {
                 if (!cell) continue;
 
                 const isCurrentCell = (row === this.cursorRow && track === this.cursorTrack);
-                cell.style.outline = isCurrentCell ? '2px solid #4a9eff' : 'none';
-                cell.style.background = isCurrentCell ? '#1a2a3a' : '#111';
+                // Match the initial render styling exactly
+                cell.style.background = isCurrentCell ? '#2a2a4a' : '#0a0a0a';
+                cell.style.border = isCurrentCell ? '1px solid #4a4a9a' : '1px solid #1a1a1a';
+
+                // Update field highlighting (note/volume/effect) within current cell
+                if (isCurrentCell) {
+                    const noteField = cell.querySelector('.note-field');
+                    const volumeField = cell.querySelector('.volume-field');
+                    const effectField = cell.querySelector('.effect-field');
+
+                    if (noteField) {
+                        noteField.style.background = this.cursorField === 0 ? '#4a6a9a' : '';
+                        noteField.style.color = this.cursorField === 0 ? '#fff' : (noteField.textContent !== '---' ? '#4a9eff' : '#333');
+                    }
+                    if (volumeField) {
+                        volumeField.style.background = this.cursorField === 1 ? '#4a6a9a' : '';
+                        volumeField.style.color = this.cursorField === 1 ? '#fff' : (volumeField.textContent !== '--' ? '#9a9a4a' : '#333');
+                    }
+                    if (effectField) {
+                        effectField.style.background = this.cursorField === 2 ? '#4a6a9a' : '';
+                        effectField.style.color = this.cursorField === 2 ? '#fff' : (effectField.textContent !== '---' ? '#9a4a9a' : '#333');
+                    }
+                } else {
+                    // Clear field highlighting in non-cursor cells
+                    const noteField = cell.querySelector('.note-field');
+                    const volumeField = cell.querySelector('.volume-field');
+                    const effectField = cell.querySelector('.effect-field');
+
+                    if (noteField) {
+                        noteField.style.background = '';
+                        noteField.style.color = noteField.textContent !== '---' ? '#4a9eff' : '#333';
+                    }
+                    if (volumeField) {
+                        volumeField.style.background = '';
+                        volumeField.style.color = volumeField.textContent !== '--' ? '#9a9a4a' : '#333';
+                    }
+                    if (effectField) {
+                        effectField.style.background = '';
+                        effectField.style.color = effectField.textContent !== '---' ? '#9a4a9a' : '#333';
+                    }
+                }
             }
         }
 
@@ -1230,17 +1269,31 @@ export class SequencerScene {
             return;
         }
 
+        // Handle CTRL+C/V separately (before switch) to not block plain C/V for note entry
+        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+            if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                this.copyCurrentEntry();
+                return;
+            }
+            if (e.key === 'v' || e.key === 'V') {
+                e.preventDefault();
+                this.pasteEntry();
+                return;
+            }
+        }
+
         // Arrow keys for navigation (always enabled)
         // Note editing requires record mode (editing operations below)
         switch (e.key) {
             case 'ArrowUp':
                 e.preventDefault();
 
-                // Note field: Shift+Up = increment note, Ctrl+Up = increment octave (requires record mode)
+                // Note field: Shift+Up = increment note, Ctrl+Up = increment octave
                 if (this.cursorField === 0) {
-                    if (e.shiftKey && this.recordMode) {
+                    if (e.shiftKey) {
                         this.incrementNote(1);
-                    } else if (e.ctrlKey && this.recordMode) {
+                    } else if (e.ctrlKey) {
                         this.incrementOctave(1);
                     } else {
                         // Normal Up = move cursor up
@@ -1257,11 +1310,11 @@ export class SequencerScene {
                         }
                     }
                 }
-                // Volume field: Shift+Up = small increment (+1), Ctrl+Up = large increment (+16) (requires record mode)
+                // Volume field: Shift+Up = small increment (+1), Ctrl+Up = large increment (+16)
                 else if (this.cursorField === 1) {
-                    if (e.shiftKey && this.recordMode) {
+                    if (e.shiftKey) {
                         this.incrementVolume(1);
-                    } else if (e.ctrlKey && this.recordMode) {
+                    } else if (e.ctrlKey) {
                         this.incrementVolume(16);
                     } else {
                         // Normal Up = move cursor up
@@ -1274,18 +1327,18 @@ export class SequencerScene {
                 else {
                     this.cursorRow = Math.max(0, this.cursorRow - 1);
                     this.ensureCursorVisible();
-                    this.updateTrackerGrid();
+                    this.updateCursorVisual();
                 }
                 break;
 
             case 'ArrowDown':
                 e.preventDefault();
 
-                // Note field: Shift+Down = decrement note, Ctrl+Down = decrement octave (requires record mode)
+                // Note field: Shift+Down = decrement note, Ctrl+Down = decrement octave
                 if (this.cursorField === 0) {
-                    if (e.shiftKey && this.recordMode) {
+                    if (e.shiftKey) {
                         this.incrementNote(-1);
-                    } else if (e.ctrlKey && this.recordMode) {
+                    } else if (e.ctrlKey) {
                         this.incrementOctave(-1);
                     } else {
                         // Normal Down = move cursor down
@@ -1302,11 +1355,11 @@ export class SequencerScene {
                         }
                     }
                 }
-                // Volume field: Shift+Down = small decrement (-1), Ctrl+Down = large decrement (-16) (requires record mode)
+                // Volume field: Shift+Down = small decrement (-1), Ctrl+Down = large decrement (-16)
                 else if (this.cursorField === 1) {
-                    if (e.shiftKey && this.recordMode) {
+                    if (e.shiftKey) {
                         this.incrementVolume(-1);
-                    } else if (e.ctrlKey && this.recordMode) {
+                    } else if (e.ctrlKey) {
                         this.incrementVolume(-16);
                     } else {
                         // Normal Down = move cursor down
@@ -1319,7 +1372,7 @@ export class SequencerScene {
                 else {
                     this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
                     this.ensureCursorVisible();
-                    this.updateTrackerGrid();
+                    this.updateCursorVisual();
                 }
                 break;
 
@@ -1352,21 +1405,19 @@ export class SequencerScene {
                 e.preventDefault();
                 this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 16);
                 this.ensureCursorVisible();
-                this.updateTrackerGrid();
+                this.updateCursorVisual();
                 break;
 
             case 'PageUp':
                 e.preventDefault();
                 this.cursorRow = Math.max(0, this.cursorRow - 16);
                 this.ensureCursorVisible();
-                this.updateTrackerGrid();
+                this.updateCursorVisual();
                 break;
 
             case 'Delete':
                 e.preventDefault();
-                if (this.recordMode) {
-                    this.clearCurrentEntry();
-                }
+                this.clearCurrentEntry();
                 break;
 
             default:
@@ -1414,10 +1465,13 @@ export class SequencerScene {
         }
 
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
-        this.updateTrackerGrid();
+        this.updateSingleCell(this.cursorRow, this.cursorTrack, entry);
+        this.updateCursorVisual(); // Apply cursor highlighting
 
-        // Preview the note audibly (SHIFT+UP/DOWN)
-        this.previewNote(entry);
+        // Preview the note audibly (SHIFT+UP/DOWN) - only if NOT playing
+        if (!this.engine.playing) {
+            this.previewNote(entry);
+        }
 
         // Auto-save after edit
         this.triggerAutoSave();
@@ -1439,10 +1493,13 @@ export class SequencerScene {
         }
 
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
-        this.updateTrackerGrid();
+        this.updateSingleCell(this.cursorRow, this.cursorTrack, entry);
+        this.updateCursorVisual(); // Apply cursor highlighting
 
-        // Preview the note audibly (CTRL+UP/DOWN)
-        this.previewNote(entry);
+        // Preview the note audibly (CTRL+UP/DOWN) - only if NOT playing
+        if (!this.engine.playing) {
+            this.previewNote(entry);
+        }
 
         // Auto-save after edit
         this.triggerAutoSave();
@@ -1512,10 +1569,13 @@ export class SequencerScene {
         entry.volume = Math.max(0, Math.min(127, (entry.volume || 100) + amount));
 
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
-        this.updateTrackerGrid();
+        this.updateSingleCell(this.cursorRow, this.cursorTrack, entry);
+        this.updateCursorVisual(); // Apply cursor highlighting (white text on blue background)
 
-        // Preview the note at new volume
-        this.previewNote(entry);
+        // Preview the note at new volume - only if NOT playing
+        if (!this.engine.playing) {
+            this.previewNote(entry);
+        }
 
         // Auto-save after edit
         this.triggerAutoSave();
@@ -1554,10 +1614,36 @@ export class SequencerScene {
     clearCurrentEntry() {
         const entry = new SequencerEntry();
         this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
-        this.updateTrackerGrid();
+        this.updateSingleCell(this.cursorRow, this.cursorTrack, entry);
 
         // Auto-save after edit
         this.triggerAutoSave();
+    }
+
+    copyCurrentEntry() {
+        // Copy current entry to clipboard
+        const entry = this.engine.pattern.getEntry(this.cursorRow, this.cursorTrack);
+        if (entry) {
+            this.clipboard = entry.clone();
+        }
+    }
+
+    pasteEntry() {
+        // Paste from clipboard to current position
+        if (this.clipboard) {
+            const entry = this.clipboard.clone();
+            this.engine.pattern.setEntry(this.cursorRow, this.cursorTrack, entry);
+            this.updateSingleCell(this.cursorRow, this.cursorTrack, entry);
+            this.updateCursorVisual(); // Apply cursor highlighting
+
+            // Preview pasted note (only if not playing)
+            if (!this.engine.playing && entry.note) {
+                this.previewNote(entry);
+            }
+
+            // Auto-save after paste
+            this.triggerAutoSave();
+        }
     }
 
     openFillDialog() {

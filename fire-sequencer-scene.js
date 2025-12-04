@@ -1240,24 +1240,30 @@ class FireSequencerScene {
 
         // Create listener function and store reference for cleanup
         this.patternChangeListener = (row, track, entry) => {
-            // Only update if this row is visible on Fire grid
-            if (row < this.gridOffset || row >= this.gridOffset + 16) return;
             if (track >= 4) return; // Fire only has 4 tracks
 
-            const step = row - this.gridOffset;
+            // Check if this row is within visible Fire grid window
+            const isVisible = (row >= this.gridOffset && row < this.gridOffset + 16);
 
-            // Safety check - ensure Fire pattern array is initialized
-            if (!this.pattern || !this.pattern[track]) return;
+            if (isVisible) {
+                const step = row - this.gridOffset;
 
-            // Update Fire's local pattern (note is a STRING like "C", not a number!)
-            if (entry && entry.note !== null) {
-                this.pattern[track][step] = { note: entry.note };
-            } else {
-                this.pattern[track][step] = null;
+                // Safety check - ensure Fire pattern array is initialized
+                if (!this.pattern || !this.pattern[track]) return;
+
+                // Update Fire's local pattern (note is a STRING like "C", not a number!)
+                if (entry && entry.note !== null) {
+                    this.pattern[track][step] = { note: entry.note };
+                    this.stepStates[track][step] = true;
+                } else {
+                    this.pattern[track][step] = null;
+                    this.stepStates[track][step] = false;
+                }
+
+                // Update LED immediately (no setTimeout - that was causing lag!)
+                this.updateStepButtonVisual(track, step);
             }
-
-            // Update LED immediately (no setTimeout - that was causing lag!)
-            this.updateStepButtonVisual(track, step);
+            // Note: If not visible, LED will update when user scrolls to that area
         };
 
         // Add listener (supports multiple listeners)
