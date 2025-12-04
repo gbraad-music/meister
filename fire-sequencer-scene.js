@@ -113,6 +113,55 @@ class FireSequencerScene {
     }
 
     /**
+     * Setup keyboard listener for SPACE to toggle playback
+     */
+    setupKeyboardListener() {
+        // Remove old listener if exists
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+        }
+
+        // Create bound handler
+        this.keydownHandler = (e) => {
+            // Only handle if this scene is active
+            if (this.sceneManager.currentScene !== this.sceneId) {
+                return;
+            }
+
+            // Handle SPACE to toggle playback
+            if (e.key === ' ') {
+                e.preventDefault();
+
+                if (this.isLinkedMode()) {
+                    const sequencer = this.getLinkedSequencer();
+                    if (sequencer) {
+                        if (sequencer.engine.playing) {
+                            sequencer.engine.stopPlayback();
+                        } else {
+                            sequencer.engine.startPlayback();
+                        }
+                        this.updateTransportButtons();
+                    }
+                } else {
+                    // Compatible mode - send MIDI play/stop
+                    if (this.playing) {
+                        this.sendMIDINote(0x34, 127); // STOP
+                        setTimeout(() => this.sendMIDINote(0x34, 0), 100);
+                        this.playing = false;
+                    } else {
+                        this.sendMIDINote(0x33, 127); // PLAY
+                        setTimeout(() => this.sendMIDINote(0x33, 0), 100);
+                        this.playing = true;
+                    }
+                }
+            }
+        };
+
+        // Attach listener
+        document.addEventListener('keydown', this.keydownHandler);
+    }
+
+    /**
      * Render the Fire Sequencer scene
      */
     render() {
@@ -126,6 +175,9 @@ class FireSequencerScene {
             if (this.isLinkedMode() && !this.playbackUpdateInterval) {
                 this.startPlaybackPositionUpdate();
             }
+
+            // Re-attach keyboard listener (removed during pause)
+            this.setupKeyboardListener();
 
             // Ensure MIDI listener is attached (cheap no-op if already attached)
             if (this.scene.midiInputDevice) {
@@ -158,6 +210,9 @@ class FireSequencerScene {
         this.renderTopSection(container);
         this.renderTrackRows(container);
         this.renderBottomSection(container);
+
+        // Set up keyboard listener for SPACE to toggle playback
+        this.setupKeyboardListener();
 
         // Set up MIDI listeners if in compatible mode
         if (!this.isLinkedMode()) {
@@ -1991,7 +2046,12 @@ class FireSequencerScene {
             this.playbackUpdateInterval = null;
         }
 
-        // IMPORTANT: Keep ALL listeners active when paused!
+        // Remove keyboard listener when paused (to prevent conflicts with other scenes)
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+        }
+
+        // IMPORTANT: Keep hardware listeners active when paused!
         // - Pattern change listener: so Fire LEDs update when editing in Sequencer scene
         // - Mute change listener: so Fire SOLO/MUTE buttons update when changed in Sequencer
         // - MIDI input listener: so Fire hardware input ALWAYS works, regardless of active scene
@@ -2013,6 +2073,12 @@ class FireSequencerScene {
         if (this.ledSweepInterval) {
             clearInterval(this.ledSweepInterval);
             this.ledSweepInterval = null;
+        }
+
+        // Remove keyboard listener
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = null;
         }
 
         // Remove pattern change listener
