@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#000000"/>
-  <text x="256" y="340" font-family="Arial, sans-serif" font-size="320" font-weight="bold" fill="#4a9eff" text-anchor="middle">M</text>
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Knob track -->
+  <circle cx="60" cy="60" r="48" fill="#1a1a1a" stroke="#333" stroke-width="4"/>
+  <!-- Indicator (pointing to "11") -->
+  <rect x="58.5" y="19" width="6" height="40" rx="1.5"
+    fill="#CF1A37"
+    transform="rotate(120 60 60)" />
+  <!-- Knob center -->
+  <circle cx="60" cy="60" r="18" fill="#2a2a2a" stroke="#444" stroke-width="2"/>
 </svg>
