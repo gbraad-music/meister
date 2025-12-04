@@ -45,6 +45,9 @@ export class SequencerScene {
         this.lastPreviewTime = 0;
         this.previewIgnoreWindow = 300; // Ignore MIDI input for 300ms after preview
 
+        // Setup pattern change listener for external updates (e.g., from Fire sequencer)
+        this.setupPatternChangeListener();
+
         // Always setup event listeners (even if skipRender)
         // Otherwise resume() won't have keyboard handler attached
         this.setupEventListeners();
@@ -560,7 +563,8 @@ export class SequencerScene {
         }
         if (!gridContainer) return;
 
-        gridContainer.innerHTML = '';
+        // CRITICAL: Batch DOM updates using DocumentFragment to prevent reflow stutters
+        const fragment = document.createDocumentFragment();
 
         // Render ALL rows, let scrolling handle visibility
         for (let row = 0; row < this.engine.pattern.rows; row++) {
@@ -597,13 +601,20 @@ export class SequencerScene {
                 rowDiv.appendChild(trackDiv);
             }
 
-            gridContainer.appendChild(rowDiv);
+            fragment.appendChild(rowDiv);
         }
+
+        // Single DOM update instead of 64 individual appendChild calls
+        gridContainer.innerHTML = '';
+        gridContainer.appendChild(fragment);
     }
 
     createTrackEntryDiv(row, track, entry) {
         const div = document.createElement('div');
         const isCursor = (row === this.cursorRow && track === this.cursorTrack);
+
+        // CRITICAL: Add ID so we can update this cell without full rebuild
+        div.id = `tracker-cell-${row}-${track}`;
 
         div.style.cssText = `
             display: grid;
@@ -618,6 +629,7 @@ export class SequencerScene {
 
         // Note-Octave (combined, tracker format: C-3 for naturals, C#3 for sharps)
         const noteDiv = document.createElement('span');
+        noteDiv.className = 'note-field'; // CRITICAL: Add class for updateSingleCell
         if (entry.note) {
             const separator = entry.note.includes('#') ? '' : '-';
             noteDiv.textContent = `${entry.note}${separator}${entry.octave}`;
@@ -634,6 +646,7 @@ export class SequencerScene {
 
         // Volume
         const volumeDiv = document.createElement('span');
+        volumeDiv.className = 'volume-field'; // CRITICAL: Add class for updateSingleCell
         volumeDiv.textContent = entry.note ? entry.volume.toString(16).toUpperCase().padStart(2, '0') : '--';
         volumeDiv.style.cssText = `
             color: ${entry.note ? '#9a9a4a' : '#333'};
@@ -644,6 +657,7 @@ export class SequencerScene {
 
         // Effect
         const effectDiv = document.createElement('span');
+        effectDiv.className = 'effect-field'; // CRITICAL: Add class for updateSingleCell
         effectDiv.textContent = entry.effect || '---';
         effectDiv.style.cssText = `
             color: ${entry.effect ? '#9a4a9a' : '#333'};
@@ -689,6 +703,7 @@ export class SequencerScene {
 
             // Mute button - shows red when trackMutes[track] is true
             const muteBtn = document.createElement('button');
+            muteBtn.id = `seq-mute-${track}`; // Add ID for fast updates
             muteBtn.textContent = 'M';
             muteBtn.style.cssText = `
                 padding: 6px 12px;
@@ -713,6 +728,7 @@ export class SequencerScene {
 
             // Solo button - shows red when this track is soloed
             const soloBtn = document.createElement('button');
+            soloBtn.id = `seq-solo-${track}`; // Add ID for fast updates
             soloBtn.textContent = 'S';
             const isSoloed = this.engine.isTrackSoloed(track);
             soloBtn.style.cssText = `
@@ -766,6 +782,99 @@ export class SequencerScene {
         if (oldHeaders) {
             const newHeaders = this.createTrackHeaders();
             oldHeaders.replaceWith(newHeaders);
+        }
+    }
+
+    setupPatternChangeListener() {
+        // Listen to pattern changes from external sources (e.g., Fire sequencer)
+        this.patternChangeListener = (row, track, entry) => {
+            // Only update if this scene is currently visible
+            const container = document.getElementById('pads-grid');
+            if (!container || container.querySelector('#seq-tracker-grid') === null) {
+                return; // Scene not visible, skip update
+            }
+
+            // PARTIAL UPDATE: Only update the specific cell that changed
+            this.updateSingleCell(row, track, entry);
+        };
+
+        // Add listener (supports multiple listeners)
+        this.engine.pattern.addPatternChangeListener(this.patternChangeListener);
+
+        // Listen to mute state changes from external sources (e.g., Fire sequencer)
+        this.muteChangeListener = (track, muteStates) => {
+            // Update the specific track's mute/solo button visuals
+            this.updateTrackControlButton(track);
+        };
+
+        // Add mute change listener
+        this.engine.addMuteChangeListener(this.muteChangeListener);
+    }
+
+    /**
+     * Update track control buttons (mute/solo) for a specific track (fast, no full rebuild)
+     */
+    updateTrackControlButton(track) {
+        const muteBtn = document.getElementById(`seq-mute-${track}`);
+        const soloBtn = document.getElementById(`seq-solo-${track}`);
+
+        if (!muteBtn || !soloBtn) return; // Buttons not in DOM
+
+        // Update mute button
+        const isMuted = this.engine.trackMutes[track];
+        muteBtn.style.background = isMuted ? '#CF1A37' : '#2a2a2a';
+        muteBtn.style.color = isMuted ? '#fff' : '#888';
+
+        // Update solo button
+        const isSoloed = this.engine.isTrackSoloed(track);
+        soloBtn.style.background = isSoloed ? '#CF1A37' : '#2a2a2a';
+        soloBtn.style.color = isSoloed ? '#fff' : '#888';
+    }
+
+    /**
+     * Update a single cell in the tracker grid (fast, no full rebuild)
+     */
+    updateSingleCell(row, track, entry) {
+        // Find the specific cell in the DOM
+        const cellId = `tracker-cell-${row}-${track}`;
+        const cell = document.getElementById(cellId);
+
+        if (!cell) return; // Cell not in DOM (might be scrolled out of view)
+
+        // Update cell content based on entry
+        const noteDiv = cell.querySelector('.note-field');
+        const volumeDiv = cell.querySelector('.volume-field');
+        const effectDiv = cell.querySelector('.effect-field');
+
+        if (!noteDiv || !volumeDiv || !effectDiv) return;
+
+        // Update note field (tracker format: C-3 for naturals, C#3 for sharps)
+        if (entry && entry.note) {
+            const separator = entry.note.includes('#') ? '' : '-';
+            noteDiv.textContent = `${entry.note}${separator}${entry.octave}`;
+            noteDiv.style.color = '#4a9eff';
+        } else {
+            noteDiv.textContent = '---';
+            noteDiv.style.color = '#333';
+        }
+
+        // Update volume field
+        if (entry && entry.note) {
+            const volHex = entry.volume.toString(16).toUpperCase().padStart(2, '0');
+            volumeDiv.textContent = volHex;
+            volumeDiv.style.color = '#9a9a4a';
+        } else {
+            volumeDiv.textContent = '--';
+            volumeDiv.style.color = '#333';
+        }
+
+        // Update effect field
+        if (entry && entry.effect) {
+            effectDiv.textContent = entry.effect;
+            effectDiv.style.color = '#9a4a9a';
+        } else {
+            effectDiv.textContent = '---';
+            effectDiv.style.color = '#333';
         }
     }
 
@@ -3277,6 +3386,18 @@ export class SequencerScene {
         if (this.keydownHandler) {
             document.removeEventListener('keydown', this.keydownHandler);
             this.keydownHandler = null;
+        }
+
+        // Remove pattern change listener
+        if (this.patternChangeListener) {
+            this.engine.pattern.removePatternChangeListener(this.patternChangeListener);
+            this.patternChangeListener = null;
+        }
+
+        // Remove mute change listener
+        if (this.muteChangeListener) {
+            this.engine.removeMuteChangeListener(this.muteChangeListener);
+            this.muteChangeListener = null;
         }
 
         // Remove global BPM listener

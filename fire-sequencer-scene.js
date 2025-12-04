@@ -17,11 +17,11 @@ class FireSequencerScene {
 
         // Grid state (4 tracks × 16 steps visible at a time)
         this.stepStates = Array(4).fill(null).map(() => Array(16).fill(false));
+        this.pattern = Array(4).fill(null).map(() => Array(16).fill(null)); // Pattern data for sync
         this.currentStep = -1;  // Playback position
 
-        // Track state
-        this.trackMutes = [false, false, false, false];
-        this.trackSolos = [false, false, false, false];
+        // Track state - REMOVED: Fire should use engine's arrays directly, not maintain copies
+        // this.trackMutes and this.trackSolos are now getters/setters that reference engine
 
         // Knob values
         this.topKnobs = [64, 64, 64, 64, 64];  // Volume, Pan, Filter, Resonance, Select
@@ -49,6 +49,42 @@ class FireSequencerScene {
     }
 
     /**
+     * Get track mutes - reference engine in linked mode, local array in compatible mode
+     */
+    get trackMutes() {
+        if (this.isLinkedMode()) {
+            const sequencer = this.getLinkedSequencer();
+            return sequencer ? sequencer.engine.trackMutes : [false, false, false, false];
+        }
+        // Compatible mode: use local array
+        if (!this._trackMutes) this._trackMutes = [false, false, false, false];
+        return this._trackMutes;
+    }
+
+    /**
+     * Get track solos - compute from engine's isTrackSoloed() method
+     */
+    get trackSolos() {
+        if (this.isLinkedMode()) {
+            const sequencer = this.getLinkedSequencer();
+            if (!sequencer) return [false, false, false, false];
+
+            // Use engine's isTrackSoloed method (computes from mutes)
+            return [0, 1, 2, 3].map(track => sequencer.engine.isTrackSoloed(track));
+        }
+        // Compatible mode: use local array
+        if (!this._trackSolos) this._trackSolos = [false, false, false, false];
+        return this._trackSolos;
+    }
+
+    set trackSolos(value) {
+        // Only used in compatible mode
+        if (!this.isLinkedMode()) {
+            this._trackSolos = value;
+        }
+    }
+
+    /**
      * Check if scene is in linked mode (bound to sequencer) or compatible mode
      */
     isLinkedMode() {
@@ -66,20 +102,11 @@ class FireSequencerScene {
             return null;
         }
 
-        // If sequencer instance doesn't exist yet, create it in background
+        // SceneManager creates all sequencer instances in background on startup
+        // We should NEVER create a new instance here - just return the existing one
         if (!scene.sequencerInstance) {
-            // console.log(`[FireSequencer] Creating sequencer instance in background for: ${scene.name}`);
-            if (window.SequencerScene) {
-                scene.sequencerInstance = new window.SequencerScene(
-                    this.sceneManager.controller,
-                    this.scene.linkedSequencer,
-                    scene,
-                    true  // skipRender = true (create in background)
-                );
-            } else {
-                console.error('[FireSequencer] SequencerScene class not available');
-                return null;
-            }
+            console.error(`[FireSequencer] Sequencer instance not found for: ${scene.name} - SceneManager should have created it!`);
+            return null;
         }
 
         return scene.sequencerInstance;
@@ -698,64 +725,35 @@ class FireSequencerScene {
      * On Physical Fire: SHIFT + MUTE button
      */
     handleSoloButton(track) {
-        // SHIFT + SOLO on already-solo'd track = UNMUTE ALL
-        if (this.shiftPressed && this.trackSolos[track]) {
-            if (this.isLinkedMode()) {
-                const sequencer = this.getLinkedSequencer();
-                if (sequencer) {
-                    // Unmute all tracks
-                    for (let t = 0; t < 4; t++) {
-                        sequencer.engine.trackMutes[t] = false;
-                        this.trackMutes[t] = false;
-                    }
-                    this.trackSolos = [false, false, false, false];
-                }
-            } else {
-                // Compatible mode: clear all
-                this.trackMutes = [false, false, false, false];
-                this.trackSolos = [false, false, false, false];
-            }
-
-            // Update all button visuals
-            for (let t = 0; t < 4; t++) {
-                this.updateMuteButtonVisual(t);
-            }
-            return;
-        }
-
-        // Normal SOLO behavior (toggle solo)
         if (this.isLinkedMode()) {
             const sequencer = this.getLinkedSequencer();
-            if (sequencer) {
-                // Check if this track is currently soloed
-                const wasSoloed = this.trackSolos[track];
+            if (!sequencer) return;
 
-                if (wasSoloed) {
-                    // Un-solo: unmute all tracks
-                    for (let t = 0; t < 4; t++) {
-                        sequencer.engine.trackMutes[t] = false;
-                        this.trackMutes[t] = false;
-                    }
-                    this.trackSolos = [false, false, false, false];
-                } else {
-                    // Solo this track: use sequencer's toggleSolo
-                    sequencer.engine.toggleSolo(track);
-
-                    // Read back mute states
-                    for (let t = 0; t < 4; t++) {
-                        this.trackMutes[t] = sequencer.engine.trackMutes[t];
-                    }
-
-                    // Mark as soloed
-                    this.trackSolos = [false, false, false, false];
-                    this.trackSolos[track] = true;
+            // SHIFT + SOLO on already-solo'd track = UNMUTE ALL
+            if (this.shiftPressed && sequencer.engine.isTrackSoloed(track)) {
+                // Unmute all tracks
+                for (let t = 0; t < 4; t++) {
+                    sequencer.engine.trackMutes[t] = false;
                 }
+            } else {
+                // Normal SOLO: toggle using engine method
+                sequencer.engine.toggleSolo(track);
             }
         } else {
             // Compatible mode: manual toggle
-            this.trackSolos[track] = !this.trackSolos[track];
-            if (this.trackSolos[track]) {
-                this.trackMutes[track] = false;
+            const solos = this._trackSolos || [false, false, false, false];
+            const mutes = this._trackMutes || [false, false, false, false];
+
+            // SHIFT + SOLO on already-solo'd track = UNMUTE ALL
+            if (this.shiftPressed && solos[track]) {
+                this._trackMutes = [false, false, false, false];
+                this._trackSolos = [false, false, false, false];
+            } else {
+                solos[track] = !solos[track];
+                if (solos[track]) {
+                    mutes[track] = false;
+                }
+                this._trackSolos = solos;
             }
         }
 
@@ -771,34 +769,33 @@ class FireSequencerScene {
      * On Physical Fire: The single button (handled in MIDI input with smart logic)
      */
     handleMuteButton(track) {
-        // MUTE button: just toggle mute
-        this.trackMutes[track] = !this.trackMutes[track];
-
         if (this.isLinkedMode()) {
-            // Update linked sequencer
+            // Linked mode: toggle engine mute (getter references engine array)
             const sequencer = this.getLinkedSequencer();
             if (sequencer) {
-                sequencer.engine.trackMutes[track] = this.trackMutes[track];
+                sequencer.engine.toggleMute(track);
             }
-        }
-
-        // Auto-detect solo: if only one track is unmuted, mark it as soloed
-        const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
-        if (unmutedTracks.length === 1) {
-            this.trackSolos = [false, false, false, false];
-            this.trackSolos[unmutedTracks[0]] = true;
         } else {
-            this.trackSolos = [false, false, false, false];
+            // Compatible mode: toggle local mute
+            const mutes = this.trackMutes; // Gets _trackMutes
+            mutes[track] = !mutes[track];
+
+            // Auto-detect solo: if only one track is unmuted, mark it as soloed
+            const unmutedTracks = mutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
+            if (unmutedTracks.length === 1) {
+                this._trackSolos = [false, false, false, false];
+                this._trackSolos[unmutedTracks[0]] = true;
+            } else {
+                this._trackSolos = [false, false, false, false];
+            }
+
+            // Send MIDI (Solo buttons: 0x24-0x27)
+            this.sendMIDINote(0x24 + track, mutes[track] ? 127 : 0);
         }
 
         // Update ALL button visuals (mute states affect solo display)
         for (let t = 0; t < 4; t++) {
             this.updateMuteButtonVisual(t);
-        }
-
-        // Send MIDI in compatible mode (Solo buttons: 0x24-0x27)
-        if (!this.isLinkedMode()) {
-            this.sendMIDINote(0x24 + track, this.trackMutes[track] ? 127 : 0);
         }
     }
 
@@ -1164,11 +1161,14 @@ class FireSequencerScene {
             this.initializeFireHardware();
         }
 
-        // Sync mute states AFTER initializing hardware (so LEDs aren't cleared)
-        this.syncMutesFromSequencer();
+        // Sync mute/solo button visuals AFTER initializing hardware (so LEDs aren't cleared)
+        this.syncMuteButtonVisuals();
 
         // Sync track volumes from sequencer to Fire knobs
         this.syncTrackVolumesFromSequencer();
+
+        // Listen to pattern changes from sequencer
+        this.setupPatternChangeListener();
 
         // Start playback position update loop
         this.startPlaybackPositionUpdate();
@@ -1212,34 +1212,59 @@ class FireSequencerScene {
     }
 
     /**
+     * Setup pattern change listener from sequencer
+     * Called when pattern is modified in linked sequencer
+     */
+    setupPatternChangeListener() {
+        const sequencer = this.getLinkedSequencer();
+        if (!sequencer || !sequencer.engine || !sequencer.engine.pattern) return;
+
+        // Create listener function and store reference for cleanup
+        this.patternChangeListener = (row, track, entry) => {
+            // Only update if this row is visible on Fire grid
+            if (row < this.gridOffset || row >= this.gridOffset + 16) return;
+            if (track >= 4) return; // Fire only has 4 tracks
+
+            const step = row - this.gridOffset;
+
+            // Safety check - ensure Fire pattern array is initialized
+            if (!this.pattern || !this.pattern[track]) return;
+
+            // Update Fire's local pattern (note is a STRING like "C", not a number!)
+            if (entry && entry.note !== null) {
+                this.pattern[track][step] = { note: entry.note };
+            } else {
+                this.pattern[track][step] = null;
+            }
+
+            // Update LED immediately (no setTimeout - that was causing lag!)
+            this.updateStepButtonVisual(track, step);
+        };
+
+        // Add listener (supports multiple listeners)
+        sequencer.engine.pattern.addPatternChangeListener(this.patternChangeListener);
+
+        // Listen to mute state changes from sequencer
+        this.muteChangeListener = (track, muteStates) => {
+            // Update Fire button visuals when mute states change
+            this.updateMuteButtonVisual(track);
+        };
+
+        // Add mute change listener
+        sequencer.engine.addMuteChangeListener(this.muteChangeListener);
+    }
+
+    /**
      * Sync mute states from sequencer
      */
-    syncMutesFromSequencer() {
-        const sequencer = this.getLinkedSequencer();
-        if (!sequencer) return;
-
-        // console.log('[FireSequencer] Syncing mute states from sequencer:', sequencer.engine.trackMutes);
-
-        // Load mute states
-        for (let track = 0; track < 4; track++) {
-            this.trackMutes[track] = sequencer.engine.trackMutes[track];
-        }
-
-        // Detect solo: if only one track is unmuted, mark it as soloed
-        // IMPORTANT: Always reset solo states first
-        this.trackSolos = [false, false, false, false];
-
-        const unmutedTracks = this.trackMutes.map((muted, idx) => !muted ? idx : -1).filter(idx => idx !== -1);
-        if (unmutedTracks.length === 1) {
-            const soloTrack = unmutedTracks[0];
-            this.trackSolos[soloTrack] = true;
-            // console.log(`[FireSequencer] Track ${soloTrack} is effectively SOLOED`);
-        }
-
-        // Update visuals
+    /**
+     * Sync mute/solo button visuals with engine state
+     * (Mute/solo states are now accessed via getters that reference engine directly)
+     */
+    syncMuteButtonVisuals() {
+        // Just update visuals - getters handle state sync automatically
         for (let track = 0; track < 4; track++) {
             this.updateMuteButtonVisual(track);
-            // console.log(`[FireSequencer] Track ${track} mute: ${this.trackMutes[track]}, solo: ${this.trackSolos[track]}`);
         }
     }
 
@@ -1603,6 +1628,9 @@ class FireSequencerScene {
             return;
         }
 
+        // Store MIDI input reference for cleanup
+        this.midiInput = midiInput;
+
         // Create bound listener
         this.midiInputListener = (event) => this.handleFireMIDIInput(event);
 
@@ -1932,18 +1960,21 @@ class FireSequencerScene {
             this.playbackUpdateInterval = null;
         }
 
+        // Remove pattern change listener
+        const sequencer = this.getLinkedSequencer();
+        if (sequencer && sequencer.engine && sequencer.engine.pattern && this.patternChangeListener) {
+            sequencer.engine.pattern.removePatternChangeListener(this.patternChangeListener);
+        }
+
+        // Remove mute change listener
+        if (sequencer && sequencer.engine && this.muteChangeListener) {
+            sequencer.engine.removeMuteChangeListener(this.muteChangeListener);
+        }
+
         // Remove MIDI input listener if attached
-        if (this.midiInputListener && this.scene.midiInputDevice) {
-            const midiAccess = this.sceneManager.controller.midiAccess;
-            if (midiAccess) {
-                for (let input of midiAccess.inputs.values()) {
-                    if (input.name === this.scene.midiInputDevice) {
-                        input.removeEventListener('midimessage', this.midiInputListener);
-                        // console.log(`[FireSequencer] ✓ Removed MIDI listener from: ${this.scene.midiInputDevice}`);
-                        break;
-                    }
-                }
-            }
+        if (this.midiInput && this.midiInputListener) {
+            this.midiInput.removeEventListener('midimessage', this.midiInputListener);
+            this.midiInput = null;
             this.midiInputListener = null;
         }
 

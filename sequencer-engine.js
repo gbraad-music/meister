@@ -135,6 +135,32 @@ export class SequencerPattern {
             return;
         }
         this.pattern[row][track] = entry;
+
+        // Emit pattern change event to ALL listeners
+        if (this.patternChangeListeners && this.patternChangeListeners.length > 0) {
+            this.patternChangeListeners.forEach(listener => listener(row, track, entry));
+        }
+    }
+
+    /**
+     * Add pattern change listener
+     */
+    addPatternChangeListener(listener) {
+        if (!this.patternChangeListeners) {
+            this.patternChangeListeners = [];
+        }
+        this.patternChangeListeners.push(listener);
+    }
+
+    /**
+     * Remove pattern change listener
+     */
+    removePatternChangeListener(listener) {
+        if (!this.patternChangeListeners) return;
+        const index = this.patternChangeListeners.indexOf(listener);
+        if (index > -1) {
+            this.patternChangeListeners.splice(index, 1);
+        }
     }
 
     /**
@@ -185,6 +211,16 @@ export class SequencerEngine {
         this.controller = controller;
         this.pattern = new SequencerPattern();
 
+        // Debug: unique ID for this engine instance
+        this.instanceId = Math.random().toString(36).substr(2, 9);
+
+        // Cross-tab coordination using BroadcastChannel
+        // Only ONE tab should control playback to avoid double-triggering
+        this.tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        this.broadcastChannel = null;
+        this.isMasterTab = false; // Only master tab runs playback
+        this.setupCrossTabCoordination();
+
         // Playback state
         this.playing = false;
         this.currentRow = 0;
@@ -228,6 +264,63 @@ export class SequencerEngine {
     }
 
     /**
+     * Setup cross-tab coordination using BroadcastChannel
+     * Only ONE tab should run playback engine to avoid double-triggering
+     */
+    setupCrossTabCoordination() {
+        if (typeof BroadcastChannel === 'undefined') {
+            console.warn('[Engine] BroadcastChannel not supported - multi-tab coordination disabled');
+            this.isMasterTab = true; // Assume master if no coordination available
+            return;
+        }
+
+        this.broadcastChannel = new BroadcastChannel('meister-sequencer-sync');
+
+        // Listen for messages from other tabs
+        this.broadcastChannel.addEventListener('message', (event) => {
+            const { type, tabId, instanceId } = event.data;
+
+            if (tabId === this.tabId) return; // Ignore own messages
+
+            if (type === 'claim-master') {
+                // Another tab is claiming master status
+                this.isMasterTab = false;
+            } else if (type === 'release-master') {
+                // Previous master released control - claim it if we're the oldest tab
+                this.claimMaster();
+            }
+        });
+
+        // Claim master status on startup
+        this.claimMaster();
+
+        // Release master on page unload
+        window.addEventListener('beforeunload', () => {
+            if (this.isMasterTab) {
+                this.broadcastChannel.postMessage({
+                    type: 'release-master',
+                    tabId: this.tabId,
+                    instanceId: this.instanceId
+                });
+            }
+        });
+    }
+
+    /**
+     * Claim master tab status
+     */
+    claimMaster() {
+        this.isMasterTab = true;
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({
+                type: 'claim-master',
+                tabId: this.tabId,
+                instanceId: this.instanceId
+            });
+        }
+    }
+
+    /**
      * Calculate milliseconds per row based on BPM
      * Classic tracker timing: 4 rows = 1 beat (64 rows = 16 beats)
      */
@@ -266,8 +359,6 @@ export class SequencerEngine {
         if (this.playing) return;
 
         this.playing = true;
-
-        // console.log(`[Sequencer] startPlayback - syncToGlobalClock=${this.syncToGlobalClock}, syncToMIDIClock=${this.syncToMIDIClock}, syncToSPP=${this.syncToSPP}`);
 
         // Update ONLY local sequencer pad colors, not device sequencer pads
         if (this.controller.updateLocalSequencerPads) {
@@ -595,6 +686,11 @@ export class SequencerEngine {
      * Play a note on a specific track
      */
     playNote(track, midiNote, velocity, program) {
+        // CRITICAL: Only master tab should send MIDI to prevent double-triggering
+        if (!this.isMasterTab) {
+            return; // Slave tab - don't send MIDI
+        }
+
         // Get target device - use track-specific binding if set, otherwise fall back to global deviceId
         const trackDeviceBinding = this.trackDeviceBindings[track];
         let device = null;
@@ -878,6 +974,39 @@ export class SequencerEngine {
         if (this.trackMutes[track]) {
             this.stopTrackNote(track);
         }
+
+        // Notify listeners of mute state change
+        this.notifyMuteChange(track);
+    }
+
+    /**
+     * Notify all mute change listeners
+     */
+    notifyMuteChange(track) {
+        if (this.muteChangeListeners && this.muteChangeListeners.length > 0) {
+            this.muteChangeListeners.forEach(listener => listener(track, this.trackMutes));
+        }
+    }
+
+    /**
+     * Add mute change listener
+     */
+    addMuteChangeListener(listener) {
+        if (!this.muteChangeListeners) {
+            this.muteChangeListeners = [];
+        }
+        this.muteChangeListeners.push(listener);
+    }
+
+    /**
+     * Remove mute change listener
+     */
+    removeMuteChangeListener(listener) {
+        if (!this.muteChangeListeners) return;
+        const index = this.muteChangeListeners.indexOf(listener);
+        if (index > -1) {
+            this.muteChangeListeners.splice(index, 1);
+        }
     }
 
     /**
@@ -888,14 +1017,11 @@ export class SequencerEngine {
 
         if (this.isTrackSoloed(track)) {
             // Deactivating solo: unmute all tracks
-            // console.log(`[Sequencer] Unsolo track ${track} - unmuting all tracks`);
             for (let t = 0; t < this.pattern.tracks; t++) {
                 this.trackMutes[t] = false;
             }
-            // console.log(`[Sequencer] After unsolo, mute states:`, this.trackMutes);
         } else {
             // Activating solo: unmute this track, mute all other tracks
-            // console.log(`[Sequencer] Solo track ${track} - muting others`);
             this.trackMutes[track] = false;
             for (let t = 0; t < this.pattern.tracks; t++) {
                 if (t !== track) {
@@ -903,7 +1029,11 @@ export class SequencerEngine {
                     this.stopTrackNote(t);
                 }
             }
-            // console.log(`[Sequencer] After solo, mute states:`, this.trackMutes);
+        }
+
+        // Notify listeners that ALL tracks changed (solo affects all tracks)
+        for (let t = 0; t < this.pattern.tracks; t++) {
+            this.notifyMuteChange(t);
         }
     }
 
