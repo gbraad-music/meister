@@ -31,6 +31,9 @@ export class SceneManager {
         // IMPORTANT: Initialize all sequencer instances so they can be triggered via pads
         // Without this, sequencers won't work until you view the scene first!
         this.initializeSequencerInstances();
+
+        // Initialize persistent Fire scenes so they work immediately on startup
+        this.initializePersistentFireScenes();
     }
 
     /**
@@ -58,6 +61,42 @@ export class SceneManager {
         }
 
         // console.log(`[SceneManager] ✓ Initialized ${count} sequencer instance(s) in background`);
+    }
+
+    /**
+     * Initialize persistent Fire scenes in background
+     * This allows persistent Fire scenes to work immediately on startup
+     */
+    initializePersistentFireScenes() {
+        // console.log('[SceneManager] Initializing persistent Fire scenes...');
+        let count = 0;
+
+        for (const [sceneId, scene] of this.scenes.entries()) {
+            if (scene.type === 'fire-sequencer' && scene.persistent === true && !scene.fireInstance) {
+                if (window.FireSequencerScene) {
+                    // Create instance in background (will attach MIDI listeners and initialize hardware)
+                    scene.fireInstance = new window.FireSequencerScene(this, sceneId);
+
+                    // Set up linked mode (connects to sequencer, attaches MIDI listener)
+                    // This makes the Fire controller work immediately without visiting the scene
+                    if (scene.linkedSequencer) {
+                        scene.fireInstance.setupLinkedMode();
+                    } else {
+                        // Compatible mode - just initialize hardware
+                        scene.fireInstance.initializeFireHardware();
+                        scene.fireInstance.setupMIDIInputListener();
+                    }
+
+                    // console.log(`[SceneManager] Pre-initialized persistent Fire scene: ${scene.name} (${sceneId})`);
+                    count++;
+                } else {
+                    console.error('[SceneManager] FireSequencerScene class not available - cannot initialize persistent Fire scenes');
+                    return;
+                }
+            }
+        }
+
+        // console.log(`[SceneManager] ✓ Initialized ${count} persistent Fire scene(s) in background`);
     }
 
     setupOrientationListener() {
@@ -541,8 +580,9 @@ export class SceneManager {
             scene.midiChannel = config.midiChannel !== undefined ? config.midiChannel : 0;
             scene.tracks = config.tracks || 4;
             scene.stepsPerTrack = config.stepsPerTrack || 16;
+            scene.persistent = config.persistent || false;  // Stay active in background when switching scenes
             scene.render = () => this.renderFireSequencerScene(id);
-            // console.log(`[Scene] Added Fire scene: ${config.name}, linkedSequencer: ${scene.linkedSequencer}, deviceBinding: ${scene.deviceBinding}`);
+            // console.log(`[Scene] Added Fire scene: ${config.name}, linkedSequencer: ${scene.linkedSequencer}, persistent: ${scene.persistent}`);
         }
 
         this.scenes.set(id, scene);
@@ -559,19 +599,20 @@ export class SceneManager {
             return;
         }
 
-        // Cleanup previous scene
+        // Deactivate previous scene (unless it's persistent)
         const previousScene = this.scenes.get(this.currentScene);
-        if (previousScene) {
-            // Pause sequencer scene when switching away (keeps playback running)
+        if (previousScene && previousScene.persistent !== true) {
+            // Non-persistent scene: deactivate when switching away
             if (previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
-                // console.log(`[Scene] Pausing sequencer scene: ${previousScene.name}`);
+                // console.log(`[Scene] Pausing non-persistent sequencer: ${previousScene.name}`);
                 previousScene.sequencerInstance.pause();
             }
-            // Cleanup Fire sequencer scene when switching away
             if (previousScene.type === 'fire-sequencer' && previousScene.fireInstance) {
-                // console.log(`[Scene] Cleaning up Fire scene: ${previousScene.name}`);
-                previousScene.fireInstance.cleanup();
+                // console.log(`[Scene] Deactivating non-persistent Fire scene: ${previousScene.name}`);
+                previousScene.fireInstance.deactivate();
             }
+        } else if (previousScene && previousScene.persistent === true) {
+            // console.log(`[Scene] Keeping persistent scene active: ${previousScene.name}`);
         }
 
         // console.log(`[Scene] Switching to: ${scene.name}`);

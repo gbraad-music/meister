@@ -20,18 +20,20 @@ export class DeviceManager {
         const device = {
             id: id,
             name: config.name || 'Unnamed Device',
-            type: config.type || 'generic', // 'generic', 'regroove', or 'samplecrate'
-            midiChannel: config.midiChannel ?? 0,
+            type: config.type || 'generic', // 'generic', 'regroove', 'samplecrate', 'akai-fire', 'novation-launchpad-mini'
+            midiChannel: config.midiChannel ?? 0, // 0-15 or 'omni'
             deviceId: config.deviceId ?? 0,
             color: config.color || '#CF1A37',
-            midiOutputName: config.midiOutputName || null // null = use default MIDI output (use name, not ID)
+            midiOutputName: config.midiOutputName || null, // null = use default MIDI output
+            midiInputName: config.midiInputName || null // null = same as output
         };
 
         this.devices.set(id, device);
         this.saveDevices();
         this.refreshDeviceList();
 
-        console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, Ch ${device.midiChannel}, ID ${device.deviceId}, Output: ${device.midiOutputName || 'default'})`);
+        const channelStr = device.midiChannel === 'omni' ? 'Omni' : `Ch ${device.midiChannel + 1}`;
+        console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, ${channelStr}, ID ${device.deviceId}, Out: ${device.midiOutputName || 'default'}, In: ${device.midiInputName || 'same'})`);
     }
 
     /**
@@ -91,6 +93,45 @@ export class DeviceManager {
             this.refreshDeviceList();
             console.log(`[Devices] Default device set to: ${this.devices.get(id).name}`);
         }
+    }
+
+    /**
+     * Get MIDI input for a device (resolves to actual MIDI input port)
+     * Returns the device-specific input if set, otherwise matches output name
+     */
+    getMidiInput(deviceId) {
+        const device = this.devices.get(deviceId);
+        if (!device) {
+            console.warn(`[Devices] Device ${deviceId} not found`);
+            return null;
+        }
+
+        if (!this.controller.midiAccess) {
+            console.warn('[Devices] No MIDI access available');
+            return null;
+        }
+
+        // Use device-specific input if specified
+        if (device.midiInputName) {
+            for (let input of this.controller.midiAccess.inputs.values()) {
+                if (input.name === device.midiInputName) {
+                    return input;
+                }
+            }
+            console.warn(`[Devices] MIDI input "${device.midiInputName}" not found for device ${device.name}`);
+        }
+
+        // Fall back to matching output name (same port for input/output)
+        if (device.midiOutputName) {
+            for (let input of this.controller.midiAccess.inputs.values()) {
+                if (input.name === device.midiOutputName) {
+                    return input;
+                }
+            }
+        }
+
+        // No specific input found
+        return null;
     }
 
     /**
@@ -158,12 +199,14 @@ export class DeviceManager {
                             id: device.id,
                             name: device.name,
                             type: device.type || 'generic', // Restore type field!
-                            midiChannel: device.midiChannel,
+                            midiChannel: device.midiChannel ?? 0, // Can be 0-15 or 'omni'
                             deviceId: device.deviceId,
                             color: device.color || '#CF1A37',
-                            midiOutputName: device.midiOutputName || device.midiOutputId || null // Support legacy midiOutputId
+                            midiOutputName: device.midiOutputName || device.midiOutputId || null, // Support legacy midiOutputId
+                            midiInputName: device.midiInputName || null // Optional separate input
                         });
-                        console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - MIDI Ch ${device.midiChannel + 1}, Device ID ${device.deviceId}, Output: ${device.midiOutputName || device.midiOutputId || 'default'}`);
+                        const channelStr = device.midiChannel === 'omni' ? 'Omni' : `Ch ${device.midiChannel + 1}`;
+                        console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - ${channelStr}, Device ID ${device.deviceId}, Out: ${device.midiOutputName || device.midiOutputId || 'default'}, In: ${device.midiInputName || 'same'}`);
                     });
                 }
 
@@ -242,17 +285,19 @@ export class DeviceManager {
         const title = deviceId ? 'EDIT DEVICE INSTANCE' : 'ADD DEVICE INSTANCE';
         document.getElementById('device-editor-title').textContent = title;
 
-        // Populate MIDI output dropdown
+        // Populate MIDI output and input dropdowns
         this.populateDeviceMidiOutputs();
+        this.populateDeviceMidiInputs();
 
         if (deviceId) {
             // Edit existing device
             const device = this.devices.get(deviceId);
             if (device) {
                 document.getElementById('device-name').value = device.name;
-                document.getElementById('device-midi-channel').value = device.midiChannel;
+                document.getElementById('device-midi-channel').value = device.midiChannel ?? 0;
                 document.getElementById('device-sysex-id').value = device.deviceId;
                 document.getElementById('device-midi-output').value = device.midiOutputName || '';
+                document.getElementById('device-midi-input').value = device.midiInputName || '';
                 document.getElementById('device-type').value = device.type || 'regroove';
                 document.getElementById('device-color').value = device.color || '#CF1A37';
                 document.getElementById('device-color-value').textContent = device.color || '#CF1A37';
@@ -261,9 +306,10 @@ export class DeviceManager {
         } else {
             // New device - defaults
             document.getElementById('device-name').value = 'New Device';
-            document.getElementById('device-midi-channel').value = 0;
+            document.getElementById('device-midi-channel').value = '0';
             document.getElementById('device-sysex-id').value = 0;
             document.getElementById('device-midi-output').value = '';
+            document.getElementById('device-midi-input').value = '';
             document.getElementById('device-type').value = 'regroove';
             document.getElementById('device-color').value = '#CF1A37';
             document.getElementById('device-color-value').textContent = '#CF1A37';
@@ -301,6 +347,26 @@ export class DeviceManager {
     }
 
     /**
+     * Populate MIDI input dropdown in device editor
+     */
+    populateDeviceMidiInputs() {
+        const select = document.getElementById('device-midi-input');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Same as Output</option>';
+
+        if (this.controller.midiAccess) {
+            const inputs = Array.from(this.controller.midiAccess.inputs.values());
+            inputs.forEach(input => {
+                const option = document.createElement('option');
+                option.value = input.name; // Use name instead of ID (IDs change between sessions)
+                option.textContent = input.name;
+                select.appendChild(option);
+            });
+        }
+    }
+
+    /**
      * Close device editor panel
      */
     closeDeviceEditor() {
@@ -318,9 +384,11 @@ export class DeviceManager {
             return;
         }
 
-        const midiChannel = parseInt(document.getElementById('device-midi-channel').value);
+        const midiChannelValue = document.getElementById('device-midi-channel').value;
+        const midiChannel = midiChannelValue === 'omni' ? 'omni' : parseInt(midiChannelValue);
         const sysexDeviceId = parseInt(document.getElementById('device-sysex-id').value);
         const midiOutputName = document.getElementById('device-midi-output').value || null;
+        const midiInputName = document.getElementById('device-midi-input').value || null;
         const deviceType = document.getElementById('device-type').value || 'regroove';
         const deviceColor = document.getElementById('device-color').value || '#CF1A37';
 
@@ -332,6 +400,7 @@ export class DeviceManager {
             midiChannel: midiChannel,
             deviceId: sysexDeviceId,
             midiOutputName: midiOutputName,
+            midiInputName: midiInputName,
             color: deviceColor
         });
 
@@ -414,7 +483,7 @@ export class DeviceManager {
                             </div>
                         </div>
                     </td>
-                    <td style="text-align: center;">${device.midiChannel + 1}</td>
+                    <td style="text-align: center;">${device.midiChannel === 'omni' ? 'Omni' : device.midiChannel + 1}</td>
                     <td style="text-align: center;">${device.deviceId}</td>
                     <td style="text-align: center; font-size: 0.85em; color: #aaa;">${outputName}</td>
                     <td style="text-align: center;">

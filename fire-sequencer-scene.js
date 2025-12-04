@@ -121,12 +121,12 @@ class FireSequencerScene {
             // Use 'physical' mode if MIDI input device is configured (physical Fire connected)
             const displayMode = this.scene.midiInputDevice ? 'physical' : 'virtual';
 
-            // Create device binding for adapter (pass controller for MIDI output access)
+            // Create device binding for adapter (pass scene's device ID for Device Manager lookup)
             const deviceBinding = {
                 id: 'fire-virtual',
                 deviceId: 0,
                 controller: this.sceneManager.controller,
-                deviceBinding: this.scene.deviceBinding  // For finding specific Fire output
+                midiInputDevice: this.scene.midiInputDevice  // Device ID from Device Manager
             };
 
             this.fireDisplayAdapter = new window.FireOLEDAdapter(
@@ -1560,19 +1560,25 @@ class FireSequencerScene {
             return;
         }
 
-        // Find the input device
-        const midiInputDevice = this.scene.midiInputDevice;
-        let foundInput = null;
+        // Get device from Device Manager (midiInputDevice is now device ID, not raw MIDI port name)
+        const deviceManager = this.sceneManager.controller.deviceManager;
+        const midiInputDeviceId = this.scene.midiInputDevice;
 
-        for (let input of this.sceneManager.controller.midiAccess.inputs.values()) {
-            if (input.name === midiInputDevice) {
-                foundInput = input;
-                break;
-            }
+        if (!midiInputDeviceId || !deviceManager) {
+            // No device associated - running in software-only mode
+            return;
         }
 
-        if (!foundInput) {
-            console.warn(`[FireSequencer] MIDI input device "${midiInputDevice}" not found`);
+        const device = deviceManager.getDevice(midiInputDeviceId);
+        if (!device) {
+            console.warn(`[FireSequencer] Device "${midiInputDeviceId}" not found in Device Manager`);
+            return;
+        }
+
+        // Get MIDI input for this device (uses midiInputName or falls back to midiOutputName)
+        const midiInput = deviceManager.getMidiInput(device.id);
+        if (!midiInput) {
+            console.warn(`[FireSequencer] No MIDI input found for device "${device.name}"`);
             return;
         }
 
@@ -1580,8 +1586,8 @@ class FireSequencerScene {
         this.midiInputListener = (event) => this.handleFireMIDIInput(event);
 
         // Attach listener
-        foundInput.addEventListener('midimessage', this.midiInputListener);
-        // console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInputDevice}`);
+        midiInput.addEventListener('midimessage', this.midiInputListener);
+        // console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInput.name} (device: ${device.name})`);
     }
 
     /**
@@ -1735,26 +1741,32 @@ class FireSequencerScene {
             return null;
         }
 
-        // Try deviceBinding first (specific output device)
-        if (this.scene.deviceBinding) {
-            for (let output of controller.midiAccess.outputs.values()) {
-                if (output.name === this.scene.deviceBinding) {
-                    return output;
+        let output = null;
+        let device = null;
+
+        // Get associated device from Device Manager
+        if (this.scene.midiInputDevice && controller.deviceManager) {
+            device = controller.deviceManager.getDevice(this.scene.midiInputDevice);
+            if (device) {
+                // Get MIDI output for this device
+                output = controller.deviceManager.getMidiOutput(device.id);
+
+                // Warn if device type doesn't match (but don't block)
+                if (device.type !== 'akai-fire' && device.type !== 'generic') {
+                    console.warn(`[FireSequencer] Device type '${device.type}' may not be compatible with Fire Sequencer (expected 'akai-fire' or 'generic')`);
                 }
+            } else {
+                console.warn(`[FireSequencer] Device '${this.scene.midiInputDevice}' not found in Device Manager - edit scene to reconfigure`);
+                return null;  // Fail - user needs to reconfigure
             }
         }
 
-        // Try midiInputDevice (match output to input device name)
-        if (this.scene.midiInputDevice) {
-            for (let output of controller.midiAccess.outputs.values()) {
-                if (output.name === this.scene.midiInputDevice) {
-                    return output;
-                }
-            }
+        // Fall back to global output if no device associated
+        if (!output) {
+            output = controller.midiOutput;
         }
 
-        // Fall back to global output
-        return controller.midiOutput;
+        return output;
     }
 
     /**
@@ -1855,10 +1867,37 @@ class FireSequencerScene {
 
 
     /**
-     * Clean up
+     * Clear all Fire LEDs (pads and buttons)
      */
-    cleanup() {
-        // console.log('[FireSequencer] Cleanup');
+    clearAllFireLEDs() {
+        // Clear all pad grid LEDs (notes 54-117)
+        for (let note = 54; note <= 117; note++) {
+            this.sendFireLED(note, 0);
+        }
+
+        // Clear button LEDs
+        const buttonNotes = [
+            0x1F, 0x20, 0x21, 0x22, 0x23,  // Pattern Up/Down, Browse, Grid Left/Right
+            0x28, 0x29, 0x2A, 0x2B,        // SOLO/MUTE indicators
+            0x2C, 0x2D, 0x2E, 0x2F,        // STEP, NOTE, DRUM, PERFORM
+            0x30, 0x31,                     // SHIFT, ALT
+            0x32, 0x33, 0x34, 0x35         // PATTERN, PLAY, STOP, RECORD
+        ];
+        buttonNotes.forEach(note => this.sendFireLED(note, 0));
+
+        // Clear LED cache
+        this.ledStates.clear();
+    }
+
+    /**
+     * Deactivate scene (called when switching away from non-persistent scene)
+     * Clears all Fire LEDs and stops MIDI input listening
+     */
+    deactivate() {
+        // console.log('[FireSequencer] Deactivating scene - clearing LEDs');
+
+        // Clear all Fire LEDs
+        this.clearAllFireLEDs();
 
         // Stop LED sweep test if running
         if (this.ledSweepInterval) {

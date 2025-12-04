@@ -1670,12 +1670,12 @@
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">MIDI INPUT DEVICE</label>
+                    <label class="setting-label">MIDI CONTROL DEVICE</label>
                     <select id="fire-midi-input-device" style="width: 100%;">
                         <option value="">None (Software Only)</option>
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
-                        Connect physical Akai Fire controller to control this scene
+                        Select device from Devices Tab (defines MIDI I/O and device type)
                     </div>
                 </div>
 
@@ -1687,6 +1687,16 @@
                     </select>
                     <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
                         Text mode for readability, Graphical mode to simulate physical Fire display
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="fire-persistent" style="width: auto; cursor: pointer;">
+                        <span class="setting-label" style="margin: 0;">PERSISTENT (stay active in background)</span>
+                    </label>
+                    <div style="color: #555; font-size: 0.75em; margin-top: 5px;">
+                        When enabled, scene stays active when switching to other scenes (LEDs remain lit, MIDI input keeps working)
                     </div>
                 </div>
 
@@ -1825,8 +1835,9 @@
                 </div>
 
                 <div class="setting-group">
-                    <label class="setting-label">MIDI CHANNEL (1-16)</label>
+                    <label class="setting-label">MIDI CHANNEL</label>
                     <select id="device-midi-channel" style="width: 100%;">
+                        <option value="omni">Omni (All Channels)</option>
                         <option value="0">Channel 1</option>
                         <option value="1">Channel 2</option>
                         <option value="2">Channel 3</option>
@@ -1871,8 +1882,18 @@
                 <div class="setting-group">
                     <label class="setting-label">MIDI OUTPUT</label>
                     <select id="device-midi-output" style="width: 100%;">
-                        <option value="">-- Select MIDI Output --</option>
+                        <option value="">Use Default Output</option>
                     </select>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">MIDI INPUT (optional)</label>
+                    <select id="device-midi-input" style="width: 100%;">
+                        <option value="">Same as Output</option>
+                    </select>
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Optional separate MIDI input port (useful for virtual MIDI routers)
+                    </div>
                 </div>
 
                 <div class="setting-group">
@@ -1881,6 +1902,8 @@
                         <option value="generic">Generic MIDI (no state polling)</option>
                         <option value="regroove">Regroove (uses PLAYER_STATE 0x60)</option>
                         <option value="samplecrate">SampleCrate (uses PROGRAM_STATE 0x64)</option>
+                        <option value="akai-fire">Akai Fire (step sequencer/controller)</option>
+                        <option value="novation-launchpad-mini">Novation Launchpad Mini (pad grid)</option>
                     </select>
                     <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
                         Device type determines which state queries are sent

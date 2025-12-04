@@ -1554,8 +1554,9 @@ export class SceneEditor {
                 padSide: scene.padSide, // For split scenes
                 pads: scene.pads, // For split scenes (and custom pad scenes)
                 linkedSequencer: scene.linkedSequencer, // For fire-sequencer scenes
-                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes
+                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes (device ID from Devices Tab)
                 renderMode: scene.renderMode, // For fire-sequencer scenes
+                persistent: scene.persistent, // For fire-sequencer scenes (stay active in background)
                 tracks: scene.tracks, // For fire-sequencer scenes
                 stepsPerTrack: scene.stepsPerTrack, // For fire-sequencer scenes
                 engine: scene.sequencerInstance ? scene.sequencerInstance.engine.toJSON() : scene.engine // For sequencer scenes
@@ -1629,7 +1630,8 @@ export class SceneEditor {
                 padSide: scene.padSide, // For split scenes
                 pads: scene.pads, // For split scenes (and custom pad scenes)
                 linkedSequencer: scene.linkedSequencer, // For fire-sequencer scenes
-                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes
+                midiInputDevice: scene.midiInputDevice, // For fire-sequencer scenes (device ID from Devices Tab)
+                persistent: scene.persistent, // For fire-sequencer scenes (stay active in background)
                 tracks: scene.tracks, // For fire-sequencer scenes
                 stepsPerTrack: scene.stepsPerTrack // For fire-sequencer scenes
             };
@@ -1837,8 +1839,10 @@ export class SceneEditor {
                 document.getElementById('fire-scene-name').value = scene.name;
                 document.getElementById('fire-scene-mode').value = scene.linkedSequencer ? 'linked' : 'compatible';
                 document.getElementById('fire-linked-sequencer').value = scene.linkedSequencer || '';
+                this.populateFireDevices();
                 document.getElementById('fire-midi-input-device').value = scene.midiInputDevice || '';
                 document.getElementById('fire-render-mode').value = scene.renderMode || 'text';
+                document.getElementById('fire-persistent').checked = scene.persistent || false;
 
                 // Set compatible mode fields (MIDI output and channel)
                 if (!scene.linkedSequencer) {
@@ -1855,8 +1859,10 @@ export class SceneEditor {
             document.getElementById('fire-scene-name').value = 'Fire ' + (this.sceneManager.scenes.size + 1);
             document.getElementById('fire-scene-mode').value = 'compatible';
             document.getElementById('fire-linked-sequencer').value = '';
+            this.populateFireDevices();
             document.getElementById('fire-midi-input-device').value = '';
             document.getElementById('fire-render-mode').value = 'text';
+            document.getElementById('fire-persistent').checked = false;
 
             const outputSelect = document.getElementById('fire-midi-output');
             if (outputSelect) outputSelect.value = '';
@@ -1885,7 +1891,29 @@ export class SceneEditor {
     }
 
     /**
-     * Populate Fire MIDI input devices
+     * Populate Fire devices from Device Manager
+     */
+    populateFireDevices() {
+        const select = document.getElementById('fire-midi-input-device');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">None (Software Only)</option>';
+
+        // Populate from Device Manager
+        const deviceManager = this.sceneManager.controller.deviceManager;
+        if (deviceManager) {
+            const devices = deviceManager.getAllDevices();
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.id;
+                option.textContent = `${device.name} (${device.type})`;
+                select.appendChild(option);
+            });
+        }
+    }
+
+    /**
+     * Populate Fire MIDI input devices (LEGACY - replaced by populateFireDevices)
      */
     populateFireMIDIInputs() {
         const select = document.getElementById('fire-midi-input-device');
@@ -1950,7 +1978,8 @@ export class SceneEditor {
         const isLinked = mode === 'linked';
         const midiInputDevice = document.getElementById('fire-midi-input-device').value || null;
         const renderMode = document.getElementById('fire-render-mode').value || 'text';
-        console.log('[SceneEditor] saveFireScene - renderMode:', renderMode);
+        const persistent = document.getElementById('fire-persistent').checked;
+        console.log('[SceneEditor] saveFireScene - renderMode:', renderMode, ', persistent:', persistent);
 
         if (!name) {
             alert('Please enter a scene name');
@@ -1985,6 +2014,7 @@ export class SceneEditor {
             deviceBinding,
             midiInputDevice,
             renderMode,
+            persistent,
             midiChannel,
             tracks: 4,
             stepsPerTrack: 16

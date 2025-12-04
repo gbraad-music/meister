@@ -324,10 +324,13 @@ class FireOLEDAdapter {
         if (this.device.controller && this.device.controller.midiAccess) {
             const midiAccess = this.device.controller.midiAccess;
 
-            // If deviceBinding is specified, find that specific output
-            if (this.device.deviceBinding) {
-                for (let output of midiAccess.outputs.values()) {
-                    if (output.name === this.device.deviceBinding) {
+            // Use Device Manager to get MIDI output (midiInputDevice is the device ID)
+            if (this.device.midiInputDevice && this.device.controller.deviceManager) {
+                const deviceManager = this.device.controller.deviceManager;
+                const device = deviceManager.getDevice(this.device.midiInputDevice);
+                if (device) {
+                    const output = deviceManager.getMidiOutput(device.id);
+                    if (output) {
                         return output;
                     }
                 }
@@ -335,11 +338,6 @@ class FireOLEDAdapter {
 
             // Fallback to controller's default output
             return this.device.controller.midiOutput;
-        }
-
-        // Fallback: try device binding directly
-        if (this.device.midiOutput) {
-            return this.device.midiOutput;
         }
 
         // Fallback: global controller MIDI output
