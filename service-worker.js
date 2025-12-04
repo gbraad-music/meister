@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v512';
+const CACHE_NAME = 'meister-v516';
 const ASSETS = [
     './',
     './index.html',
@@ -32,6 +32,7 @@ const ASSETS = [
     './input-router.js',
     // Display Message System
     './display-message-manager.js',
+    './display-system-init.js',
     './adapters/basic-text-display-adapter.js',
     './adapters/fire-oled-adapter.js',
     './adapters/web-display-adapter.js',

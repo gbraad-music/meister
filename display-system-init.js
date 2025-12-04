@@ -2,36 +2,25 @@
  * Display System Initialization
  * Initializes the display message system and registers adapters
  *
- * Include this file in index.html after all display components are loaded
+ * This is called from index.html AFTER DeviceManager is initialized
  */
 
 (function() {
-    console.log('[DisplaySystem] Initializing...');
-
-    // Wait for DOM and dependencies
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-
-    function init() {
-        // Check dependencies
-        if (!window.DisplayMessageManager) {
-            console.error('[DisplaySystem] DisplayMessageManager not found');
-            return;
-        }
-
+    /**
+     * Initialize display system (called when DeviceManager is ready)
+     */
+    window.initializeDisplaySystem = function() {
         if (!window.deviceManager) {
-            console.warn('[DisplaySystem] DeviceManager not found, will retry later');
-            // Retry after a delay
-            setTimeout(init, 1000);
+            console.error('[DisplaySystem] DeviceManager not available');
             return;
         }
 
-        // Initialize DisplayMessageManager
-        window.displayManager = new window.DisplayMessageManager(window.deviceManager);
-        console.log('[DisplaySystem] DisplayMessageManager initialized');
+        if (!window.displayManager) {
+            console.error('[DisplaySystem] DisplayMessageManager not initialized');
+            return;
+        }
+
+        console.log('[DisplaySystem] Registering display adapters...');
 
         // Auto-register displays for existing devices
         autoRegisterDisplays();
@@ -74,11 +63,13 @@
                 adapter = new window.BasicTextDisplayAdapter(device);
                 console.log(`[DisplaySystem] Registered BasicTextDisplayAdapter for: ${device.name || device.id}`);
             }
-        } else if (deviceType === 'fire') {
+        } else if (deviceType === 'akai-fire') {
             // Fire OLED adapter (physical mode)
             if (window.FireOLEDAdapter) {
                 adapter = new window.FireOLEDAdapter(device, 'physical');
                 console.log(`[DisplaySystem] Registered FireOLEDAdapter (physical) for: ${device.name || device.id}`);
+            } else {
+                console.warn(`[DisplaySystem] FireOLEDAdapter not found for ${device.name}`);
             }
         }
 
@@ -87,6 +78,9 @@
             window.displayManager.registerDisplay(device.id, deviceType, adapter);
         }
     }
+
+    // Make registerDisplayForDevice globally accessible
+    window.registerDisplayForDevice = registerDisplayForDevice;
 
     /**
      * Create a display test function for debugging

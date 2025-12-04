@@ -7,6 +7,7 @@ class DisplayMessageManager {
     constructor(deviceManager) {
         this.deviceManager = deviceManager;
         this.adapters = new Map();  // deviceId -> { type, adapter }
+        this.warnedDevices = new Set();  // Track devices we've already warned about
         console.log('[DisplayMessageManager] Initialized');
     }
 
@@ -42,7 +43,11 @@ class DisplayMessageManager {
         const deviceId = message.deviceId;
 
         if (!this.adapters.has(deviceId)) {
-            console.warn(`[Display] No adapter registered for device: ${deviceId}`);
+            // Only warn once per device to avoid console spam
+            if (!this.warnedDevices.has(deviceId)) {
+                console.warn(`[Display] No adapter registered for device: ${deviceId}`);
+                this.warnedDevices.add(deviceId);
+            }
             return false;
         }
 

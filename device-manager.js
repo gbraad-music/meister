@@ -34,6 +34,11 @@ export class DeviceManager {
 
         const channelStr = device.midiChannel === 'omni' ? 'Omni' : `Ch ${device.midiChannel + 1}`;
         console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, ${channelStr}, ID ${device.deviceId}, Out: ${device.midiOutputName || 'default'}, In: ${device.midiInputName || 'same'})`);
+
+        // Notify Display System to register adapter for this device
+        if (window.registerDisplayForDevice) {
+            window.registerDisplayForDevice(device);
+        }
     }
 
     /**

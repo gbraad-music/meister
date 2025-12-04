@@ -560,6 +560,7 @@
     <script src="./adapters/web-display-adapter.js"></script>
     <script src="./components/display-widget.js"></script>
     <script src="./utils/display-message-builder.js"></script>
+    <script src="./display-system-init.js"></script>
 
     <script type="module" src="./meister-controller.js"></script>
 </head>
@@ -2114,7 +2115,19 @@
 
                 // Initialize device manager
                 window.meisterController.deviceManager = new DeviceManager(window.meisterController);
+                window.deviceManager = window.meisterController.deviceManager;  // Make globally accessible
                 console.log('[Meister] Device manager initialized');
+
+                // Initialize Display Message Manager (now that DeviceManager is ready)
+                if (window.DisplayMessageManager) {
+                    window.displayManager = new window.DisplayMessageManager(window.deviceManager);
+                    console.log('[Meister] Display Message Manager initialized');
+
+                    // Auto-register displays for devices if init function exists
+                    if (window.initializeDisplaySystem) {
+                        window.initializeDisplaySystem();
+                    }
+                }
 
                 // Initialize input router
                 window.meisterController.inputRouter = new InputRouter(window.meisterController);
