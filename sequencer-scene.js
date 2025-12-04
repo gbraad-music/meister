@@ -837,6 +837,45 @@ export class SequencerScene {
     }
 
     /**
+     * Get MIDI input IDs from all Fire scenes
+     * Used to exclude Fire devices from Sequencer's MIDI input listener
+     *
+     * NOTE: Fire has multiple modes (STEP/NOTE/DRUM/PERF):
+     * - STEP mode (current): Pads toggle steps - exclude from Sequencer
+     * - NOTE mode (future): Pads send notes - include for note entry
+     *
+     * TODO: Add mode tracking to Fire scene and conditionally exclude
+     *       based on current mode (only exclude in STEP/DRUM/PERF modes)
+     */
+    getFireSceneDeviceIds() {
+        const fireDeviceIds = new Set();
+
+        if (!this.controller.sceneManager || !this.controller.deviceManager) {
+            return fireDeviceIds;
+        }
+
+        // Scan all scenes for Fire scenes with device bindings
+        for (let [sceneId, scene] of this.controller.sceneManager.scenes) {
+            if (scene.type === 'fire-sequencer' && scene.midiInputDevice) {
+                // TODO: Check scene.fireInstance.currentMode === 'STEP' before excluding
+                // For now, always exclude (Fire is in STEP mode by default)
+
+                // Get the device from Device Manager
+                const device = this.controller.deviceManager.getDevice(scene.midiInputDevice);
+                if (device) {
+                    // Get MIDI input for this device
+                    const midiInput = this.controller.deviceManager.getMidiInput(device.id);
+                    if (midiInput) {
+                        fireDeviceIds.add(midiInput.id);
+                    }
+                }
+            }
+        }
+
+        return fireDeviceIds;
+    }
+
+    /**
      * Update all track control buttons (mute/solo) without rebuilding DOM
      */
     updateAllTrackControlButtons() {
@@ -1001,8 +1040,15 @@ export class SequencerScene {
                 // and previewing creates infinite loops if MIDI output routes back to input
             };
 
-            // Attach listener to all MIDI inputs
+            // Attach listener to MIDI inputs (excluding Fire devices)
+            // Fire scenes have dedicated listeners for their control surfaces
+            const fireDeviceIds = this.getFireSceneDeviceIds();
+
             for (let input of this.controller.midiAccess.inputs.values()) {
+                // Skip Fire device inputs - they're handled by Fire scenes
+                if (fireDeviceIds.has(input.id)) {
+                    continue;
+                }
                 input.addEventListener('midimessage', this.midiInputListener);
             }
         }
@@ -3346,14 +3392,20 @@ export class SequencerScene {
             // console.log(`[Sequencer] Restarted UI update interval`);
         }
 
-        // Re-attach MIDI input listener
+        // Re-attach MIDI input listener (excluding Fire devices)
         if (this.controller.midiAccess && this.midiInputListener) {
+            const fireDeviceIds = this.getFireSceneDeviceIds();
             let listenerCount = 0;
+
             for (let input of this.controller.midiAccess.inputs.values()) {
+                // Skip Fire device inputs - they're handled by Fire scenes
+                if (fireDeviceIds.has(input.id)) {
+                    continue;
+                }
                 input.addEventListener('midimessage', this.midiInputListener);
                 listenerCount++;
             }
-            // console.log(`[Sequencer] Re-attached MIDI input listener to ${listenerCount} MIDI input(s)`);
+            // console.log(`[Sequencer] Re-attached MIDI input listener to ${listenerCount} MIDI input(s) (excluded ${fireDeviceIds.size} Fire devices)`);
         }
     }
 
