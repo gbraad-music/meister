@@ -127,6 +127,11 @@ class FireSequencerScene {
                 this.startPlaybackPositionUpdate();
             }
 
+            // Ensure MIDI listener is attached (cheap no-op if already attached)
+            if (this.scene.midiInputDevice) {
+                this.setupMIDIInputListener();
+            }
+
             // Quick state sync without full rebuild
             this.syncMuteButtonVisuals();
             this.updateAllStepVisuals();
@@ -1652,11 +1657,24 @@ class FireSequencerScene {
             return;
         }
 
+        // Skip if listener already attached to this input (avoid duplicate attachment)
+        if (this.midiInput === midiInput && this.midiInputListener) {
+            // Already attached - no need to re-attach
+            return;
+        }
+
+        // Remove old listener if attached to different input
+        if (this.midiInput && this.midiInputListener && this.midiInput !== midiInput) {
+            this.midiInput.removeEventListener('midimessage', this.midiInputListener);
+        }
+
         // Store MIDI input reference for cleanup
         this.midiInput = midiInput;
 
-        // Create bound listener
-        this.midiInputListener = (event) => this.handleFireMIDIInput(event);
+        // Create bound listener (only if not already created)
+        if (!this.midiInputListener) {
+            this.midiInputListener = (event) => this.handleFireMIDIInput(event);
+        }
 
         // Attach listener
         midiInput.addEventListener('midimessage', this.midiInputListener);
@@ -1973,8 +1991,11 @@ class FireSequencerScene {
             this.playbackUpdateInterval = null;
         }
 
-        // IMPORTANT: Keep pattern/mute listeners active so hardware still updates!
-        // This allows Fire hardware LEDs to update when editing in Sequencer scene
+        // IMPORTANT: Keep ALL listeners active when paused!
+        // - Pattern change listener: so Fire LEDs update when editing in Sequencer scene
+        // - Mute change listener: so Fire SOLO/MUTE buttons update when changed in Sequencer
+        // - MIDI input listener: so Fire hardware input ALWAYS works, regardless of active scene
+        // These are only removed in deactivate(), not pause()
     }
 
     /**
