@@ -695,7 +695,7 @@ export class SequencerScene {
         div.addEventListener('click', () => {
             this.cursorRow = row;
             this.cursorTrack = track;
-            this.updateTrackerGrid();
+            this.updateCursorVisual();
         });
 
         return div;
@@ -881,6 +881,43 @@ export class SequencerScene {
     updateAllTrackControlButtons() {
         for (let track = 0; track < this.engine.pattern.tracks; track++) {
             this.updateTrackControlButton(track);
+        }
+    }
+
+    /**
+     * Update cursor position visually (fast, no DOM rebuild)
+     * Just updates CSS classes/colors without rebuilding grid
+     */
+    updateCursorVisual() {
+        // Update all row numbers to highlight current cursor row
+        const gridContainer = document.getElementById('seq-tracker-grid');
+        if (!gridContainer) return;
+
+        const rows = gridContainer.children;
+        for (let row = 0; row < rows.length; row++) {
+            const rowDiv = rows[row];
+            const rowNum = rowDiv.children[0]; // First child is row number
+
+            // Update row number color
+            if (rowNum) {
+                rowNum.style.color = row === this.cursorRow ? '#4a9eff' : '#666';
+            }
+
+            // Update cell highlights for this row
+            for (let track = 0; track < this.engine.pattern.tracks; track++) {
+                const cellIndex = track + 1; // +1 because first child is row number
+                const cell = rowDiv.children[cellIndex];
+                if (!cell) continue;
+
+                const isCurrentCell = (row === this.cursorRow && track === this.cursorTrack);
+                cell.style.outline = isCurrentCell ? '2px solid #4a9eff' : 'none';
+                cell.style.background = isCurrentCell ? '#1a2a3a' : '#111';
+            }
+        }
+
+        // Scroll to cursor if needed
+        if (rows[this.cursorRow]) {
+            rows[this.cursorRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
     }
 
@@ -1209,7 +1246,7 @@ export class SequencerScene {
                         // Normal Up = move cursor up
                         this.cursorRow = Math.max(0, this.cursorRow - 1);
                         this.ensureCursorVisible();
-                        this.updateTrackerGrid();
+                        this.updateCursorVisual();
 
                         // Only preview if NOT playing
                         if (!this.engine.playing) {
@@ -1230,7 +1267,7 @@ export class SequencerScene {
                         // Normal Up = move cursor up
                         this.cursorRow = Math.max(0, this.cursorRow - 1);
                         this.ensureCursorVisible();
-                        this.updateTrackerGrid();
+                        this.updateCursorVisual();
                     }
                 }
                 // Effect field: just move cursor
@@ -1254,7 +1291,7 @@ export class SequencerScene {
                         // Normal Down = move cursor down
                         this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
                         this.ensureCursorVisible();
-                        this.updateTrackerGrid();
+                        this.updateCursorVisual();
 
                         // Only preview if NOT playing
                         if (!this.engine.playing) {
@@ -1275,7 +1312,7 @@ export class SequencerScene {
                         // Normal Down = move cursor down
                         this.cursorRow = Math.min(this.engine.pattern.rows - 1, this.cursorRow + 1);
                         this.ensureCursorVisible();
-                        this.updateTrackerGrid();
+                        this.updateCursorVisual();
                     }
                 }
                 // Effect field: just move cursor
@@ -1293,7 +1330,7 @@ export class SequencerScene {
                     this.cursorTrack = Math.max(0, this.cursorTrack - 1);
                     this.cursorField = 2;
                 }
-                this.updateTrackerGrid();
+                this.updateCursorVisual();
                 break;
 
             case 'ArrowRight':
@@ -1303,7 +1340,7 @@ export class SequencerScene {
                     this.cursorTrack = Math.min(3, this.cursorTrack + 1);
                     this.cursorField = 0;
                 }
-                this.updateTrackerGrid();
+                this.updateCursorVisual();
                 break;
 
             case ' ':
