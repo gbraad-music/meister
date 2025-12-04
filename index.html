@@ -871,6 +871,7 @@
                     <option value="note">Note On/Off</option>
                     <option value="mmc">MIDI Machine Control (MMC)</option>
                     <option value="ccknob">CC Knob (Embedded)</option>
+                    <option value="display">Display Widget (Device Status)</option>
                 </select>
             </div>
 
@@ -1153,6 +1154,35 @@
                 </select>
                 <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
                     Select which MIDI input's routing to switch, or "All Inputs" to switch all configured routes
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-display-field" style="display: none;">
+                <label class="setting-label">DEVICE TO MONITOR</label>
+                <select id="pad-display-device" style="width: 100%;">
+                    <option value="">-- Select Device --</option>
+                </select>
+                <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                    Display will show status from this device (Fire, Regroove, SampleCrate, etc.)
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-display-mode-field" style="display: none;">
+                <label class="setting-label">UPDATE MODE</label>
+                <select id="pad-display-mode" style="width: 100%;">
+                    <option value="push">Push (updates from Display Messages)</option>
+                    <option value="poll">Poll (periodic status queries)</option>
+                </select>
+                <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                    Push mode for real-time updates, Poll mode to request status periodically
+                </div>
+            </div>
+
+            <div class="setting-group" id="pad-display-interval-field" style="display: none;">
+                <label class="setting-label">UPDATE INTERVAL (ms)</label>
+                <input type="number" id="pad-display-interval" min="50" max="5000" value="100" style="width: 100%;">
+                <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                    How often to update (lower = smoother, higher = less CPU)
                 </div>
             </div>
 

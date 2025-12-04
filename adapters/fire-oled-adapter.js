@@ -148,9 +148,15 @@ class FireOLEDAdapter {
     updateVirtualDisplay() {
         const fireLCD = document.getElementById('fire-lcd-display');
         if (!fireLCD) {
-            console.warn('[FireOLED] fire-lcd-display element not found');
+            // Warn only once to avoid spamming console
+            if (!this.noDisplayWarned) {
+                console.warn('[FireOLED] fire-lcd-display element not found (scene not active)');
+                this.noDisplayWarned = true;
+            }
             return;
         }
+        // Reset warning flag when element is found again
+        this.noDisplayWarned = false;
 
         // Get or create display canvas in LCD element
         let displayCanvas = fireLCD.querySelector('canvas');

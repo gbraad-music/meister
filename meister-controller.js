@@ -1149,6 +1149,28 @@ class MeisterController {
             ).join('');
     }
 
+    populateDisplayDevices() {
+        const select = document.getElementById('pad-display-device');
+        if (!select) return;
+
+        const deviceManager = this.deviceManager;
+        if (!deviceManager) {
+            select.innerHTML = '<option value="">-- No Devices Found --</option>';
+            return;
+        }
+
+        const devices = deviceManager.getAllDevices();
+        if (devices.length === 0) {
+            select.innerHTML = '<option value="">-- No Devices Configured (add in Devices Tab) --</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Device --</option>' +
+            devices.map(device =>
+                `<option value="${device.id}">${device.name} (${device.type})</option>`
+            ).join('');
+    }
+
     isRegrooveActionCC(cc) {
         // List of all Regroove action CCs
         const regrooveCCs = [
@@ -1177,6 +1199,9 @@ class MeisterController {
         const noteProgramField = document.getElementById('pad-note-program-field');
         const mmcField = document.getElementById('pad-mmc-field');
         const deviceField = document.getElementById('pad-device-field');
+        const displayField = document.getElementById('pad-display-field');
+        const displayModeField = document.getElementById('pad-display-mode-field');
+        const displayIntervalField = document.getElementById('pad-display-interval-field');
 
         // Hide all parameter fields first (they will be shown by specific handlers if needed)
         const routingParams = document.getElementById('pad-routing-input-params');
@@ -1211,9 +1236,17 @@ class MeisterController {
         noteField.style.display = messageType === 'note' ? 'block' : 'none';
         noteProgramField.style.display = messageType === 'note' ? 'block' : 'none';
         mmcField.style.display = messageType === 'mmc' ? 'block' : 'none';
+        displayField.style.display = messageType === 'display' ? 'block' : 'none';
+        displayModeField.style.display = messageType === 'display' ? 'block' : 'none';
+        displayIntervalField.style.display = messageType === 'display' ? 'block' : 'none';
 
-        // Hide device binding for Action System (MIDI, Routing) and Sequencer - those are Meister actions, not device-specific
-        deviceField.style.display = (messageType === 'action' || messageType === 'sequencer') ? 'none' : 'block';
+        // Hide device binding for Action System (MIDI, Routing), Sequencer, and Display - those don't use device binding
+        deviceField.style.display = (messageType === 'action' || messageType === 'sequencer' || messageType === 'display') ? 'none' : 'block';
+
+        // Populate device list for display widget
+        if (messageType === 'display') {
+            this.populateDisplayDevices();
+        }
 
         // If message type is sysex, check current sysex action and show appropriate parameters
         if (messageType === 'sysex') {
@@ -1455,6 +1488,23 @@ class MeisterController {
                     padConfig.sysexParams = { channel };
                 }
             }
+        } else if (messageType === 'display') {
+            const displayDeviceId = document.getElementById('pad-display-device').value;
+            const displayMode = document.getElementById('pad-display-mode').value || 'push';
+            const displayInterval = parseInt(document.getElementById('pad-display-interval').value) || 100;
+
+            // Validate device selection
+            if (!displayDeviceId) {
+                window.nbDialog.alert('Please select a device to monitor!');
+                return;
+            }
+
+            padConfig.display = {
+                deviceId: displayDeviceId,
+                mode: displayMode,
+                interval: displayInterval
+            };
+            hasMessage = true;
         }
 
         // Check for secondary action
