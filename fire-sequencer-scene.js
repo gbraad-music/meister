@@ -1024,13 +1024,13 @@ class FireSequencerScene {
         // Button indicators use CCs 0x28-0x2B (not 0x24-0x27 which are button press notes)
         const indicatorCC = 0x28 + track;
 
-        // SOLO/MUTE indicators are BI-COLOR LEDs
-        // Testing values: 0=OFF, 3=RED (confirmed), trying 4 for GREEN
+        // SOLO/MUTE indicators are BI-COLOR LEDs (GREEN/RED)
+        // 0=OFF, 3=RED (bright), 4=GREEN (bright)
         let ledValue = 0;
         if (isSoloed) {
-            ledValue = 4;  // Trying value 4 for GREEN
+            ledValue = 4;  // GREEN (bright) - confirmed working on physical Fire
         } else if (isMuted) {
-            ledValue = 3;  // RED (confirmed working)
+            ledValue = 3;  // RED (bright) - confirmed working on physical Fire
         }
 
         this.sendFireLED(indicatorCC, ledValue);
@@ -1043,35 +1043,35 @@ class FireSequencerScene {
         const isActive = this.stepStates[track][step];
         const isCurrentStep = (step === this.currentStep);
 
-        // Update DOM button (match Fire colors: GREEN=active, AMBER=playing)
+        // Update DOM button - use vibrant colors to show all states clearly
         const btn = document.querySelector(`.step-${track}-${step}`);
         if (btn) {
             if (isCurrentStep && isActive) {
-                btn.setAttribute('color', '#ff8000');  // AMBER_FULL (playing + active)
+                btn.setAttribute('color', '#00ffff');  // CYAN (playing + active - VERY VISIBLE!)
             } else if (isCurrentStep) {
-                btn.setAttribute('color', '#ff6000');  // AMBER_HALF (playing, no note)
+                btn.setAttribute('color', '#ff8800');  // BRIGHT ORANGE (playing, no note)
             } else if (isActive) {
-                btn.setAttribute('color', '#00ff00');  // GREEN_FULL (active step)
+                btn.setAttribute('color', '#00ff00');  // BRIGHT GREEN (active step)
             } else {
-                btn.setAttribute('color', '#1a1a1a');  // OFF
+                btn.setAttribute('color', '#0a0a0a');  // DARK (off)
             }
         }
 
         // Send MIDI to physical Fire controller LED (if available)
-        // BiColor LED values: 0=OFF, 1=GREEN_HALF, 2=AMBER_HALF, 3=GREEN_FULL, 4=AMBER_FULL
+        // Use full RGB SysEx to show all states clearly
         // Fire is inverted: UI T1 (top, track 0) = Fire bottom row (matrix row 3)
         const fireRow = 3 - track;
         const matrixIndex = fireRow * 16 + step;
         const stepNote = this.FIRE_PAD_MATRIX[matrixIndex];
 
-        // Playback position: AMBER (brighter), Active: GREEN, Inactive: OFF
+        // LED values: 0=OFF, 2=ORANGE(playing empty), 3=GREEN(active), 5=CYAN(active+playing)
         let ledValue = 0;  // OFF by default
         if (isCurrentStep && isActive) {
-            ledValue = 4;  // AMBER_FULL (playing step)
+            ledValue = 5;  // CYAN (playing + active - VERY VISIBLE, shows BOTH states!)
         } else if (isCurrentStep) {
-            ledValue = 2;  // AMBER_HALF (playing on empty step)
+            ledValue = 2;  // ORANGE (playing on empty step)
         } else if (isActive) {
-            ledValue = 3;  // GREEN_FULL (active step)
+            ledValue = 3;  // GREEN (active step)
         }
 
         this.sendFireLED(stepNote, ledValue);
@@ -1794,7 +1794,7 @@ class FireSequencerScene {
         // Check if this is a pad (notes 54-117) or button (other notes)
         if (note >= 54 && note <= 117) {
             // PAD: Use RGB SysEx with pad index (note - 54)
-            // Map velocity to RGB (Fire uses bi-color LEDs: Green/Amber)
+            // Full RGB color control (0-127 per channel)
             let r = 0, g = 0, b = 0;
             switch(velocity) {
                 case 0:  // OFF
@@ -1803,14 +1803,17 @@ class FireSequencerScene {
                 case 1:  // GREEN_HALF
                     r = 0; g = 64; b = 0;
                     break;
-                case 2:  // AMBER_HALF
-                    r = 64; g = 32; b = 0;
+                case 2:  // BRIGHT ORANGE (playing position, no note) - matches Web UI #ff8800
+                    r = 127; g = 68; b = 0;
                     break;
-                case 3:  // GREEN_FULL
+                case 3:  // GREEN (active step)
                     r = 0; g = 127; b = 0;
                     break;
-                case 4:  // AMBER_FULL
+                case 4:  // AMBER_FULL (unused)
                     r = 127; g = 64; b = 0;
+                    break;
+                case 5:  // CYAN (playing position + active step - VERY VISIBLE!)
+                    r = 0; g = 127; b = 127;
                     break;
                 default:
                     r = 0; g = 0; b = 0;
