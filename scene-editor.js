@@ -1561,13 +1561,9 @@ export class SceneEditor {
                 stepsPerTrack: scene.stepsPerTrack, // For fire-sequencer scenes
                 engine: scene.sequencerInstance ? scene.sequencerInstance.engine.toJSON() : scene.engine // For sequencer scenes
             };
-            if (scene.type === 'fire-sequencer') {
-                console.log('[SceneEditor] Saving fire-sequencer to localStorage:', id, scenes[id]);
-            }
         });
 
         localStorage.setItem('meisterScenes', JSON.stringify(scenes));
-        console.log('[SceneEditor] Saved to localStorage, fire scenes:', Object.keys(scenes).filter(k => scenes[k].type === 'fire-sequencer').map(k => ({id: k, renderMode: scenes[k].renderMode})));
     }
 
     loadScenesFromStorage() {
@@ -1979,7 +1975,6 @@ export class SceneEditor {
         const midiInputDevice = document.getElementById('fire-midi-input-device').value || null;
         const renderMode = document.getElementById('fire-render-mode').value || 'text';
         const persistent = document.getElementById('fire-persistent').checked;
-        console.log('[SceneEditor] saveFireScene - renderMode:', renderMode, ', persistent:', persistent);
 
         if (!name) {
             alert('Please enter a scene name');
@@ -2019,7 +2014,6 @@ export class SceneEditor {
             tracks: 4,
             stepsPerTrack: 16
         };
-        console.log('[SceneEditor] saveFireScene - config:', JSON.stringify(config, null, 2));
 
         if (this.currentSceneId) {
             // Update existing scene

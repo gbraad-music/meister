@@ -1442,7 +1442,6 @@ class FireSequencerScene {
 
         // Update the pattern
         sequencer.engine.pattern.setEntry(sequencerRow, track, entry);
-        // console.log(`[FireSequencer] Wrote step ${track},${step} (row ${sequencerRow}) to sequencer: ${active ? 'ON' : 'OFF'}`);
     }
 
     /**

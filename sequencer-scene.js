@@ -813,10 +813,13 @@ export class SequencerScene {
     setupPatternChangeListener() {
         // Listen to pattern changes from external sources (e.g., Fire sequencer)
         this.patternChangeListener = (row, track, entry) => {
-            // Only update if this scene is currently visible
+            // Trigger autosave for ANY pattern change (even from Fire or other sources)
+            this.triggerAutoSave();
+
+            // Only update visual if this scene is currently visible
             const container = document.getElementById('pads-grid');
             if (!container || container.querySelector('#seq-tracker-grid') === null) {
-                return; // Scene not visible, skip update
+                return; // Scene not visible, skip visual update
             }
 
             // PARTIAL UPDATE: Only update the specific cell that changed
