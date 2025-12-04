@@ -602,14 +602,14 @@ export class SceneManager {
         // Deactivate previous scene (unless it's persistent)
         const previousScene = this.scenes.get(this.currentScene);
         if (previousScene && previousScene.persistent !== true) {
-            // Non-persistent scene: deactivate when switching away
+            // Non-persistent scene: pause when switching away (keep listeners active!)
             if (previousScene.type === 'sequencer' && previousScene.sequencerInstance) {
                 // console.log(`[Scene] Pausing non-persistent sequencer: ${previousScene.name}`);
                 previousScene.sequencerInstance.pause();
             }
             if (previousScene.type === 'fire-sequencer' && previousScene.fireInstance) {
-                // console.log(`[Scene] Deactivating non-persistent Fire scene: ${previousScene.name}`);
-                previousScene.fireInstance.deactivate();
+                // console.log(`[Scene] Pausing non-persistent Fire scene: ${previousScene.name}`);
+                previousScene.fireInstance.pause();
             }
         } else if (previousScene && previousScene.persistent === true) {
             // console.log(`[Scene] Keeping persistent scene active: ${previousScene.name}`);

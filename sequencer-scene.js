@@ -62,6 +62,32 @@ export class SequencerScene {
 
     render() {
         const container = document.getElementById('pads-grid');
+
+        // PERFORMANCE: Skip full rebuild if already rendered (fast resume)
+        if (this.isRendered && container.querySelector('#seq-tracker-grid')) {
+            // Resume event listeners (keyboard, MIDI, UI updates)
+            this.resume();
+
+            // Quick state sync without full rebuild
+            this.updatePlayPauseButton();
+
+            // Only update visible portion of grid (20 rows centered on cursor)
+            const visibleStart = Math.max(0, this.currentEditRow - 10);
+            const visibleEnd = Math.min(this.engine.pattern.rows, this.currentEditRow + 10);
+            for (let row = visibleStart; row < visibleEnd; row++) {
+                for (let track = 0; track < this.engine.pattern.tracks; track++) {
+                    const entry = this.engine.pattern.getEntry(row, track);
+                    this.updateSingleCell(row, track, entry);
+                }
+            }
+
+            this.updateAllTrackControlButtons();
+            return;
+        }
+
+        // Mark as rendered for future optimizations
+        this.isRendered = true;
+
         container.innerHTML = '';
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
@@ -71,7 +97,6 @@ export class SequencerScene {
 
         // Sync BPM with global clock on render
         if (this.controller.clockBPM && this.engine.bpm !== this.controller.clockBPM) {
-            // console.log(`[Sequencer] Syncing BPM on render: ${this.controller.clockBPM} (was ${this.engine.bpm})`);
             this.engine.bpm = this.controller.clockBPM;
             this.engine.msPerRow = this.engine.calculateMsPerRow();
         }
@@ -809,6 +834,15 @@ export class SequencerScene {
 
         // Add mute change listener
         this.engine.addMuteChangeListener(this.muteChangeListener);
+    }
+
+    /**
+     * Update all track control buttons (mute/solo) without rebuilding DOM
+     */
+    updateAllTrackControlButtons() {
+        for (let track = 0; track < this.engine.pattern.tracks; track++) {
+            this.updateTrackControlButton(track);
+        }
     }
 
     /**

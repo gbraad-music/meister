@@ -119,6 +119,25 @@ class FireSequencerScene {
         const container = document.getElementById('pads-grid');
         if (!container) return;
 
+        // PERFORMANCE: Skip full rebuild if already rendered (fast resume from pause)
+        // Only do minimal updates to sync state
+        if (this.isRendered && container.querySelector('regroove-pad')) {
+            // Restart playback position update loop
+            if (this.isLinkedMode() && !this.playbackUpdateInterval) {
+                this.startPlaybackPositionUpdate();
+            }
+
+            // Quick state sync without full rebuild
+            this.syncMuteButtonVisuals();
+            this.updateAllStepVisuals();
+            this.updateTransportButtons();
+            this.updateNavigationLEDs();
+            return;
+        }
+
+        // Mark as rendered for future optimizations
+        this.isRendered = true;
+
         // Clear container
         container.removeAttribute('style');
         container.style.display = 'grid';
@@ -1939,25 +1958,35 @@ class FireSequencerScene {
     }
 
     /**
-     * Deactivate scene (called when switching away from non-persistent scene)
-     * Clears all Fire LEDs and stops MIDI input listening
+     * Pause scene (called when switching away from non-persistent scene)
+     * Keeps listeners active so hardware LEDs still update, but clears visual UI
+     */
+    pause() {
+        // Stop playback position update loop (UI updates only)
+        if (this.playbackUpdateInterval) {
+            clearInterval(this.playbackUpdateInterval);
+            this.playbackUpdateInterval = null;
+        }
+
+        // IMPORTANT: Keep pattern/mute listeners active so hardware still updates!
+        // This allows Fire hardware LEDs to update when editing in Sequencer scene
+    }
+
+    /**
+     * Deactivate scene (called when destroying scene or app shutdown)
+     * Full cleanup - removes all listeners and clears hardware
      */
     deactivate() {
-        // console.log('[FireSequencer] Deactivating scene - clearing LEDs');
-
-        // Clear all Fire LEDs
-        this.clearAllFireLEDs();
+        // Stop playback position update
+        if (this.playbackUpdateInterval) {
+            clearInterval(this.playbackUpdateInterval);
+            this.playbackUpdateInterval = null;
+        }
 
         // Stop LED sweep test if running
         if (this.ledSweepInterval) {
             clearInterval(this.ledSweepInterval);
             this.ledSweepInterval = null;
-        }
-
-        // Stop playback position update
-        if (this.playbackUpdateInterval) {
-            clearInterval(this.playbackUpdateInterval);
-            this.playbackUpdateInterval = null;
         }
 
         // Remove pattern change listener
@@ -1978,14 +2007,19 @@ class FireSequencerScene {
             this.midiInputListener = null;
         }
 
+        // Clear all Fire LEDs
+        this.clearAllFireLEDs();
+
         // Unregister virtual display adapter from Display Message Manager (if we created one)
         if (this.fireDisplayAdapter && this.fireDisplayDeviceId === 'fire-virtual' && window.displayManager) {
             window.displayManager.unregisterDisplay(this.fireDisplayDeviceId);
-            console.log('[FireSequencer] Unregistered virtual Fire OLED display');
             this.fireDisplayAdapter = null;
         }
 
         this.fireDisplayDeviceId = null;
+
+        // Reset render flag so scene can be re-initialized if needed
+        this.isRendered = false;
     }
 }
 
