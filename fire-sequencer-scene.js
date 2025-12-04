@@ -134,7 +134,6 @@ class FireSequencerScene {
             if (device && window.displayManager) {
                 // Physical Fire: Use device from Device Manager (auto-registered by Display System)
                 this.fireDisplayDeviceId = this.scene.midiInputDevice;
-                console.log(`[FireSequencer] Using Display Message Manager for device: ${this.fireDisplayDeviceId}`);
             } else {
                 // Virtual Fire (software only): Create virtual display adapter
                 const deviceBinding = {
@@ -155,7 +154,6 @@ class FireSequencerScene {
                 if (window.displayManager) {
                     window.displayManager.registerDisplay(this.fireDisplayDeviceId, 'fire', this.fireDisplayAdapter);
                 }
-                console.log(`[FireSequencer] Created virtual Fire OLED display`);
             }
         }
 
@@ -1523,11 +1521,8 @@ class FireSequencerScene {
             return;
         }
 
-        console.log('[FireSequencer] Initializing physical Fire hardware');
-
         // Clear LED state cache to avoid stale data
         this.ledStates.clear();
-        console.log('[FireSequencer] Cleared LED state cache');
 
         // Fire is stateless - no mode switch needed, just send LED states
         // Clear all step pad LEDs by setting all to OFF (RGB 0,0,0)
@@ -1574,10 +1569,7 @@ class FireSequencerScene {
         // Force immediate OLED display update
         setTimeout(() => {
             this.updateFireDisplay();
-            console.log('[FireSequencer] Sent initial OLED display');
         }, 100);  // Small delay
-
-        console.log('[FireSequencer] Fire hardware initialized (64 pads + buttons)');
     }
 
     /**

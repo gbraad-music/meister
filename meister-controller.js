@@ -825,6 +825,11 @@ class MeisterController {
                         document.getElementById('pad-sysex-channel-params').style.display = 'block';
                     }
                 }
+            } else if (pad.display !== undefined) {
+                document.getElementById('pad-message-type').value = 'display';
+                document.getElementById('pad-display-device').value = pad.display.deviceId || '';
+                document.getElementById('pad-display-mode').value = pad.display.mode || 'push';
+                document.getElementById('pad-display-interval').value = pad.display.interval || 100;
             } else {
                 document.getElementById('pad-message-type').value = 'regroove';
             }

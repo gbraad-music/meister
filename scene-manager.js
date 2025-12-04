@@ -3417,6 +3417,9 @@ export class SceneManager {
             case 'button':
                 this.createButtonControl(cell, control, sceneId);
                 break;
+            case 'display':
+                this.createDisplayControl(cell, control, sceneId);
+                break;
             case 'empty':
             default:
                 // Empty cell - no styling (transparent like pad grid)
@@ -3637,6 +3640,40 @@ export class SceneManager {
     createButtonControl(cell, control, sceneId) {
         // For now, buttons work like pads
         this.createPadControl(cell, control, sceneId);
+    }
+
+    /**
+     * Create a display widget control (shows device status)
+     */
+    createDisplayControl(cell, control, sceneId) {
+        if (!control.display || !control.display.deviceId) {
+            // No device configured - show placeholder
+            cell.innerHTML = '<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(No device configured)</div>';
+            return;
+        }
+
+        // Get device info
+        const deviceManager = this.controller.deviceManager;
+        const device = deviceManager?.getDevice(control.display.deviceId);
+
+        if (!device) {
+            cell.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Device not found)</div>';
+            return;
+        }
+
+        // Create display-widget element
+        const displayWidget = document.createElement('display-widget');
+        displayWidget.setAttribute('device-id', control.display.deviceId);
+        displayWidget.setAttribute('device-type', device.type);
+        displayWidget.setAttribute('display-mode', control.display.mode || 'push');
+        displayWidget.setAttribute('update-interval', control.display.interval || 100);
+
+        displayWidget.style.cssText = `
+            width: 100%;
+            height: 100%;
+        `;
+
+        cell.appendChild(displayWidget);
     }
 
     /**
