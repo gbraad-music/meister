@@ -9,10 +9,9 @@ class WebDisplayAdapter {
         this.element = document.getElementById(elementId);
         this.lines = [];
 
-        if (!this.element) {
-            console.warn(`[WebDisplay] Element not found: ${elementId}`);
-        } else {
-            console.log(`[WebDisplay] Initialized for element: ${elementId}`);
+        // Note: Element may be in shadow DOM and not found initially - will be queried on first message
+        if (this.element) {
+            // console.log(`[WebDisplay] Initialized for element: ${elementId}`);
         }
     }
 

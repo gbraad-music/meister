@@ -559,6 +559,8 @@
     <script src="./adapters/fire-oled-adapter.js"></script>
     <script src="./adapters/web-display-adapter.js"></script>
     <script src="./components/display-widget.js"></script>
+    <script src="./components/fire-display.js"></script>
+    <script src="./components/sequencer-display.js"></script>
     <script src="./utils/display-message-builder.js"></script>
     <script src="./display-system-init.js"></script>
 
@@ -1158,12 +1160,28 @@
             </div>
 
             <div class="setting-group" id="pad-display-field" style="display: none;">
-                <label class="setting-label">DEVICE TO MONITOR</label>
-                <select id="pad-display-device" style="width: 100%;">
-                    <option value="">-- Select Device --</option>
+                <label class="setting-label">SOURCE</label>
+                <select id="pad-display-source-type" style="width: 100%; margin-bottom: 10px;">
+                    <option value="scene">Scene (Fire Sequencer, Sequencer)</option>
+                    <option value="device">Device (Regroove, SampleCrate)</option>
                 </select>
-                <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
-                    Display will show status from this device (Fire, Regroove, SampleCrate, etc.)
+
+                <div id="pad-display-scene-select-container" style="display: none;">
+                    <select id="pad-display-scene" style="width: 100%;">
+                        <option value="">-- Select Scene --</option>
+                    </select>
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Display will show real-time status from this scene
+                    </div>
+                </div>
+
+                <div id="pad-display-device-select-container" style="display: none;">
+                    <select id="pad-display-device" style="width: 100%;">
+                        <option value="">-- Select Device --</option>
+                    </select>
+                    <div style="color: #666; font-size: 0.75em; margin-top: 5px;">
+                        Display will poll status from this device
+                    </div>
                 </div>
             </div>
 

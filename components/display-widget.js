@@ -24,6 +24,20 @@ class DisplayWidget extends HTMLElement {
         this.render();
         this.setupAdapter();
         this.startUpdates();
+
+        // Forward contextmenu events to parent (for pad editing)
+        this.shadowRoot.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Dispatch new contextmenu event on the host element
+            const event = new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: e.clientX,
+                clientY: e.clientY
+            });
+            this.dispatchEvent(event);
+        });
     }
 
     disconnectedCallback() {
@@ -54,31 +68,39 @@ class DisplayWidget extends HTMLElement {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    user-select: none;
                 }
                 .display-container {
+                    width: 100%;
+                    height: 100%;
                     background: #0a0a0a;
-                    border: 2px solid #333;
-                    border-radius: 4px;
-                    padding: 8px;
+                    border: 3px solid #333;
+                    border-radius: 6px;
+                    padding: 12px;
                     font-family: 'Courier New', monospace;
                     font-size: 12px;
-                    color: #4a9eff;
-                    height: 100%;
-                    overflow: hidden;
+                    color: #ffffff;
                     box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
                 }
                 .display-header {
                     font-size: 10px;
-                    color: #666;
-                    margin-bottom: 4px;
+                    color: #888;
+                    margin-bottom: 8px;
                     text-transform: uppercase;
+                    flex-shrink: 0;
                 }
                 .display-content {
                     line-height: 1.4;
+                    flex: 1;
+                    overflow-y: auto;
+                    color: #ffffff;
                 }
                 .line {
                     white-space: pre;
                     font-family: 'Courier New', monospace;
+                    color: #ffffff;
                 }
                 .status {
                     color: #4a9eff;
@@ -92,7 +114,7 @@ class DisplayWidget extends HTMLElement {
                     font-weight: bold;
                 }
                 .offline {
-                    color: #666;
+                    color: #888;
                     font-style: italic;
                 }
             </style>

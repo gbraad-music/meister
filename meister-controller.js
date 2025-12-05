@@ -827,7 +827,22 @@ class MeisterController {
                 }
             } else if (pad.display !== undefined) {
                 document.getElementById('pad-message-type').value = 'display';
-                document.getElementById('pad-display-device').value = pad.display.deviceId || '';
+
+                // Determine if this is a scene or device display
+                if (pad.display.sceneId) {
+                    document.getElementById('pad-display-source-type').value = 'scene';
+                    this.populateDisplayScenes();
+                    document.getElementById('pad-display-scene').value = pad.display.sceneId;
+                    document.getElementById('pad-display-scene-select-container').style.display = 'block';
+                    document.getElementById('pad-display-device-select-container').style.display = 'none';
+                } else {
+                    document.getElementById('pad-display-source-type').value = 'device';
+                    this.populateDisplayDevices();
+                    document.getElementById('pad-display-device').value = pad.display.deviceId || '';
+                    document.getElementById('pad-display-scene-select-container').style.display = 'none';
+                    document.getElementById('pad-display-device-select-container').style.display = 'block';
+                }
+
                 document.getElementById('pad-display-mode').value = pad.display.mode || 'push';
                 document.getElementById('pad-display-interval').value = pad.display.interval || 100;
             } else {
@@ -1176,6 +1191,35 @@ class MeisterController {
             ).join('');
     }
 
+    populateDisplayScenes() {
+        const select = document.getElementById('pad-display-scene');
+        if (!select) return;
+
+        const sceneManager = this.sceneManager;
+        if (!sceneManager) {
+            select.innerHTML = '<option value="">-- No Scenes Found --</option>';
+            return;
+        }
+
+        // Get all Fire sequencer and regular sequencer scenes
+        const scenes = [];
+        for (let [sceneId, scene] of sceneManager.scenes) {
+            if (scene.type === 'fire-sequencer' || scene.type === 'sequencer') {
+                scenes.push({ id: sceneId, name: scene.name, type: scene.type });
+            }
+        }
+
+        if (scenes.length === 0) {
+            select.innerHTML = '<option value="">-- No Sequencer Scenes Found --</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Scene --</option>' +
+            scenes.map(scene =>
+                `<option value="${scene.id}">${scene.name} (${scene.type})</option>`
+            ).join('');
+    }
+
     isRegrooveActionCC(cc) {
         // List of all Regroove action CCs
         const regrooveCCs = [
@@ -1248,9 +1292,41 @@ class MeisterController {
         // Hide device binding for Action System (MIDI, Routing), Sequencer, and Display - those don't use device binding
         deviceField.style.display = (messageType === 'action' || messageType === 'sequencer' || messageType === 'display') ? 'none' : 'block';
 
-        // Populate device list for display widget
+        // Populate device/scene lists for display widget and setup source type toggle
         if (messageType === 'display') {
             this.populateDisplayDevices();
+            this.populateDisplayScenes();
+
+            // Setup source type toggle
+            const sourceTypeSelect = document.getElementById('pad-display-source-type');
+            const sceneContainer = document.getElementById('pad-display-scene-select-container');
+            const deviceContainer = document.getElementById('pad-display-device-select-container');
+
+            // Remove old listener if exists
+            if (sourceTypeSelect._displaySourceListener) {
+                sourceTypeSelect.removeEventListener('change', sourceTypeSelect._displaySourceListener);
+            }
+
+            // Add new listener
+            sourceTypeSelect._displaySourceListener = (e) => {
+                if (e.target.value === 'scene') {
+                    sceneContainer.style.display = 'block';
+                    deviceContainer.style.display = 'none';
+                } else {
+                    sceneContainer.style.display = 'none';
+                    deviceContainer.style.display = 'block';
+                }
+            };
+            sourceTypeSelect.addEventListener('change', sourceTypeSelect._displaySourceListener);
+
+            // Set initial state
+            if (sourceTypeSelect.value === 'scene') {
+                sceneContainer.style.display = 'block';
+                deviceContainer.style.display = 'none';
+            } else {
+                sceneContainer.style.display = 'none';
+                deviceContainer.style.display = 'block';
+            }
         }
 
         // If message type is sysex, check current sysex action and show appropriate parameters
@@ -1494,21 +1570,33 @@ class MeisterController {
                 }
             }
         } else if (messageType === 'display') {
-            const displayDeviceId = document.getElementById('pad-display-device').value;
+            const sourceType = document.getElementById('pad-display-source-type').value;
             const displayMode = document.getElementById('pad-display-mode').value || 'push';
             const displayInterval = parseInt(document.getElementById('pad-display-interval').value) || 100;
 
-            // Validate device selection
-            if (!displayDeviceId) {
-                window.nbDialog.alert('Please select a device to monitor!');
-                return;
+            if (sourceType === 'scene') {
+                const sceneId = document.getElementById('pad-display-scene').value;
+                if (!sceneId) {
+                    window.nbDialog.alert('Please select a scene to display!');
+                    return;
+                }
+                padConfig.display = {
+                    sceneId: sceneId,
+                    mode: displayMode,
+                    interval: displayInterval
+                };
+            } else {
+                const deviceId = document.getElementById('pad-display-device').value;
+                if (!deviceId) {
+                    window.nbDialog.alert('Please select a device to monitor!');
+                    return;
+                }
+                padConfig.display = {
+                    deviceId: deviceId,
+                    mode: displayMode,
+                    interval: displayInterval
+                };
             }
-
-            padConfig.display = {
-                deviceId: displayDeviceId,
-                mode: displayMode,
-                interval: displayInterval
-            };
             hasMessage = true;
         }
 
@@ -1681,6 +1769,60 @@ class MeisterController {
      * @returns {HTMLElement} The created pad element
      */
     createSinglePad(index, padConfig) {
+        // Check if this is a display widget instead of a pad
+        if (padConfig && padConfig.display) {
+            let displayElement;
+
+            // Support linking to a scene (Fire sequencer, regular sequencer, etc.)
+            if (padConfig.display.sceneId) {
+                const scene = this.sceneManager?.scenes.get(padConfig.display.sceneId);
+                if (!scene) {
+                    displayElement = document.createElement('div');
+                    displayElement.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Scene not found)</div>';
+                } else if (scene.type === 'fire-sequencer') {
+                    displayElement = document.createElement('fire-display');
+                    displayElement.setAttribute('scene-id', padConfig.display.sceneId);
+                } else if (scene.type === 'sequencer') {
+                    displayElement = document.createElement('sequencer-display');
+                    displayElement.setAttribute('scene-id', padConfig.display.sceneId);
+                } else {
+                    displayElement = document.createElement('div');
+                    displayElement.innerHTML = `<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(Scene type "${scene.type}" not supported)</div>`;
+                }
+            } else {
+                // Legacy: device-based display (for Regroove devices)
+                const deviceId = padConfig.display.deviceId;
+                if (!deviceId) {
+                    displayElement = document.createElement('div');
+                    displayElement.innerHTML = '<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(No scene or device configured)</div>';
+                } else {
+                    const device = this.deviceManager?.getDevice(deviceId);
+                    if (!device) {
+                        displayElement = document.createElement('div');
+                        displayElement.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Device not found)</div>';
+                    } else {
+                        displayElement = document.createElement('display-widget');
+                        displayElement.setAttribute('device-id', deviceId);
+                        displayElement.setAttribute('device-type', device.type);
+                        displayElement.setAttribute('display-mode', padConfig.display.mode || 'push');
+                        displayElement.setAttribute('update-interval', padConfig.display.interval || 100);
+                    }
+                }
+            }
+
+            // Store pad index for editing and add right-click menu
+            displayElement.dataset.padIndex = index;
+            displayElement.style.cursor = 'default';
+            displayElement.style.userSelect = 'none';
+
+            displayElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                this.openPadEditor(index);
+            });
+
+            return displayElement;
+        }
+
         const padElement = document.createElement('regroove-pad');
 
         if (padConfig) {

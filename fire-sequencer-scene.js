@@ -221,47 +221,8 @@ class FireSequencerScene {
             this.setupLinkedMode();
         }
 
-        // Initialize Fire display adapter if not already created
-        if (!this.fireDisplayAdapter && window.FireOLEDAdapter) {
-            const renderMode = this.scene.renderMode || 'text';
-
-            // Check if we have a valid physical device
-            const deviceManager = this.sceneManager.controller.deviceManager;
-            const device = this.scene.midiInputDevice && deviceManager
-                ? deviceManager.getDevice(this.scene.midiInputDevice)
-                : null;
-
-            // If device ID is set but device doesn't exist, clear it
-            if (this.scene.midiInputDevice && !device) {
-                console.warn(`[FireSequencer] Device "${this.scene.midiInputDevice}" not found - clearing invalid device ID`);
-                this.scene.midiInputDevice = null;
-            }
-
-            if (device && window.displayManager) {
-                // Physical Fire: Use device from Device Manager (auto-registered by Display System)
-                this.fireDisplayDeviceId = this.scene.midiInputDevice;
-            } else {
-                // Virtual Fire (software only): Create virtual display adapter
-                const deviceBinding = {
-                    id: 'fire-virtual',
-                    deviceId: 0,
-                    controller: this.sceneManager.controller,
-                    midiInputDevice: null
-                };
-
-                this.fireDisplayAdapter = new window.FireOLEDAdapter(
-                    deviceBinding,
-                    'virtual',
-                    renderMode
-                );
-                this.fireDisplayDeviceId = 'fire-virtual';
-
-                // Register with Display Message Manager if available
-                if (window.displayManager) {
-                    window.displayManager.registerDisplay(this.fireDisplayDeviceId, 'fire', this.fireDisplayAdapter);
-                }
-            }
-        }
+        // Initialize Fire OLED display adapter
+        this.initializeFireDisplayAdapter();
 
         // console.log(`[FireSequencer] Rendered in ${this.isLinkedMode() ? 'Linked' : 'Compatible'} mode`);
     }
@@ -1216,6 +1177,55 @@ class FireSequencerScene {
     /**
      * Setup linked mode - connect to sequencer
      */
+    /**
+     * Initialize Fire OLED display adapter
+     */
+    initializeFireDisplayAdapter() {
+        // Only create if not already created
+        if (this.fireDisplayAdapter || !window.FireOLEDAdapter) {
+            return;
+        }
+
+        const renderMode = this.scene.renderMode || 'text';
+
+        // Check if we have a valid physical device
+        const deviceManager = this.sceneManager.controller.deviceManager;
+        const device = this.scene.midiInputDevice && deviceManager
+            ? deviceManager.getDevice(this.scene.midiInputDevice)
+            : null;
+
+        // If device ID is set but device doesn't exist, clear it
+        if (this.scene.midiInputDevice && !device) {
+            console.warn(`[FireSequencer] Device "${this.scene.midiInputDevice}" not found - clearing invalid device ID`);
+            this.scene.midiInputDevice = null;
+        }
+
+        if (device && window.displayManager) {
+            // Physical Fire: Use device from Device Manager (auto-registered by Display System)
+            this.fireDisplayDeviceId = this.scene.midiInputDevice;
+        } else {
+            // Virtual Fire (software only): Create virtual display adapter
+            const deviceBinding = {
+                id: 'fire-virtual',
+                deviceId: 0,
+                controller: this.sceneManager.controller,
+                midiInputDevice: null
+            };
+
+            this.fireDisplayAdapter = new window.FireOLEDAdapter(
+                deviceBinding,
+                'virtual',
+                renderMode
+            );
+            this.fireDisplayDeviceId = 'fire-virtual';
+
+            // Register with Display Message Manager if available
+            if (window.displayManager) {
+                window.displayManager.registerDisplay(this.fireDisplayDeviceId, 'fire', this.fireDisplayAdapter);
+            }
+        }
+    }
+
     setupLinkedMode() {
         // console.log(`[FireSequencer] ===== SETUP LINKED MODE =====`);
         // console.log(`[FireSequencer] Linked sequencer ID: ${this.scene.linkedSequencer}`);
@@ -1238,6 +1248,8 @@ class FireSequencerScene {
             this.setupMIDIInputListener();
             // Initialize physical Fire hardware (clears all LEDs)
             this.initializeFireHardware();
+            // Initialize OLED display adapter
+            this.initializeFireDisplayAdapter();
         }
 
         // Sync mute/solo button visuals AFTER initializing hardware (so LEDs aren't cleared)

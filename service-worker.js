@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v552';
+const CACHE_NAME = 'meister-v576';
 const ASSETS = [
     './',
     './index.html',
@@ -37,6 +37,8 @@ const ASSETS = [
     './adapters/fire-oled-adapter.js',
     './adapters/web-display-adapter.js',
     './components/display-widget.js',
+    './components/fire-display.js',
+    './components/sequencer-display.js',
     './utils/display-message-builder.js'
 ];
 

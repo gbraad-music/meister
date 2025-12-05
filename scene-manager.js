@@ -82,12 +82,13 @@ export class SceneManager {
                     if (scene.linkedSequencer) {
                         scene.fireInstance.setupLinkedMode();
                     } else {
-                        // Compatible mode - just initialize hardware
+                        // Compatible mode - initialize hardware, MIDI listener, and OLED
                         scene.fireInstance.initializeFireHardware();
                         scene.fireInstance.setupMIDIInputListener();
+                        scene.fireInstance.initializeFireDisplayAdapter();
                     }
 
-                    // console.log(`[SceneManager] Pre-initialized persistent Fire scene: ${scene.name} (${sceneId})`);
+                    // console.log(`[SceneManager] ✓ Pre-initialized persistent Fire scene: ${scene.name}`);
                     count++;
                 } else {
                     console.error('[SceneManager] FireSequencerScene class not available - cannot initialize persistent Fire scenes');
@@ -1787,6 +1788,43 @@ export class SceneManager {
                         }
                     }
                 });
+        } else if (column.type === 'DISPLAY') {
+                // Display widget - shows device status
+                // Supports colspan for taking up multiple slot widths
+                const colspan = column.colspan || 1;
+
+                fader = document.createElement('div');
+                fader.style.cssText = `
+                    flex: ${colspan} 1 0;
+                    min-width: ${100 * colspan}px;
+                    height: 100%;
+                    min-height: 200px;
+                    display: flex;
+                    flex-direction: column;
+                `;
+
+                if (!column.deviceBinding) {
+                    fader.innerHTML = '<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(No device configured)</div>';
+                } else {
+                    const device = this.controller.deviceManager?.getDevice(column.deviceBinding);
+                    if (!device) {
+                        fader.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Device not found)</div>';
+                    } else {
+                        // Create display-widget element
+                        const displayWidget = document.createElement('display-widget');
+                        displayWidget.setAttribute('device-id', column.deviceBinding);
+                        displayWidget.setAttribute('device-type', device.type);
+                        displayWidget.setAttribute('display-mode', column.displayMode || 'push');
+                        displayWidget.setAttribute('update-interval', column.updateInterval || 100);
+
+                        displayWidget.style.cssText = `
+                            width: 100%;
+                            height: 100%;
+                        `;
+
+                        fader.appendChild(displayWidget);
+                    }
+                }
         }
 
         return fader;
@@ -3644,36 +3682,16 @@ export class SceneManager {
 
     /**
      * Create a display widget control (shows device status)
+     * NOTE: Display widgets are intended for split scenes only.
+     * Use split scenes to show device displays alongside faders.
      */
     createDisplayControl(cell, control, sceneId) {
-        if (!control.display || !control.display.deviceId) {
-            // No device configured - show placeholder
-            cell.innerHTML = '<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(No device configured)</div>';
-            return;
-        }
-
-        // Get device info
-        const deviceManager = this.controller.deviceManager;
-        const device = deviceManager?.getDevice(control.display.deviceId);
-
-        if (!device) {
-            cell.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Device not found)</div>';
-            return;
-        }
-
-        // Create display-widget element
-        const displayWidget = document.createElement('display-widget');
-        displayWidget.setAttribute('device-id', control.display.deviceId);
-        displayWidget.setAttribute('device-type', device.type);
-        displayWidget.setAttribute('display-mode', control.display.mode || 'push');
-        displayWidget.setAttribute('update-interval', control.display.interval || 100);
-
-        displayWidget.style.cssText = `
-            width: 100%;
-            height: 100%;
+        cell.innerHTML = `
+            <div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">
+                Display Widget<br>
+                <span style="font-size: 0.7em; opacity: 0.7;">Only available in Split scenes</span>
+            </div>
         `;
-
-        cell.appendChild(displayWidget);
     }
 
     /**
