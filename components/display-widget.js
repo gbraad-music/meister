@@ -25,6 +25,7 @@ class DisplayWidget extends HTMLElement {
         // console.log(`[DisplayWidget] Connected: deviceId=${this.deviceId}, deviceType=${this.deviceType}, deckId=${this.deckId}, displayMode=${this.displayMode}`);
 
         this.render();
+        this.applyDeckStyling();
         this.setupAdapter();
         this.startUpdates();
 
@@ -78,20 +79,36 @@ class DisplayWidget extends HTMLElement {
                     height: 100%;
                     background: #0a0a0a;
                     border: 3px solid #333;
-                    border-radius: 6px;
-                    padding: 12px;
+                    border-radius: 8px;
+                    padding: 0;
                     font-family: Arial, sans-serif;
                     font-size: 12px;
                     color: #ffffff;
                     box-sizing: border-box;
                     display: flex;
                     flex-direction: column;
+                    overflow: hidden;
+                }
+                .display-container.deck-a {
+                    border-color: #FF0000;
+                }
+                .display-container.deck-b {
+                    border-color: #0000FF;
+                }
+                .display-header {
+                    background: rgba(255, 255, 255, 0.05);
+                    padding: 8px 12px;
+                    font-weight: bold;
+                    font-size: 11px;
+                    letter-spacing: 1px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 }
                 .display-content {
                     line-height: 1.4;
                     flex: 1;
                     overflow-y: auto;
                     color: #ffffff;
+                    padding: 12px;
                 }
                 .line {
                     white-space: pre;
@@ -115,12 +132,35 @@ class DisplayWidget extends HTMLElement {
                     font-family: Arial, sans-serif;
                 }
             </style>
-            <div class="display-container">
+            <div class="display-container" id="display-container">
+                <div class="display-header" id="display-header"></div>
                 <div class="display-content" id="display-content">
                     <div class="offline">Waiting for data...</div>
                 </div>
             </div>
         `;
+    }
+
+    applyDeckStyling() {
+        const container = this.shadowRoot.getElementById('display-container');
+        const header = this.shadowRoot.getElementById('display-header');
+
+        if (!container || !header) return;
+
+        // Apply deck-specific styling
+        if (this.deckId === 1) {
+            container.classList.add('deck-a');
+            header.textContent = 'DECK A';
+        } else if (this.deckId === 2) {
+            container.classList.add('deck-b');
+            header.textContent = 'DECK B';
+        } else if (this.deviceType === 'fire') {
+            // Keep Fire display styling
+            header.textContent = this.deviceId?.toUpperCase() || 'FIRE';
+        } else {
+            // Generic device header
+            header.textContent = this.deviceId?.toUpperCase() || 'DEVICE';
+        }
     }
 
     setupAdapter() {

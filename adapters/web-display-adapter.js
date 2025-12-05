@@ -45,24 +45,48 @@ class WebDisplayAdapter {
         // Render lines
         message.lines.forEach((line, idx) => {
             const lineDiv = document.createElement('div');
-            lineDiv.style.fontFamily = 'monospace';
+            lineDiv.style.fontFamily = 'Arial, sans-serif';
             lineDiv.style.fontSize = '14px';
             lineDiv.style.whiteSpace = 'pre';
-            lineDiv.style.lineHeight = '1.4';
+            lineDiv.style.lineHeight = '1.5';
+            lineDiv.style.height = '21px';  // Fixed height to prevent wobble
+            lineDiv.style.display = 'block';
+            lineDiv.style.overflow = 'hidden';
 
-            // Check for PFL and FX indicators to color them
-            if (message.metadata?.pfl && idx === 0 && line.includes('PFL')) {
-                // Color PFL green
-                const pflIndex = line.indexOf('PFL');
-                const before = line.substring(0, pflIndex);
-                const after = line.substring(pflIndex + 3);
-                lineDiv.innerHTML = `<span style="color: #4a9eff">${before}</span><span style="color: #00ff00; font-weight: bold;">PFL</span><span style="color: #4a9eff">${after}</span>`;
+            // Check for PFL, LOOP, and FX indicators to color them
+            if (idx === 0 && (line.includes('PFL') || line.includes('LOOP'))) {
+                // Color PFL green and LOOP yellow
+                let coloredLine = line;
+
+                // Replace LOOP with yellow
+                if (line.includes('LOOP')) {
+                    coloredLine = coloredLine.replace('LOOP', '<span style="color: #FFFF00; font-weight: bold;">LOOP</span>');
+                }
+
+                // Replace PFL with green
+                if (line.includes('PFL')) {
+                    coloredLine = coloredLine.replace('PFL', '<span style="color: #00ff00; font-weight: bold;">PFL</span>');
+                }
+
+                // Wrap rest in default color
+                lineDiv.innerHTML = `<span style="color: #4a9eff">${coloredLine}</span>`;
             } else if (message.metadata?.fx && idx === 1 && line.includes('FX:')) {
-                // Color FX indicators
-                const fxIndex = line.indexOf('FX:');
-                const before = line.substring(0, fxIndex);
-                const fxPart = line.substring(fxIndex);
-                lineDiv.innerHTML = `<span style="color: #4a9eff">${before}</span><span style="color: #ffaa00; font-weight: bold;">${fxPart}</span>`;
+                // Render FX indicators as green highlighted boxes
+                const fxMatch = line.match(/FX:([1-4]+)/);
+                if (fxMatch) {
+                    const before = line.substring(0, line.indexOf('FX:'));
+                    const fxNumbers = fxMatch[1].split('');
+
+                    let fxHtml = `<span style="color: #4a9eff">${before}</span>`;
+                    fxNumbers.forEach((num, i) => {
+                        const bgColor = message.metadata.fxColors?.[num] || '#00FF00';
+                        fxHtml += `<span style="display: inline-block; background: ${bgColor}; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 3px; border-radius: 3px; font-size: 11px; line-height: 1;">FX${num}</span>`;
+                    });
+
+                    lineDiv.innerHTML = fxHtml;
+                } else {
+                    lineDiv.textContent = line;
+                }
             } else {
                 lineDiv.textContent = line;
             }

@@ -185,10 +185,10 @@ class DisplayMessageManager {
      */
     createMixxxStatusMessage(deviceId, state) {
         const deckNum = state.deck || 1;
-        const playing = state.playing ? '>' : '||';
-        const looping = state.looping ? 'L' : ' ';
-        const sync = state.sync ? 'S' : ' ';
-        const pfl = state.pfl ? 'PFL' : '   ';
+        const playing = state.playing ? '▶ ' : '⏸ ';
+        const looping = (state.playing && state.looping) ? ' LOOP' : '';
+        const sync = state.sync ? ' S' : '';
+        const pfl = state.pfl ? ' PFL' : '';
 
         // FX indicators (show which FX units are enabled)
         const fx = [];
@@ -197,6 +197,14 @@ class DisplayMessageManager {
         if (state.fx3) fx.push('3');
         if (state.fx4) fx.push('4');
         const fxStr = fx.length > 0 ? `FX:${fx.join('')}` : '';
+
+        // FX color mapping (green for all FX)
+        const fxColors = {
+            '1': '#00FF00',  // Green
+            '2': '#00FF00',  // Green
+            '3': '#00FF00',  // Green
+            '4': '#00FF00'   // Green
+        };
 
         // Format BPM with 2 decimal places
         const bpm = state.bpm ? state.bpm.toFixed(2) : '0.00';
@@ -219,13 +227,16 @@ class DisplayMessageManager {
         const currentTime = formatTime((state.position / 100) * (state.duration || 0));
         const totalTime = formatTime(state.duration || 0);
 
+        // Line 1: Play status, loop (if playing), sync, PFL, and BPM
+        const statusLine = `${playing}${looping}${sync}${pfl} ${bpm} BPM`.padEnd(20);
+
         return {
             type: 'display_message',
             deviceId,
             deviceType: 'mixxx',
             lines: [
-                `DECK ${deckNum} ${playing} ${looping}${sync} ${pfl}`.padEnd(20),
-                `${bpm} BPM ${fxStr}`.padEnd(20),
+                statusLine,
+                fxStr.padEnd(20),
                 `VOL ${volBar}`.padEnd(20),
                 `${posBar} ${currentTime}/${totalTime}`.padEnd(20)
             ],
@@ -233,7 +244,8 @@ class DisplayMessageManager {
                 category: 'status',
                 priority: 'normal',
                 pfl: state.pfl,
-                fx: fx.length > 0
+                fx: fx.length > 0,
+                fxColors: fxColors
             }
         };
     }
