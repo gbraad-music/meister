@@ -22,6 +22,8 @@ class DisplayWidget extends HTMLElement {
         this.displayMode = this.getAttribute('display-mode') || 'auto'; // 'auto', 'poll', 'push'
         this.deckId = parseInt(this.getAttribute('deck-id')) || null;
 
+        // console.log(`[DisplayWidget] Connected: deviceId=${this.deviceId}, deviceType=${this.deviceType}, deckId=${this.deckId}, displayMode=${this.displayMode}`);
+
         this.render();
         this.setupAdapter();
         this.startUpdates();
@@ -85,13 +87,6 @@ class DisplayWidget extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                 }
-                .display-header {
-                    font-size: 10px;
-                    color: #888;
-                    margin-bottom: 8px;
-                    text-transform: uppercase;
-                    flex-shrink: 0;
-                }
                 .display-content {
                     line-height: 1.4;
                     flex: 1;
@@ -121,7 +116,6 @@ class DisplayWidget extends HTMLElement {
                 }
             </style>
             <div class="display-container">
-                <div class="display-header">${this.deviceType} - ${this.deviceId}</div>
                 <div class="display-content" id="display-content">
                     <div class="offline">Waiting for data...</div>
                 </div>
@@ -133,17 +127,13 @@ class DisplayWidget extends HTMLElement {
         const container = this.shadowRoot.getElementById('display-content');
         if (!container) return;
 
-        // Create a temporary element ID for WebDisplayAdapter
-        const tempId = `display-widget-${this.deviceId}`;
-        container.id = tempId;
-
-        // Create WebDisplayAdapter
-        this.adapter = new window.WebDisplayAdapter(tempId);
+        // Create WebDisplayAdapter with direct element reference (shadow DOM fix)
+        this.adapter = new window.WebDisplayAdapter(container);
 
         // Register with display manager
         if (window.displayManager) {
             window.displayManager.registerDisplay(this.deviceId, this.deviceType, this.adapter);
-            console.log(`[DisplayWidget] Registered with manager: ${this.deviceId}`);
+            // console.log(`[DisplayWidget] Registered with manager: ${this.deviceId}`);
         } else {
             console.warn('[DisplayWidget] DisplayMessageManager not found');
         }
@@ -172,19 +162,27 @@ class DisplayWidget extends HTMLElement {
     }
 
     updateDisplay() {
+        // console.log(`[DisplayWidget] updateDisplay called for deviceId=${this.deviceId}, deckId=${this.deckId}`);
+
         if (!window.deviceManager || !window.displayManager) {
+            // console.log(`[DisplayWidget] Missing managers: deviceManager=${!!window.deviceManager}, displayManager=${!!window.displayManager}`);
             return;
         }
 
         // Get device from device manager
         const device = window.deviceManager.getDevice(this.deviceId);
+        // console.log(`[DisplayWidget] Device lookup for ${this.deviceId}:`, device);
         if (!device) {
+            // console.log(`[DisplayWidget] Device not found, showing offline`);
             this.showOffline();
             return;
         }
 
         // Check if this is a physical device or virtual
-        const isPhysical = device.midiOutputName || device.deviceId !== undefined;
+        // Mixxx is always virtual (no hardware display)
+        const isPhysical = (device.type !== 'mixxx') && (device.midiOutputName || device.deviceId !== undefined);
+
+        // console.log(`[DisplayWidget] Device type=${device.type}, isPhysical=${isPhysical}, displayMode=${this.displayMode}`);
 
         if (isPhysical && this.displayMode === 'poll') {
             // Request display content from physical device via GET_DISPLAY
@@ -195,7 +193,7 @@ class DisplayWidget extends HTMLElement {
         } else {
             // For virtual devices, build status message locally
             const state = this.getVirtualDeviceState();
-            console.log(`[DisplayWidget] Virtual device state:`, state);
+            // console.log(`[DisplayWidget] Virtual device state:`, state);
 
             if (state) {
                 const message = window.displayManager.createStatusMessage(
@@ -204,10 +202,10 @@ class DisplayWidget extends HTMLElement {
                     state
                 );
 
-                console.log(`[DisplayWidget] Created message:`, message);
+                // console.log(`[DisplayWidget] Created message:`, message);
 
                 if (message && this.adapter) {
-                    console.log(`[DisplayWidget] Sending message to adapter`);
+                    // console.log(`[DisplayWidget] Sending message to adapter`);
                     this.adapter.sendMessage(message);
                 } else {
                     console.warn(`[DisplayWidget] No message or adapter: message=${!!message}, adapter=${!!this.adapter}`);
@@ -223,16 +221,17 @@ class DisplayWidget extends HTMLElement {
 
         // Try Mixxx deck state
         if (this.deviceType === 'mixxx' && this.deckId) {
-            const controller = window.controller;
-            console.log(`[DisplayWidget] Getting Mixxx state for ${this.deviceId}, deckId=${this.deckId}, controller exists=${!!controller}, mixxxDeckState exists=${!!controller?.mixxxDeckState}`);
+            const controller = window.meisterController;
+            // console.log(`[DisplayWidget] Getting Mixxx state for ${this.deviceId}, deckId=${this.deckId}, controller exists=${!!controller}, mixxxDeckState exists=${!!controller?.mixxxDeckState}, mixxxDeckState size=${controller?.mixxxDeckState?.size}`);
 
             if (controller?.mixxxDeckState) {
+                // console.log(`[DisplayWidget] mixxxDeckState keys:`, Array.from(controller.mixxxDeckState.keys()));
                 const deviceState = controller.mixxxDeckState.get(this.deviceId);
-                console.log(`[DisplayWidget] deviceState for ${this.deviceId}:`, deviceState);
+                // console.log(`[DisplayWidget] deviceState for ${this.deviceId}:`, deviceState);
 
                 if (deviceState && deviceState.decks) {
                     const deckState = deviceState.decks[this.deckId - 1]; // Convert 1-based to 0-based
-                    console.log(`[DisplayWidget] deckState for deck ${this.deckId}:`, deckState);
+                    // console.log(`[DisplayWidget] deckState for deck ${this.deckId}:`, deckState);
 
                     if (deckState) {
                         const state = {
@@ -243,15 +242,16 @@ class DisplayWidget extends HTMLElement {
                             cue: deckState.cue,
                             bpm: deckState.bpm,
                             volume: deckState.volume,
-                            position: deckState.position
+                            position: deckState.position,
+                            duration: deckState.duration
                         };
-                        console.log(`[DisplayWidget] Returning state:`, state);
+                        // console.log(`[DisplayWidget] Returning state:`, state);
                         return state;
                     }
                 }
             }
             // Fallback for Mixxx when no state yet
-            console.log(`[DisplayWidget] No state found, using fallback`);
+            // console.log(`[DisplayWidget] No state found, using fallback`);
             return {
                 deck: this.deckId,
                 playing: false,

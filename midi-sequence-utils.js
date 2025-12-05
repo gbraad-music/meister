@@ -517,11 +517,11 @@ export function parseProgramStateResponse(data) {
  * @returns {Object|null} - Parsed deck state or null if invalid
  */
 export function parseDeckStateResponse(data) {
-    // Format: F0 7D <dev> 67 <36 bytes of state> F7
-    // Total: 4 header + 36 data + 1 end = 41 bytes
+    // Format: F0 7D <dev> 67 <48 bytes of state> F7
+    // Total: 4 header + 48 data (4 decks × 11 bytes + 4 master) + 1 end = 53 bytes
 
-    if (data.length < 41) {
-        console.warn(`[DeckState] Message too short: ${data.length} bytes (expected 41)`);
+    if (data.length < 53) {
+        console.warn(`[DeckState] Message too short: ${data.length} bytes (expected 53)`);
         return null;
     }
 
@@ -533,7 +533,7 @@ export function parseDeckStateResponse(data) {
 
     // Parse 4 decks
     for (let i = 0; i < 4; i++) {
-        const offset = 4 + (i * 8); // Start at byte 4, 8 bytes per deck
+        const offset = 4 + (i * 11); // Start at byte 4, 11 bytes per deck
 
         const flags = data[offset];
         const bpmInt = data[offset + 1];
@@ -542,12 +542,19 @@ export function parseDeckStateResponse(data) {
         const posMsb = data[offset + 4];
         const posLsb = data[offset + 5];
         const rate = data[offset + 6]; // Rate: 0-127 (center at 64)
+        const duration = data[offset + 7]; // Duration in 10-second increments
+        const eqHigh = data[offset + 8]; // EQ High: 0-127
+        const eqMid = data[offset + 9]; // EQ Mid: 0-127
+        const eqLow = data[offset + 10]; // EQ Low: 0-127
 
         // Calculate BPM with decimal precision
         const bpm = bpmInt + (bpmFrac / 100);
 
         // Calculate position percentage (0-100)
         const position = ((posMsb << 7) | posLsb) / 163.83; // Max 16383 / 163.83 ≈ 100%
+
+        // Calculate duration in seconds
+        const durationSeconds = duration * 10;
 
         decks.push({
             deck: i + 1, // Deck 1-4
@@ -558,13 +565,17 @@ export function parseDeckStateResponse(data) {
             bpm: bpm,
             volume: volume,
             position: position,
-            rate: rate // Pitch rate: 0-127 (64 = center/normal)
+            rate: rate, // Pitch rate: 0-127 (64 = center/normal)
+            duration: durationSeconds, // Track duration in seconds
+            eqHigh: eqHigh, // EQ High: 0-127
+            eqMid: eqMid, // EQ Mid: 0-127
+            eqLow: eqLow // EQ Low: 0-127
         });
     }
 
-    // Parse master state (bytes 36-39 of message, state bytes 32-35)
-    const crossfader = data[36];
-    const headphoneMix = data[37];
+    // Parse master state (bytes 48-51 of message, state bytes 44-47)
+    const crossfader = data[48];
+    const headphoneMix = data[49];
 
     return {
         decks: decks,

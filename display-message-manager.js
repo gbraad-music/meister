@@ -185,9 +185,9 @@ class DisplayMessageManager {
      */
     createMixxxStatusMessage(deviceId, state) {
         const deckNum = state.deck || 1;
-        const playing = state.playing ? '▶' : '⏸';
-        const looping = state.looping ? '🔁' : '';
-        const sync = state.sync ? '🔗' : '';
+        const playing = state.playing ? '>' : '||';
+        const looping = state.looping ? 'L' : ' ';
+        const sync = state.sync ? 'S' : ' ';
 
         // Format BPM with 2 decimal places
         const bpm = state.bpm ? state.bpm.toFixed(2) : '0.00';
@@ -196,9 +196,19 @@ class DisplayMessageManager {
         const volLevel = Math.round((state.volume / 127) * 10);
         const volBar = '█'.repeat(volLevel) + '░'.repeat(10 - volLevel);
 
-        // Position bar (16 chars)
-        const posLevel = Math.round((state.position / 100) * 16);
-        const posBar = '▓'.repeat(posLevel) + '░'.repeat(16 - posLevel);
+        // Position bar (10 chars)
+        const posLevel = Math.round((state.position / 100) * 10);
+        const posBar = '█'.repeat(posLevel) + '░'.repeat(10 - posLevel);
+
+        // Format time as M:SS
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const currentTime = formatTime((state.position / 100) * (state.duration || 0));
+        const totalTime = formatTime(state.duration || 0);
 
         return {
             type: 'display_message',
@@ -208,7 +218,7 @@ class DisplayMessageManager {
                 `DECK ${deckNum} ${playing} ${looping}${sync}`.padEnd(20),
                 `${bpm} BPM`.padEnd(20),
                 `VOL ${volBar}`.padEnd(20),
-                posBar
+                `${posBar} ${currentTime}/${totalTime}`.padEnd(20)
             ],
             metadata: { category: 'status', priority: 'normal' }
         };

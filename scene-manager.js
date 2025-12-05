@@ -4293,14 +4293,14 @@ export class SceneManager {
      * @param {Uint8Array} data - SysEx message data
      */
     handleDeckStateResponse(deviceId, data) {
-        console.log(`[Scene] handleDeckStateResponse called for device: ${deviceId}, data length: ${data.length}`);
+        // console.log(`[Scene] handleDeckStateResponse called for device: ${deviceId}, data length: ${data.length}`);
         const state = parseDeckStateResponse(data);
         if (!state) {
             console.warn('[Scene] Failed to parse deck state response');
             return;
         }
 
-        console.log('[Scene] Parsed deck state:', state);
+        // console.log('[Scene] Parsed deck state:', state);
 
         // Store deck state in controller for display widgets
         if (!this.controller.mixxxDeckState) {
@@ -4488,6 +4488,80 @@ export class SceneManager {
                 // console.log(`[Scene] Updating X-FADE (CC 19) to ${crossfader}`);
                 fader.setAttribute('value', crossfader.toString());
             }
+
+            // EQ HIGH A (CC 40) - Deck 1 EQ High
+            else if (cc === 40 && state.decks[0]) {
+                fader.setAttribute('value', state.decks[0].eqHigh.toString());
+            }
+
+            // EQ MID A (CC 41) - Deck 1 EQ Mid
+            else if (cc === 41 && state.decks[0]) {
+                fader.setAttribute('value', state.decks[0].eqMid.toString());
+            }
+
+            // EQ LOW A (CC 42) - Deck 1 EQ Low
+            else if (cc === 42 && state.decks[0]) {
+                fader.setAttribute('value', state.decks[0].eqLow.toString());
+            }
+
+            // EQ HIGH B (CC 43) - Deck 2 EQ High
+            else if (cc === 43 && state.decks[1]) {
+                fader.setAttribute('value', state.decks[1].eqHigh.toString());
+            }
+
+            // EQ MID B (CC 44) - Deck 2 EQ Mid
+            else if (cc === 44 && state.decks[1]) {
+                fader.setAttribute('value', state.decks[1].eqMid.toString());
+            }
+
+            // EQ LOW B (CC 45) - Deck 2 EQ Low
+            else if (cc === 45 && state.decks[1]) {
+                fader.setAttribute('value', state.decks[1].eqLow.toString());
+            }
+        });
+
+        // Also update knobs (EQ uses pad-knob components)
+        const knobs = container.querySelectorAll('pad-knob');
+        knobs.forEach(knob => {
+            // Skip update if user is currently changing this knob
+            if (knob.dataset.ccChanging === 'true') {
+                return;
+            }
+
+            const cc = parseInt(knob.getAttribute('cc'));
+
+            // EQ HIGH A (CC 40) - Deck 1 EQ High
+            if (cc === 40 && state.decks[0]) {
+                knob.setAttribute('value', state.decks[0].eqHigh.toString());
+            }
+            // EQ MID A (CC 41) - Deck 1 EQ Mid
+            else if (cc === 41 && state.decks[0]) {
+                knob.setAttribute('value', state.decks[0].eqMid.toString());
+            }
+            // EQ LOW A (CC 42) - Deck 1 EQ Low
+            else if (cc === 42 && state.decks[0]) {
+                knob.setAttribute('value', state.decks[0].eqLow.toString());
+            }
+            // EQ HIGH B (CC 43) - Deck 2 EQ High
+            else if (cc === 43 && state.decks[1]) {
+                knob.setAttribute('value', state.decks[1].eqHigh.toString());
+            }
+            // EQ MID B (CC 44) - Deck 2 EQ Mid
+            else if (cc === 44 && state.decks[1]) {
+                knob.setAttribute('value', state.decks[1].eqMid.toString());
+            }
+            // EQ LOW B (CC 45) - Deck 2 EQ Low
+            else if (cc === 45 && state.decks[1]) {
+                knob.setAttribute('value', state.decks[1].eqLow.toString());
+            }
+            // GAIN A (CC 46) - Deck 1 Pregain
+            else if (cc === 46 && state.decks[0]) {
+                // Pregain not in state yet - need to add it
+            }
+            // GAIN B (CC 47) - Deck 2 Pregain
+            else if (cc === 47 && state.decks[1]) {
+                // Pregain not in state yet - need to add it
+            }
         });
     }
 
@@ -4498,11 +4572,12 @@ export class SceneManager {
     updateMixxxDisplays(deviceId) {
         // Find all display widgets for this device
         const displays = document.querySelectorAll(`display-widget[device-id="${deviceId}"][device-type="mixxx"]`);
+        // console.log(`[Scene] updateMixxxDisplays: Found ${displays.length} display widgets for device ${deviceId}`);
         displays.forEach(display => {
             // Display widgets will automatically query state via getVirtualDeviceState()
-            // Just trigger a refresh by calling render()
-            if (display.render) {
-                display.render();
+            // Trigger a refresh by calling the public refresh() method
+            if (display.refresh) {
+                display.refresh();
             }
         });
     }

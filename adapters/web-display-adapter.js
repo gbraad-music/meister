@@ -4,14 +4,21 @@
  */
 
 class WebDisplayAdapter {
-    constructor(elementId) {
-        this.elementId = elementId;
-        this.element = document.getElementById(elementId);
+    constructor(elementIdOrElement) {
+        // Support both element ID (string) and direct element reference
+        if (typeof elementIdOrElement === 'string') {
+            this.elementId = elementIdOrElement;
+            this.element = document.getElementById(elementIdOrElement);
+        } else {
+            // Direct element reference (for shadow DOM elements)
+            this.element = elementIdOrElement;
+            this.elementId = elementIdOrElement.id || 'direct-element';
+        }
         this.lines = [];
 
         // Note: Element may be in shadow DOM and not found initially - will be queried on first message
         if (this.element) {
-            // console.log(`[WebDisplay] Initialized for element: ${elementId}`);
+            // console.log(`[WebDisplay] Initialized for element: ${this.elementId}`);
         }
     }
 
