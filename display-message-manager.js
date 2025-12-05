@@ -188,6 +188,15 @@ class DisplayMessageManager {
         const playing = state.playing ? '>' : '||';
         const looping = state.looping ? 'L' : ' ';
         const sync = state.sync ? 'S' : ' ';
+        const pfl = state.pfl ? 'PFL' : '   ';
+
+        // FX indicators (show which FX units are enabled)
+        const fx = [];
+        if (state.fx1) fx.push('1');
+        if (state.fx2) fx.push('2');
+        if (state.fx3) fx.push('3');
+        if (state.fx4) fx.push('4');
+        const fxStr = fx.length > 0 ? `FX:${fx.join('')}` : '';
 
         // Format BPM with 2 decimal places
         const bpm = state.bpm ? state.bpm.toFixed(2) : '0.00';
@@ -215,12 +224,17 @@ class DisplayMessageManager {
             deviceId,
             deviceType: 'mixxx',
             lines: [
-                `DECK ${deckNum} ${playing} ${looping}${sync}`.padEnd(20),
-                `${bpm} BPM`.padEnd(20),
+                `DECK ${deckNum} ${playing} ${looping}${sync} ${pfl}`.padEnd(20),
+                `${bpm} BPM ${fxStr}`.padEnd(20),
                 `VOL ${volBar}`.padEnd(20),
                 `${posBar} ${currentTime}/${totalTime}`.padEnd(20)
             ],
-            metadata: { category: 'status', priority: 'normal' }
+            metadata: {
+                category: 'status',
+                priority: 'normal',
+                pfl: state.pfl,
+                fx: fx.length > 0
+            }
         };
     }
 

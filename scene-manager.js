@@ -259,49 +259,27 @@ export class SceneManager {
             { label: 'Cue A2', cc: 2, color: '#0088FF' },
             { label: 'Cue A3', cc: 3, color: '#0088FF' },
             { label: 'Cue A4', cc: 4, color: '#0088FF' },
-            {
-                label: 'Loop A1', cc: 5, color: '#FFCC00',  // Orange/yellow for loops
-                deckStateBinding: {
-                    deck: 1,
-                    control: 'looping',
-                    colorMap: {
-                        'true': '#00DD00',   // Green when loop enabled
-                        'false': '#FFCC00',  // Orange when loop disabled
-                        'default': '#FFCC00'
-                    }
-                }
-            },
+            { label: 'Loop A1', cc: 5, color: '#FFCC00' },
             { label: 'Loop A2', cc: 6, color: '#FFCC00' },
             { label: 'Loop A3', cc: 7, color: '#FFCC00' },
             { label: 'Loop A4', cc: 8, color: '#FFCC00' },
-            { label: 'FX A1', cc: 9, color: '#00DD00' },  // Bright green for FX
+            { label: 'FX A1', cc: 9, color: '#00DD00' },
             { label: 'FX A2', cc: 10, color: '#00DD00' },
             { label: 'FX A3', cc: 11, color: '#00DD00' },
             { label: 'FX A4', cc: 12, color: '#00DD00' },
             {
-                label: 'Play A', cc: 13, color: '#DD0000',  // Dark red for play
+                label: 'Play A', cc: 13, color: '#DD0000',
                 deckStateBinding: {
                     deck: 1,
                     control: 'playing',
                     colorMap: {
-                        'true': '#00DD00',   // Green when playing
-                        'false': '#DD0000',  // Red when stopped
+                        'true': '#00DD00',
+                        'false': '#DD0000',
                         'default': '#DD0000'
                     }
                 }
             },
-            {
-                label: 'Sync A', cc: 14, color: '#FFAA00',  // Orange for sync
-                deckStateBinding: {
-                    deck: 1,
-                    control: 'sync',
-                    colorMap: {
-                        'true': '#00DD00',   // Green when sync enabled
-                        'false': '#FFAA00',  // Orange when sync disabled
-                        'default': '#FFAA00'
-                    }
-                }
-            },
+            { label: 'Sync A', cc: 14, color: '#FFAA00' },
             { label: 'PFL A', cc: 15, color: '#888' },
             { label: 'Load A', cc: 16, color: '#888' },
         ];
@@ -540,53 +518,31 @@ export class SceneManager {
 
         // Right deck pads (4x4 grid, cols 8-11, rows 0-3)
         const rightDeckPads = [
-            { label: 'Cue B1', cc: 21, color: '#0088FF' },  // Blue for CUE buttons
+            { label: 'Cue B1', cc: 21, color: '#0088FF' },
             { label: 'Cue B2', cc: 22, color: '#0088FF' },
             { label: 'Cue B3', cc: 23, color: '#0088FF' },
             { label: 'Cue B4', cc: 24, color: '#0088FF' },
-            {
-                label: 'Loop B1', cc: 25, color: '#FFCC00',  // Orange/yellow for loops
-                deckStateBinding: {
-                    deck: 2,
-                    control: 'looping',
-                    colorMap: {
-                        'true': '#00DD00',   // Green when loop enabled
-                        'false': '#FFCC00',  // Orange when loop disabled
-                        'default': '#FFCC00'
-                    }
-                }
-            },
+            { label: 'Loop B1', cc: 25, color: '#FFCC00' },
             { label: 'Loop B2', cc: 26, color: '#FFCC00' },
             { label: 'Loop B3', cc: 27, color: '#FFCC00' },
             { label: 'Loop B4', cc: 28, color: '#FFCC00' },
-            { label: 'FX B1', cc: 29, color: '#00DD00' },  // Bright green for FX
+            { label: 'FX B1', cc: 29, color: '#00DD00' },
             { label: 'FX B2', cc: 30, color: '#00DD00' },
             { label: 'FX B3', cc: 31, color: '#00DD00' },
             { label: 'FX B4', cc: 32, color: '#00DD00' },
             {
-                label: 'Play B', cc: 33, color: '#DD0000',  // Dark red for play
+                label: 'Play B', cc: 33, color: '#DD0000',
                 deckStateBinding: {
                     deck: 2,
                     control: 'playing',
                     colorMap: {
-                        'true': '#00DD00',   // Green when playing
-                        'false': '#DD0000',  // Red when stopped
+                        'true': '#00DD00',
+                        'false': '#DD0000',
                         'default': '#DD0000'
                     }
                 }
             },
-            {
-                label: 'Sync B', cc: 34, color: '#FFAA00',  // Orange for sync
-                deckStateBinding: {
-                    deck: 2,
-                    control: 'sync',
-                    colorMap: {
-                        'true': '#00DD00',   // Green when sync enabled
-                        'false': '#FFAA00',  // Orange when sync disabled
-                        'default': '#FFAA00'
-                    }
-                }
-            },
+            { label: 'Sync B', cc: 34, color: '#FFAA00' },
             { label: 'PFL B', cc: 35, color: '#888' },
             { label: 'Load B', cc: 36, color: '#888' },
         ];
@@ -4415,6 +4371,76 @@ export class SceneManager {
                 const padElement = this.controller.pads[index];
                 if (padElement && color) {
                     padElement.setAttribute('color', color);
+                }
+            });
+        }
+
+        // Update pad colors for FX, Loop, Sync, PFL (works for both dj-decks and control-grid)
+        const scene = this.scenes.get(this.currentScene);
+        if (scene) {
+            const allPads = document.querySelectorAll(`[data-scene-id="${this.currentScene}"] regroove-pad`);
+
+            allPads.forEach(pad => {
+                // Pads can have either 'cc' or 'note' attribute
+                const ccAttr = pad.getAttribute('cc');
+                const noteAttr = pad.getAttribute('note');
+                const cc = parseInt(ccAttr || noteAttr);
+                if (isNaN(cc)) return;
+
+                // Deck A pads
+                if (state.decks[0]) {
+                    const deckA = state.decks[0];
+
+                    // Loop A1-4 (CC 5-8): Yellow when looping, grey when not
+                    if (cc >= 5 && cc <= 8) {
+                        pad.setAttribute('color', deckA.looping ? '#FFCC00' : '#888');
+                    }
+                    // FX A1-4 (CC 9-12): Green when FX enabled, grey when not
+                    else if (cc === 9) {
+                        pad.setAttribute('color', deckA.fx1 ? '#00DD00' : '#888');
+                    } else if (cc === 10) {
+                        pad.setAttribute('color', deckA.fx2 ? '#00DD00' : '#888');
+                    } else if (cc === 11) {
+                        pad.setAttribute('color', deckA.fx3 ? '#00DD00' : '#888');
+                    } else if (cc === 12) {
+                        pad.setAttribute('color', deckA.fx4 ? '#00DD00' : '#888');
+                    }
+                    // Sync A (CC 14): Yellow when enabled, grey when not
+                    else if (cc === 14) {
+                        pad.setAttribute('color', deckA.sync ? '#FFCC00' : '#888');
+                    }
+                    // PFL A (CC 15): Green when enabled, grey when not
+                    else if (cc === 15) {
+                        pad.setAttribute('color', deckA.pfl ? '#00ff00' : '#888');
+                    }
+                }
+
+                // Deck B pads
+                if (state.decks[1]) {
+                    const deckB = state.decks[1];
+
+                    // Loop B1-4 (CC 25-28): Yellow when looping, grey when not
+                    if (cc >= 25 && cc <= 28) {
+                        pad.setAttribute('color', deckB.looping ? '#FFCC00' : '#888');
+                    }
+                    // FX B1-4 (CC 29-32): Default color when FX enabled, grey when not
+                    else if (cc === 29) {
+                        pad.setAttribute('color', deckB.fx1 ? '#00DD00' : '#888');
+                    } else if (cc === 30) {
+                        pad.setAttribute('color', deckB.fx2 ? '#00DD00' : '#888');
+                    } else if (cc === 31) {
+                        pad.setAttribute('color', deckB.fx3 ? '#00DD00' : '#888');
+                    } else if (cc === 32) {
+                        pad.setAttribute('color', deckB.fx4 ? '#00DD00' : '#888');
+                    }
+                    // Sync B (CC 34): Yellow when enabled, grey when not
+                    else if (cc === 34) {
+                        pad.setAttribute('color', deckB.sync ? '#FFCC00' : '#888');
+                    }
+                    // PFL B (CC 35): Green when enabled, grey when not
+                    else if (cc === 35) {
+                        pad.setAttribute('color', deckB.pfl ? '#00ff00' : '#888');
+                    }
                 }
             });
         }

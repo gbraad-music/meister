@@ -240,10 +240,18 @@ class DisplayWidget extends HTMLElement {
                             looping: deckState.looping,
                             sync: deckState.sync,
                             cue: deckState.cue,
+                            pfl: deckState.pfl,
+                            fx1: deckState.fx1,
+                            fx2: deckState.fx2,
+                            fx3: deckState.fx3,
+                            fx4: deckState.fx4,
                             bpm: deckState.bpm,
                             volume: deckState.volume,
                             position: deckState.position,
-                            duration: deckState.duration
+                            duration: deckState.duration,
+                            eqHigh: deckState.eqHigh,
+                            eqMid: deckState.eqMid,
+                            eqLow: deckState.eqLow
                         };
                         // console.log(`[DisplayWidget] Returning state:`, state);
                         return state;

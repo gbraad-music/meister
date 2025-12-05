@@ -45,11 +45,27 @@ class WebDisplayAdapter {
         // Render lines
         message.lines.forEach((line, idx) => {
             const lineDiv = document.createElement('div');
-            lineDiv.textContent = line;
             lineDiv.style.fontFamily = 'monospace';
             lineDiv.style.fontSize = '14px';
             lineDiv.style.whiteSpace = 'pre';
             lineDiv.style.lineHeight = '1.4';
+
+            // Check for PFL and FX indicators to color them
+            if (message.metadata?.pfl && idx === 0 && line.includes('PFL')) {
+                // Color PFL green
+                const pflIndex = line.indexOf('PFL');
+                const before = line.substring(0, pflIndex);
+                const after = line.substring(pflIndex + 3);
+                lineDiv.innerHTML = `<span style="color: #4a9eff">${before}</span><span style="color: #00ff00; font-weight: bold;">PFL</span><span style="color: #4a9eff">${after}</span>`;
+            } else if (message.metadata?.fx && idx === 1 && line.includes('FX:')) {
+                // Color FX indicators
+                const fxIndex = line.indexOf('FX:');
+                const before = line.substring(0, fxIndex);
+                const fxPart = line.substring(fxIndex);
+                lineDiv.innerHTML = `<span style="color: #4a9eff">${before}</span><span style="color: #ffaa00; font-weight: bold;">${fxPart}</span>`;
+            } else {
+                lineDiv.textContent = line;
+            }
 
             // Apply category styling
             if (message.metadata?.category === 'status') {

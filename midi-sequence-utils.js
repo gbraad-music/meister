@@ -517,11 +517,11 @@ export function parseProgramStateResponse(data) {
  * @returns {Object|null} - Parsed deck state or null if invalid
  */
 export function parseDeckStateResponse(data) {
-    // Format: F0 7D <dev> 67 <48 bytes of state> F7
-    // Total: 4 header + 48 data (4 decks × 11 bytes + 4 master) + 1 end = 53 bytes
+    // Format: F0 7D <dev> 67 <56 bytes of state> F7
+    // Total: 4 header + 56 data (4 decks × 13 bytes + 4 master) + 1 end = 61 bytes
 
-    if (data.length < 53) {
-        console.warn(`[DeckState] Message too short: ${data.length} bytes (expected 53)`);
+    if (data.length < 61) {
+        console.warn(`[DeckState] Message too short: ${data.length} bytes (expected 61)`);
         return null;
     }
 
@@ -533,21 +533,24 @@ export function parseDeckStateResponse(data) {
 
     // Parse 4 decks
     for (let i = 0; i < 4; i++) {
-        const offset = 4 + (i * 11); // Start at byte 4, 11 bytes per deck
+        const offset = 4 + (i * 13); // Start at byte 4, 13 bytes per deck
 
         const flags = data[offset];
-        const bpmInt = data[offset + 1];
-        const bpmFrac = data[offset + 2];
-        const volume = data[offset + 3];
-        const posMsb = data[offset + 4];
-        const posLsb = data[offset + 5];
-        const rate = data[offset + 6]; // Rate: 0-127 (center at 64)
-        const duration = data[offset + 7]; // Duration in 10-second increments
-        const eqHigh = data[offset + 8]; // EQ High: 0-127
-        const eqMid = data[offset + 9]; // EQ Mid: 0-127
-        const eqLow = data[offset + 10]; // EQ Low: 0-127
+        const fx = data[offset + 1]; // FX enabled states
+        const bpmMsb = data[offset + 2]; // BPM high 7 bits
+        const bpmLsb = data[offset + 3]; // BPM low 7 bits
+        const bpmFrac = data[offset + 4]; // BPM fractional part
+        const volume = data[offset + 5];
+        const posMsb = data[offset + 6];
+        const posLsb = data[offset + 7];
+        const rate = data[offset + 8]; // Rate: 0-127 (center at 64)
+        const duration = data[offset + 9]; // Duration in 10-second increments
+        const eqHigh = data[offset + 10]; // EQ High: 0-127
+        const eqMid = data[offset + 11]; // EQ Mid: 0-127
+        const eqLow = data[offset + 12]; // EQ Low: 0-127
 
-        // Calculate BPM with decimal precision
+        // Calculate BPM with decimal precision (reconstruct from MSB/LSB)
+        const bpmInt = (bpmMsb << 7) | bpmLsb;
         const bpm = bpmInt + (bpmFrac / 100);
 
         // Calculate position percentage (0-100)
@@ -562,6 +565,11 @@ export function parseDeckStateResponse(data) {
             looping: (flags & 0x02) !== 0,
             sync: (flags & 0x04) !== 0,
             cue: (flags & 0x08) !== 0,
+            pfl: (flags & 0x10) !== 0, // PFL (headphone cue)
+            fx1: (fx & 0x01) !== 0, // Effect Unit 1 enabled
+            fx2: (fx & 0x02) !== 0, // Effect Unit 2 enabled
+            fx3: (fx & 0x04) !== 0, // Effect Unit 3 enabled
+            fx4: (fx & 0x08) !== 0, // Effect Unit 4 enabled
             bpm: bpm,
             volume: volume,
             position: position,
@@ -573,9 +581,9 @@ export function parseDeckStateResponse(data) {
         });
     }
 
-    // Parse master state (bytes 48-51 of message, state bytes 44-47)
-    const crossfader = data[48];
-    const headphoneMix = data[49];
+    // Parse master state (bytes 56-59 of message, after 4 header + 52 deck data)
+    const crossfader = data[56];
+    const headphoneMix = data[57];
 
     return {
         decks: decks,
