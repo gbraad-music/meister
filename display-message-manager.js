@@ -107,6 +107,8 @@ class DisplayMessageManager {
             return this.createRegrooveStatusMessage(deviceId, state);
         } else if (deviceType === 'samplecrate') {
             return this.createSamplecrateStatusMessage(deviceId, state);
+        } else if (deviceType === 'mixxx') {
+            return this.createMixxxStatusMessage(deviceId, state);
         } else if (deviceType === 'fire') {
             return this.createFireStatusMessage(deviceId, state);
         } else {
@@ -170,6 +172,43 @@ class DisplayMessageManager {
                 `Pad:${pad}  Vol:${volume}%   `.padEnd(20),
                 `Flt:${filter}%  Res:${resonance} `.padEnd(20),
                 `[${status}] Seq ${sequence} `.padEnd(20)
+            ],
+            metadata: { category: 'status', priority: 'normal' }
+        };
+    }
+
+    /**
+     * Create Mixxx deck status message
+     * @param {string} deviceId - Device ID
+     * @param {Object} state - Deck state from parseDeckStateResponse
+     * @returns {Object} - Display message
+     */
+    createMixxxStatusMessage(deviceId, state) {
+        const deckNum = state.deck || 1;
+        const playing = state.playing ? '▶' : '⏸';
+        const looping = state.looping ? '🔁' : '';
+        const sync = state.sync ? '🔗' : '';
+
+        // Format BPM with 2 decimal places
+        const bpm = state.bpm ? state.bpm.toFixed(2) : '0.00';
+
+        // Volume bar (10 chars)
+        const volLevel = Math.round((state.volume / 127) * 10);
+        const volBar = '█'.repeat(volLevel) + '░'.repeat(10 - volLevel);
+
+        // Position bar (16 chars)
+        const posLevel = Math.round((state.position / 100) * 16);
+        const posBar = '▓'.repeat(posLevel) + '░'.repeat(16 - posLevel);
+
+        return {
+            type: 'display_message',
+            deviceId,
+            deviceType: 'mixxx',
+            lines: [
+                `DECK ${deckNum} ${playing} ${looping}${sync}`.padEnd(20),
+                `${bpm} BPM`.padEnd(20),
+                `VOL ${volBar}`.padEnd(20),
+                posBar
             ],
             metadata: { category: 'status', priority: 'normal' }
         };

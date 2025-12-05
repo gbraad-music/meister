@@ -510,6 +510,87 @@ export function parseProgramStateResponse(data) {
 }
 
 /**
+ * Parse DECKS_STATE_RESPONSE (0x67) from Mixxx
+ * Returns state for up to 4 DJ decks plus master
+ *
+ * @param {Uint8Array} data - SysEx message data
+ * @returns {Object|null} - Parsed deck state or null if invalid
+ */
+export function parseDeckStateResponse(data) {
+    // Format: F0 7D <dev> 67 <36 bytes of state> F7
+    // Total: 4 header + 36 data + 1 end = 41 bytes
+
+    if (data.length < 41) {
+        console.warn(`[DeckState] Message too short: ${data.length} bytes (expected 41)`);
+        return null;
+    }
+
+    if (data[0] !== 0xF0 || data[1] !== 0x7D || data[3] !== 0x67) {
+        return null; // Not a deck state response
+    }
+
+    const decks = [];
+
+    // Parse 4 decks
+    for (let i = 0; i < 4; i++) {
+        const offset = 4 + (i * 8); // Start at byte 4, 8 bytes per deck
+
+        const flags = data[offset];
+        const bpmInt = data[offset + 1];
+        const bpmFrac = data[offset + 2];
+        const volume = data[offset + 3];
+        const posMsb = data[offset + 4];
+        const posLsb = data[offset + 5];
+
+        // Calculate BPM with decimal precision
+        const bpm = bpmInt + (bpmFrac / 100);
+
+        // Calculate position percentage (0-100)
+        const position = ((posMsb << 7) | posLsb) / 163.83; // Max 16383 / 163.83 ≈ 100%
+
+        decks.push({
+            deck: i + 1, // Deck 1-4
+            playing: (flags & 0x01) !== 0,
+            looping: (flags & 0x02) !== 0,
+            sync: (flags & 0x04) !== 0,
+            cue: (flags & 0x08) !== 0,
+            bpm: bpm,
+            volume: volume,
+            position: position
+        });
+    }
+
+    // Parse master state (bytes 36-39 of message, state bytes 32-35)
+    const crossfader = data[36];
+    const headphoneMix = data[37];
+
+    return {
+        decks: decks,
+        master: {
+            crossfader: crossfader,
+            headphoneMix: headphoneMix
+        }
+    };
+}
+
+/**
+ * Build SysEx message for getting Mixxx deck state
+ * Command: 0x66 (GET_DECKS_STATE)
+ *
+ * @param {number} deviceId - Target device ID (0-127)
+ * @returns {Uint8Array} - SysEx message
+ */
+export function buildGetDeckStateMessage(deviceId) {
+    return new Uint8Array([
+        0xF0,                           // SysEx start
+        0x7D,                           // Manufacturer ID
+        deviceId & 0x7F,                // Device ID
+        0x66,                           // Command: GET_DECKS_STATE
+        0xF7                            // SysEx end
+    ]);
+}
+
+/**
  * Parse upload response message from Samplecrate
  * @param {Uint8Array} data - SysEx message data
  * @returns {Object|null} - {subcommand, slot, status} or null if not a response

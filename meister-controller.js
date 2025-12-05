@@ -272,6 +272,18 @@ class MeisterController {
             }
         }
 
+        // DECKS_STATE_RESPONSE = 0x67 (Mixxx deck state)
+        if (command === 0x67 && this.sceneManager) {
+            // Find device by deviceId number
+            const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
+            if (device) {
+                // console.log(`[SysEx 0x67] DECKS_STATE_RESPONSE from device ${device.name} (ID ${deviceId})`);
+                this.sceneManager.handleDeckStateResponse(device.id, data);
+            } else {
+                console.warn(`[SysEx] Received deck state from unknown device ${deviceId}`);
+            }
+        }
+
         // FX_STATE_RESPONSE = 0x7F
         if (command === 0x7F) {
             this.regrooveState.handleFxStateResponse(deviceId, payload);
@@ -3016,6 +3028,11 @@ class MeisterController {
     // SysEx: GET_SEQUENCE_STATE (0x62) - Request sequence slot state (SampleCrate)
     sendSysExGetSequenceState(deviceId) {
         this.sendSysEx(deviceId, 0x62, []);
+    }
+
+    // SysEx: GET_DECKS_STATE (0x66) - Request DJ deck state (Mixxx)
+    sendSysExGetDeckState(deviceId) {
+        this.sendSysEx(deviceId, 0x66, []);
     }
 
     /**

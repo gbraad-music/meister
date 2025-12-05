@@ -7,6 +7,7 @@ import './fader-components.js';
 import './effects-fader.js';
 import './pad-knob.js';
 import { InputAction, InputEvent } from './input-actions.js';
+import { parseDeckStateResponse, buildGetDeckStateMessage } from './midi-sequence-utils.js';
 
 export class SceneManager {
     constructor(controller) {
@@ -226,9 +227,10 @@ export class SceneManager {
             render: () => this.renderPianoScene('piano')
         });
 
-        // Preserve custom name if scene was already loaded from storage
+        // Preserve custom name and deviceBinding if scene was already loaded from storage
         const existingControlGrid = this.scenes.get('control-grid');
         const controlGridName = existingControlGrid?.name;
+        const controlGridDeviceBinding = existingControlGrid?.deviceBinding;
 
         // Control Grid scene (flexible grid with multiple control types)
         // Demo: DJ Double Deck layout
@@ -238,7 +240,7 @@ export class SceneManager {
             enabled: true,
             rows: 5,
             cols: 12,
-            deviceBinding: null,  // Device binding for the scene (null = use default output)
+            deviceBinding: controlGridDeviceBinding || null,  // Preserve device binding
             cells: this.createDemoDoubleDeckCells(),
             render: () => this.renderControlGridScene('control-grid')
         });
@@ -333,11 +335,26 @@ export class SceneManager {
             });
         });
 
-        // Deck A VOLUME fader (col 5, rows 0-3, vertical)
+        // Display Widget A (col 5, row 0) - above VOL A fader
         cells.push({
             row: 0,
             col: 5,
-            rowSpan: 4,
+            rowSpan: 1,
+            colSpan: 1,
+            control: {
+                type: 'display',
+                deviceId: 'mixxx-device-id',
+                deviceType: 'mixxx',
+                deckId: 1,
+                updateInterval: 100
+            }
+        });
+
+        // Deck A VOLUME fader (col 5, rows 1-3, vertical) - 3 rows instead of 4
+        cells.push({
+            row: 1,
+            col: 5,
+            rowSpan: 3,
             colSpan: 1,
             control: {
                 type: 'fader',
@@ -350,11 +367,26 @@ export class SceneManager {
             }
         });
 
-        // Deck B VOLUME fader (col 6, rows 0-3, vertical)
+        // Display Widget B (col 6, row 0) - above VOL B fader
         cells.push({
             row: 0,
             col: 6,
-            rowSpan: 4,
+            rowSpan: 1,
+            colSpan: 1,
+            control: {
+                type: 'display',
+                deviceId: 'mixxx-device-id',
+                deviceType: 'mixxx',
+                deckId: 2,
+                updateInterval: 100
+            }
+        });
+
+        // Deck B VOLUME fader (col 6, rows 1-3, vertical) - 3 rows instead of 4
+        cells.push({
+            row: 1,
+            col: 6,
+            rowSpan: 3,
             colSpan: 1,
             control: {
                 type: 'fader',
@@ -584,6 +616,7 @@ export class SceneManager {
             scene.rows = config.rows || 8;
             scene.cols = config.cols || 8;
             scene.cells = config.cells || [];
+            scene.deviceBinding = config.deviceBinding || null;
             scene.render = () => this.renderControlGridScene(id);
         } else if (config.type === 'fire-sequencer') {
             scene.linkedSequencer = config.linkedSequencer || null;
@@ -813,6 +846,9 @@ export class SceneManager {
                         this.controller.sendSysExFxGetAllState(deviceId, programId);
                     }
                 }
+            } else if (device.type === 'mixxx') {
+                // Mixxx: GET_DECKS_STATE (0x66) for deck playback/BPM/position
+                this.controller.sendSysExGetDeckState(deviceId);
             } else {
                 console.warn(`[Scene] Unknown device type "${device.type}" for device ${device.name} (ID ${deviceId})`);
             }
@@ -3779,16 +3815,66 @@ export class SceneManager {
 
     /**
      * Create a display widget control (shows device status)
-     * NOTE: Display widgets are intended for split scenes only.
-     * Use split scenes to show device displays alongside faders.
+     * Works in both control-grid and split scenes
      */
     createDisplayControl(cell, control, sceneId) {
-        cell.innerHTML = `
-            <div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">
-                Display Widget<br>
-                <span style="font-size: 0.7em; opacity: 0.7;">Only available in Split scenes</span>
-            </div>
+        const scene = this.scenes.get(sceneId);
+
+        // Resolve device (could be a string ID or placeholder like 'mixxx-device-id')
+        let device = null;
+        let deviceType = control.deviceType || 'unknown';
+        let deviceId = control.deviceId;
+
+        // Priority 1: Use scene's deviceBinding if set
+        if (scene?.deviceBinding) {
+            device = this.controller.deviceManager?.getDevice(scene.deviceBinding);
+            if (device) {
+                deviceId = device.id;
+                deviceType = device.type;
+            }
+        }
+        // Priority 2: Use control's deviceId if it's not a placeholder
+        else if (deviceId && deviceId !== 'mixxx-device-id') {
+            device = this.controller.deviceManager?.getDevice(deviceId);
+        }
+        // Priority 3: If placeholder 'mixxx-device-id', find first mixxx device
+        else if (deviceId === 'mixxx-device-id') {
+            const devices = this.controller.deviceManager?.getAllDevices() || [];
+            device = devices.find(d => d.type === 'mixxx');
+            if (device) {
+                deviceId = device.id;
+                deviceType = device.type;
+            }
+        }
+
+        if (!deviceId) {
+            cell.innerHTML = '<div style="padding: 10px; color: #666; text-align: center; font-size: 0.8em;">Display Widget<br>(No device configured)</div>';
+            return;
+        }
+
+        if (!device) {
+            cell.innerHTML = '<div style="padding: 10px; color: #ff6666; text-align: center; font-size: 0.8em;">Display Widget<br>(Device not found)</div>';
+            return;
+        }
+
+        // Create display-widget element
+        const displayWidget = document.createElement('display-widget');
+        displayWidget.setAttribute('device-id', deviceId);
+        displayWidget.setAttribute('device-type', deviceType);
+        displayWidget.setAttribute('display-mode', control.displayMode || 'poll');
+        displayWidget.setAttribute('update-interval', control.updateInterval || 100);
+
+        // Add deck-id for Mixxx displays
+        if (control.deckId) {
+            displayWidget.setAttribute('deck-id', control.deckId);
+        }
+
+        displayWidget.style.cssText = `
+            width: 100%;
+            height: 100%;
         `;
+
+        cell.appendChild(displayWidget);
     }
 
     /**
@@ -4118,5 +4204,89 @@ export class SceneManager {
 
         // Render the Fire interface
         scene.fireInstance.render();
+    }
+
+    /**
+     * Handle DECKS_STATE_RESPONSE (0x67) from Mixxx
+     * Updates deck state and pad colors
+     * @param {string} deviceId - Device string ID
+     * @param {Uint8Array} data - SysEx message data
+     */
+    handleDeckStateResponse(deviceId, data) {
+        const state = parseDeckStateResponse(data);
+        if (!state) {
+            console.warn('[Scene] Failed to parse deck state response');
+            return;
+        }
+
+        // Store deck state in controller for display widgets
+        if (!this.controller.mixxxDeckState) {
+            this.controller.mixxxDeckState = new Map();
+        }
+        this.controller.mixxxDeckState.set(deviceId, state);
+
+        // Update pad colors for current scene
+        this.updateDJDeckPadColors(deviceId, state);
+
+        // Update display widgets
+        this.updateMixxxDisplays(deviceId);
+    }
+
+    /**
+     * Update DJ Deck pad colors based on deck state
+     * @param {string} deviceId - Device string ID
+     * @param {Object} state - Parsed deck state
+     */
+    updateDJDeckPadColors(deviceId, state) {
+        const currentScene = this.scenes.get(this.currentScene);
+        if (!currentScene || !currentScene.pads) return;
+
+        // Get device for comparison
+        const device = this.controller.deviceManager?.getDevice(deviceId);
+        if (!device) return;
+
+        // Iterate through pads in current scene
+        currentScene.pads.forEach((padConfig, index) => {
+            if (!padConfig.deckStateBinding) return;
+
+            // Check if this pad is bound to this device
+            if (currentScene.deviceId !== deviceId) return;
+
+            const binding = padConfig.deckStateBinding;
+            const deckIndex = binding.deck - 1; // Convert 1-based to 0-based
+
+            if (deckIndex < 0 || deckIndex >= state.decks.length) return;
+
+            const deckState = state.decks[deckIndex];
+            const controlValue = deckState[binding.control];
+
+            // Get color from color map
+            let color = null;
+            if (binding.colorMap) {
+                color = binding.colorMap[controlValue.toString()] || binding.colorMap['default'];
+            }
+
+            // Update pad color
+            const padElement = this.controller.pads[index];
+            if (padElement && color) {
+                padElement.setAttribute('color', color);
+            }
+        });
+    }
+
+    /**
+     * Update Mixxx display widgets
+     * @param {string} deviceId - Device string ID
+     */
+    updateMixxxDisplays(deviceId) {
+        // Find all display widgets for this device
+        const displays = document.querySelectorAll(`display-widget[device-id="${deviceId}"][device-type="mixxx"]`);
+        displays.forEach(display => {
+            // Display widgets will automatically query state via getVirtualDeviceState()
+            // Just trigger a refresh by calling render()
+            if (display.render) {
+                display.render();
+            }
+        });
     }
 }

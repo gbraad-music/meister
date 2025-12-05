@@ -12,7 +12,7 @@ class DisplayWidget extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['device-id', 'device-type', 'update-interval', 'display-mode'];
+        return ['device-id', 'device-type', 'update-interval', 'display-mode', 'deck-id'];
     }
 
     connectedCallback() {
@@ -20,6 +20,7 @@ class DisplayWidget extends HTMLElement {
         this.deviceType = this.getAttribute('device-type') || 'unknown';
         this.updateInterval = parseInt(this.getAttribute('update-interval')) || 100;
         this.displayMode = this.getAttribute('display-mode') || 'auto'; // 'auto', 'poll', 'push'
+        this.deckId = parseInt(this.getAttribute('deck-id')) || null;
 
         this.render();
         this.setupAdapter();
@@ -77,7 +78,7 @@ class DisplayWidget extends HTMLElement {
                     border: 3px solid #333;
                     border-radius: 6px;
                     padding: 12px;
-                    font-family: 'Courier New', monospace;
+                    font-family: Arial, sans-serif;
                     font-size: 12px;
                     color: #ffffff;
                     box-sizing: border-box;
@@ -99,7 +100,7 @@ class DisplayWidget extends HTMLElement {
                 }
                 .line {
                     white-space: pre;
-                    font-family: 'Courier New', monospace;
+                    font-family: Arial, sans-serif;
                     color: #ffffff;
                 }
                 .status {
@@ -116,6 +117,7 @@ class DisplayWidget extends HTMLElement {
                 .offline {
                     color: #888;
                     font-style: italic;
+                    font-family: Arial, sans-serif;
                 }
             </style>
             <div class="display-container">
@@ -209,6 +211,40 @@ class DisplayWidget extends HTMLElement {
 
     getVirtualDeviceState() {
         // Query virtual device state from various sources
+
+        // Try Mixxx deck state
+        if (this.deviceType === 'mixxx' && this.deckId) {
+            const controller = window.controller;
+            if (controller?.mixxxDeckState) {
+                const deviceState = controller.mixxxDeckState.get(this.deviceId);
+                if (deviceState && deviceState.decks) {
+                    const deckState = deviceState.decks[this.deckId - 1]; // Convert 1-based to 0-based
+                    if (deckState) {
+                        return {
+                            deck: this.deckId,
+                            playing: deckState.playing,
+                            looping: deckState.looping,
+                            sync: deckState.sync,
+                            cue: deckState.cue,
+                            bpm: deckState.bpm,
+                            volume: deckState.volume,
+                            position: deckState.position
+                        };
+                    }
+                }
+            }
+            // Fallback for Mixxx when no state yet
+            return {
+                deck: this.deckId,
+                playing: false,
+                looping: false,
+                sync: false,
+                cue: false,
+                bpm: 0,
+                volume: 0,
+                position: 0
+            };
+        }
 
         // Try sequencer engine
         if (window.sequencerEngine) {
