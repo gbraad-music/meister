@@ -541,6 +541,7 @@ export function parseDeckStateResponse(data) {
         const volume = data[offset + 3];
         const posMsb = data[offset + 4];
         const posLsb = data[offset + 5];
+        const rate = data[offset + 6]; // Rate: 0-127 (center at 64)
 
         // Calculate BPM with decimal precision
         const bpm = bpmInt + (bpmFrac / 100);
@@ -556,7 +557,8 @@ export function parseDeckStateResponse(data) {
             cue: (flags & 0x08) !== 0,
             bpm: bpm,
             volume: volume,
-            position: position
+            position: position,
+            rate: rate // Pitch rate: 0-127 (64 = center/normal)
         });
     }
 

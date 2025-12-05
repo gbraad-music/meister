@@ -853,9 +853,10 @@ class CCFader extends BaseFader {
 
         slider?.addEventListener('change', (e) => {
             // Release the changing lock after user stops dragging
+            // Wait 300ms to ensure Mixxx state update has time to catch up
             setTimeout(() => {
                 delete this.dataset.ccChanging;
-            }, 100);
+            }, 300);
         });
     }
 }

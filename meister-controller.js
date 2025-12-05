@@ -277,7 +277,7 @@ class MeisterController {
             // Find device by deviceId number
             const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
             if (device) {
-                // console.log(`[SysEx 0x67] DECKS_STATE_RESPONSE from device ${device.name} (ID ${deviceId})`);
+                console.log(`[SysEx 0x67] DECKS_STATE_RESPONSE from device ${device.name} (ID ${deviceId}), data length: ${data.length}`);
                 this.sceneManager.handleDeckStateResponse(device.id, data);
             } else {
                 console.warn(`[SysEx] Received deck state from unknown device ${deviceId}`);

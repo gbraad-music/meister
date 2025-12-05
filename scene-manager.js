@@ -259,7 +259,18 @@ export class SceneManager {
             { label: 'Cue A2', cc: 2, color: '#0088FF' },
             { label: 'Cue A3', cc: 3, color: '#0088FF' },
             { label: 'Cue A4', cc: 4, color: '#0088FF' },
-            { label: 'Loop A1', cc: 5, color: '#FFCC00' },  // Orange/yellow for loops
+            {
+                label: 'Loop A1', cc: 5, color: '#FFCC00',  // Orange/yellow for loops
+                deckStateBinding: {
+                    deck: 1,
+                    control: 'looping',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when loop enabled
+                        'false': '#FFCC00',  // Orange when loop disabled
+                        'default': '#FFCC00'
+                    }
+                }
+            },
             { label: 'Loop A2', cc: 6, color: '#FFCC00' },
             { label: 'Loop A3', cc: 7, color: '#FFCC00' },
             { label: 'Loop A4', cc: 8, color: '#FFCC00' },
@@ -267,8 +278,30 @@ export class SceneManager {
             { label: 'FX A2', cc: 10, color: '#00DD00' },
             { label: 'FX A3', cc: 11, color: '#00DD00' },
             { label: 'FX A4', cc: 12, color: '#00DD00' },
-            { label: 'Play A', cc: 13, color: '#DD0000' },  // Dark red for play
-            { label: 'Sync A', cc: 14, color: '#FFAA00' },  // Orange for sync
+            {
+                label: 'Play A', cc: 13, color: '#DD0000',  // Dark red for play
+                deckStateBinding: {
+                    deck: 1,
+                    control: 'playing',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when playing
+                        'false': '#DD0000',  // Red when stopped
+                        'default': '#DD0000'
+                    }
+                }
+            },
+            {
+                label: 'Sync A', cc: 14, color: '#FFAA00',  // Orange for sync
+                deckStateBinding: {
+                    deck: 1,
+                    control: 'sync',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when sync enabled
+                        'false': '#FFAA00',  // Orange when sync disabled
+                        'default': '#FFAA00'
+                    }
+                }
+            },
             { label: 'PFL A', cc: 15, color: '#888' },
             { label: 'Load A', cc: 16, color: '#888' },
         ];
@@ -277,20 +310,27 @@ export class SceneManager {
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
                 const pad = leftDeckPads[padIndex++];
+                const control = {
+                    type: 'pad',
+                    label: pad.label,
+                    color: pad.color,
+                    midiType: 'cc',
+                    midiChannel: 0,
+                    midiNumber: pad.cc,
+                    midiValue: 127
+                };
+
+                // Add deckStateBinding if present
+                if (pad.deckStateBinding) {
+                    control.deckStateBinding = pad.deckStateBinding;
+                }
+
                 cells.push({
                     row,
                     col,
                     rowSpan: 1,
                     colSpan: 1,
-                    control: {
-                        type: 'pad',
-                        label: pad.label,
-                        color: pad.color,
-                        midiType: 'cc',
-                        midiChannel: 0,
-                        midiNumber: pad.cc,
-                        midiValue: 127
-                    }
+                    control
                 });
             }
         }
@@ -504,7 +544,18 @@ export class SceneManager {
             { label: 'Cue B2', cc: 22, color: '#0088FF' },
             { label: 'Cue B3', cc: 23, color: '#0088FF' },
             { label: 'Cue B4', cc: 24, color: '#0088FF' },
-            { label: 'Loop B1', cc: 25, color: '#FFCC00' },  // Orange/yellow for loops
+            {
+                label: 'Loop B1', cc: 25, color: '#FFCC00',  // Orange/yellow for loops
+                deckStateBinding: {
+                    deck: 2,
+                    control: 'looping',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when loop enabled
+                        'false': '#FFCC00',  // Orange when loop disabled
+                        'default': '#FFCC00'
+                    }
+                }
+            },
             { label: 'Loop B2', cc: 26, color: '#FFCC00' },
             { label: 'Loop B3', cc: 27, color: '#FFCC00' },
             { label: 'Loop B4', cc: 28, color: '#FFCC00' },
@@ -512,8 +563,30 @@ export class SceneManager {
             { label: 'FX B2', cc: 30, color: '#00DD00' },
             { label: 'FX B3', cc: 31, color: '#00DD00' },
             { label: 'FX B4', cc: 32, color: '#00DD00' },
-            { label: 'Play B', cc: 33, color: '#DD0000' },  // Dark red for play
-            { label: 'Sync B', cc: 34, color: '#FFAA00' },  // Orange for sync
+            {
+                label: 'Play B', cc: 33, color: '#DD0000',  // Dark red for play
+                deckStateBinding: {
+                    deck: 2,
+                    control: 'playing',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when playing
+                        'false': '#DD0000',  // Red when stopped
+                        'default': '#DD0000'
+                    }
+                }
+            },
+            {
+                label: 'Sync B', cc: 34, color: '#FFAA00',  // Orange for sync
+                deckStateBinding: {
+                    deck: 2,
+                    control: 'sync',
+                    colorMap: {
+                        'true': '#00DD00',   // Green when sync enabled
+                        'false': '#FFAA00',  // Orange when sync disabled
+                        'default': '#FFAA00'
+                    }
+                }
+            },
             { label: 'PFL B', cc: 35, color: '#888' },
             { label: 'Load B', cc: 36, color: '#888' },
         ];
@@ -522,20 +595,27 @@ export class SceneManager {
         for (let row = 0; row < 4; row++) {
             for (let col = 8; col < 12; col++) {
                 const pad = rightDeckPads[padIndex++];
+                const control = {
+                    type: 'pad',
+                    label: pad.label,
+                    color: pad.color,
+                    midiType: 'cc',
+                    midiChannel: 0,
+                    midiNumber: pad.cc,
+                    midiValue: 127
+                };
+
+                // Add deckStateBinding if present
+                if (pad.deckStateBinding) {
+                    control.deckStateBinding = pad.deckStateBinding;
+                }
+
                 cells.push({
                     row,
                     col,
                     rowSpan: 1,
                     colSpan: 1,
-                    control: {
-                        type: 'pad',
-                        label: pad.label,
-                        color: pad.color,
-                        midiType: 'cc',
-                        midiChannel: 0,
-                        midiNumber: pad.cc,
-                        midiValue: 127
-                    }
+                    control
                 });
             }
         }
@@ -4213,11 +4293,14 @@ export class SceneManager {
      * @param {Uint8Array} data - SysEx message data
      */
     handleDeckStateResponse(deviceId, data) {
+        console.log(`[Scene] handleDeckStateResponse called for device: ${deviceId}, data length: ${data.length}`);
         const state = parseDeckStateResponse(data);
         if (!state) {
             console.warn('[Scene] Failed to parse deck state response');
             return;
         }
+
+        console.log('[Scene] Parsed deck state:', state);
 
         // Store deck state in controller for display widgets
         if (!this.controller.mixxxDeckState) {
@@ -4227,6 +4310,9 @@ export class SceneManager {
 
         // Update pad colors for current scene
         this.updateDJDeckPadColors(deviceId, state);
+
+        // Update faders (volume, tempo, crossfader) with Mixxx state
+        this.updateDJDeckFaders(deviceId, state);
 
         // Update display widgets
         this.updateMixxxDisplays(deviceId);
@@ -4239,37 +4325,168 @@ export class SceneManager {
      */
     updateDJDeckPadColors(deviceId, state) {
         const currentScene = this.scenes.get(this.currentScene);
-        if (!currentScene || !currentScene.pads) return;
+        // console.log(`[Scene] updateDJDeckPadColors: scene=${this.currentScene}, deviceId=${deviceId}, scene.deviceBinding=${currentScene?.deviceBinding}`);
+
+        if (!currentScene) {
+            console.warn('[Scene] No current scene');
+            return;
+        }
 
         // Get device for comparison
         const device = this.controller.deviceManager?.getDevice(deviceId);
-        if (!device) return;
+        if (!device) {
+            console.warn(`[Scene] Device ${deviceId} not found in device manager`);
+            return;
+        }
 
-        // Iterate through pads in current scene
-        currentScene.pads.forEach((padConfig, index) => {
-            if (!padConfig.deckStateBinding) return;
+        // Check if this scene is bound to this device (compare deviceBinding, not deviceId)
+        if (currentScene.deviceBinding !== deviceId) {
+            console.log(`[Scene] Scene ${this.currentScene} not bound to device ${deviceId} (bound to ${currentScene.deviceBinding})`);
+            return;
+        }
 
-            // Check if this pad is bound to this device
-            if (currentScene.deviceId !== deviceId) return;
+        // For control-grid scenes, iterate through cells, not pads
+        if (currentScene.type === 'control-grid' && currentScene.cells) {
+            // console.log(`[Scene] Processing ${currentScene.cells.length} control-grid cells`);
+            currentScene.cells.forEach((cellConfig, index) => {
+                if (!cellConfig.control || !cellConfig.control.deckStateBinding) return;
 
-            const binding = padConfig.deckStateBinding;
-            const deckIndex = binding.deck - 1; // Convert 1-based to 0-based
+                const binding = cellConfig.control.deckStateBinding;
+                const deckIndex = binding.deck - 1; // Convert 1-based to 0-based
 
-            if (deckIndex < 0 || deckIndex >= state.decks.length) return;
+                if (deckIndex < 0 || deckIndex >= state.decks.length) return;
 
-            const deckState = state.decks[deckIndex];
-            const controlValue = deckState[binding.control];
+                const deckState = state.decks[deckIndex];
+                const controlValue = deckState[binding.control];
 
-            // Get color from color map
-            let color = null;
-            if (binding.colorMap) {
-                color = binding.colorMap[controlValue.toString()] || binding.colorMap['default'];
+                // Skip if control value doesn't exist
+                if (controlValue === undefined) {
+                    console.warn(`[Scene] Cell ${index}: Control '${binding.control}' not found in deck ${binding.deck} state`);
+                    return;
+                }
+
+                // Get color from color map
+                let color = null;
+                if (binding.colorMap) {
+                    color = binding.colorMap[controlValue.toString()] || binding.colorMap['default'];
+                }
+
+                // console.log(`[Scene] Cell ${index} (deck ${binding.deck}, control ${binding.control}): value=${controlValue}, color=${color}`);
+
+                // Find the pad element in the DOM
+                const cell = document.querySelector(`[data-scene-id="${this.currentScene}"][data-row="${cellConfig.row}"][data-col="${cellConfig.col}"]`);
+                if (cell) {
+                    const padElement = cell.querySelector('regroove-pad');
+                    if (padElement && color) {
+                        padElement.setAttribute('color', color);
+                    }
+                }
+            });
+        }
+        // For split/grid scenes with pads array
+        else if (currentScene.pads) {
+            // console.log(`[Scene] Processing ${currentScene.pads.length} pads`);
+            currentScene.pads.forEach((padConfig, index) => {
+                if (!padConfig || !padConfig.deckStateBinding) return;
+
+                const binding = padConfig.deckStateBinding;
+                const deckIndex = binding.deck - 1; // Convert 1-based to 0-based
+
+                if (deckIndex < 0 || deckIndex >= state.decks.length) return;
+
+                const deckState = state.decks[deckIndex];
+                const controlValue = deckState[binding.control];
+
+                // Skip if control value doesn't exist
+                if (controlValue === undefined) {
+                    console.warn(`[Scene] Pad ${index}: Control '${binding.control}' not found in deck ${binding.deck} state`);
+                    return;
+                }
+
+                // Get color from color map
+                let color = null;
+                if (binding.colorMap) {
+                    color = binding.colorMap[controlValue.toString()] || binding.colorMap['default'];
+                }
+
+                // console.log(`[Scene] Pad ${index} (deck ${binding.deck}, control ${binding.control}): value=${controlValue}, color=${color}`);
+
+                // Update pad color
+                const padElement = this.controller.pads[index];
+                if (padElement && color) {
+                    padElement.setAttribute('color', color);
+                }
+            });
+        }
+    }
+
+    /**
+     * Update DJ Deck faders (volume, tempo, crossfader) based on Mixxx state
+     * @param {string} deviceId - Device string ID
+     * @param {Object} state - Parsed deck state
+     */
+    updateDJDeckFaders(deviceId, state) {
+        const currentScene = this.scenes.get(this.currentScene);
+        // console.log(`[Scene] updateDJDeckFaders: scene=${this.currentScene}, deviceId=${deviceId}`);
+
+        if (!currentScene || currentScene.type !== 'control-grid') {
+            return;
+        }
+
+        // Check if this scene is bound to this device
+        if (currentScene.deviceBinding !== deviceId) {
+            // console.log(`[Scene] Scene not bound to device ${deviceId}`);
+            return;
+        }
+
+        // Find all cc-fader elements in the scene
+        const container = document.getElementById('pads-grid');
+        if (!container) return;
+
+        const ccFaders = container.querySelectorAll('cc-fader');
+        // console.log(`[Scene] Found ${ccFaders.length} cc-faders`);
+
+        ccFaders.forEach(fader => {
+            // Skip update if user is currently changing this fader
+            if (fader.dataset.ccChanging === 'true') {
+                return;
             }
 
-            // Update pad color
-            const padElement = this.controller.pads[index];
-            if (padElement && color) {
-                padElement.setAttribute('color', color);
+            const cc = parseInt(fader.getAttribute('cc'));
+
+            // VOL A (CC 17) - Deck 1 volume
+            if (cc === 17 && state.decks[0]) {
+                const volume = state.decks[0].volume; // 0-127
+                // console.log(`[Scene] Updating VOL A (CC 17) to ${volume}`);
+                fader.setAttribute('value', volume.toString());
+            }
+
+            // VOL B (CC 18) - Deck 2 volume
+            else if (cc === 18 && state.decks[1]) {
+                const volume = state.decks[1].volume; // 0-127
+                // console.log(`[Scene] Updating VOL B (CC 18) to ${volume}`);
+                fader.setAttribute('value', volume.toString());
+            }
+
+            // TEMPO A (CC 48) - Deck 1 rate (pitch adjustment)
+            else if (cc === 48 && state.decks[0]) {
+                const rate = state.decks[0].rate; // 0-127 (64 = center/normal)
+                // console.log(`[Scene] Updating TEMPO A (CC 48) to rate ${rate}`);
+                fader.setAttribute('value', rate.toString());
+            }
+
+            // TEMPO B (CC 49) - Deck 2 rate (pitch adjustment)
+            else if (cc === 49 && state.decks[1]) {
+                const rate = state.decks[1].rate; // 0-127 (64 = center/normal)
+                // console.log(`[Scene] Updating TEMPO B (CC 49) to rate ${rate}`);
+                fader.setAttribute('value', rate.toString());
+            }
+
+            // X-FADE (CC 19) - Crossfader
+            else if (cc === 19 && state.master) {
+                const crossfader = state.master.crossfader; // 0-127
+                // console.log(`[Scene] Updating X-FADE (CC 19) to ${crossfader}`);
+                fader.setAttribute('value', crossfader.toString());
             }
         });
     }

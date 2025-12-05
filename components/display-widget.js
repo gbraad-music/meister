@@ -195,6 +195,8 @@ class DisplayWidget extends HTMLElement {
         } else {
             // For virtual devices, build status message locally
             const state = this.getVirtualDeviceState();
+            console.log(`[DisplayWidget] Virtual device state:`, state);
+
             if (state) {
                 const message = window.displayManager.createStatusMessage(
                     this.deviceId,
@@ -202,9 +204,16 @@ class DisplayWidget extends HTMLElement {
                     state
                 );
 
+                console.log(`[DisplayWidget] Created message:`, message);
+
                 if (message && this.adapter) {
+                    console.log(`[DisplayWidget] Sending message to adapter`);
                     this.adapter.sendMessage(message);
+                } else {
+                    console.warn(`[DisplayWidget] No message or adapter: message=${!!message}, adapter=${!!this.adapter}`);
                 }
+            } else {
+                console.warn(`[DisplayWidget] No state returned from getVirtualDeviceState`);
             }
         }
     }
@@ -215,12 +224,18 @@ class DisplayWidget extends HTMLElement {
         // Try Mixxx deck state
         if (this.deviceType === 'mixxx' && this.deckId) {
             const controller = window.controller;
+            console.log(`[DisplayWidget] Getting Mixxx state for ${this.deviceId}, deckId=${this.deckId}, controller exists=${!!controller}, mixxxDeckState exists=${!!controller?.mixxxDeckState}`);
+
             if (controller?.mixxxDeckState) {
                 const deviceState = controller.mixxxDeckState.get(this.deviceId);
+                console.log(`[DisplayWidget] deviceState for ${this.deviceId}:`, deviceState);
+
                 if (deviceState && deviceState.decks) {
                     const deckState = deviceState.decks[this.deckId - 1]; // Convert 1-based to 0-based
+                    console.log(`[DisplayWidget] deckState for deck ${this.deckId}:`, deckState);
+
                     if (deckState) {
-                        return {
+                        const state = {
                             deck: this.deckId,
                             playing: deckState.playing,
                             looping: deckState.looping,
@@ -230,10 +245,13 @@ class DisplayWidget extends HTMLElement {
                             volume: deckState.volume,
                             position: deckState.position
                         };
+                        console.log(`[DisplayWidget] Returning state:`, state);
+                        return state;
                     }
                 }
             }
             // Fallback for Mixxx when no state yet
+            console.log(`[DisplayWidget] No state found, using fallback`);
             return {
                 deck: this.deckId,
                 playing: false,
