@@ -1182,10 +1182,17 @@ class FireSequencerScene {
      */
     initializeFireDisplayAdapter() {
         // Only create if not already created
-        if (this.fireDisplayAdapter || !window.FireOLEDAdapter) {
+        if (this.fireDisplayAdapter) {
+            console.log('[FireSequencer] Fire display adapter already exists, skipping initialization');
             return;
         }
 
+        if (!window.FireOLEDAdapter) {
+            console.warn('[FireSequencer] FireOLEDAdapter class not available');
+            return;
+        }
+
+        console.log('[FireSequencer] Initializing Fire display adapter...');
         const renderMode = this.scene.renderMode || 'text';
 
         // Check if we have a valid physical device
@@ -1201,8 +1208,23 @@ class FireSequencerScene {
         }
 
         if (device && window.displayManager) {
-            // Physical Fire: Use device from Device Manager (auto-registered by Display System)
+            // Physical Fire: Create adapter and register it
+            const deviceBinding = {
+                id: this.scene.midiInputDevice,
+                deviceId: device.id || 0,
+                controller: this.sceneManager.controller,
+                midiInputDevice: this.scene.midiInputDevice
+            };
+
+            this.fireDisplayAdapter = new window.FireOLEDAdapter(
+                deviceBinding,
+                'physical',
+                renderMode
+            );
             this.fireDisplayDeviceId = this.scene.midiInputDevice;
+
+            // Register with Display Message Manager
+            window.displayManager.registerDisplay(this.fireDisplayDeviceId, 'fire', this.fireDisplayAdapter);
         } else {
             // Virtual Fire (software only): Create virtual display adapter
             const deviceBinding = {
@@ -1272,6 +1294,9 @@ class FireSequencerScene {
 
         // Setup pattern length bar and click handlers
         this.setupPatternLengthBar();
+
+        // Send initial display update
+        this.updateFireDisplay();
 
         // console.log(`[FireSequencer] ===== LINKED MODE SETUP COMPLETE =====`);
     }
@@ -1638,9 +1663,11 @@ class FireSequencerScene {
     initializeFireHardware() {
         const midiOutput = this.getFireControllerOutput();
         if (!midiOutput) {
-            // No MIDI output - running in disconnected mode (user will reconnect via settings)
+            console.warn('[FireSequencer] No MIDI output available for Fire hardware initialization');
             return;
         }
+
+        console.log(`[FireSequencer] Initializing Fire hardware on output: ${midiOutput.name}`);
 
         // Clear LED state cache to avoid stale data
         this.ledStates.clear();
@@ -1745,7 +1772,7 @@ class FireSequencerScene {
 
         // Attach listener
         midiInput.addEventListener('midimessage', this.midiInputListener);
-        // console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInput.name} (device: ${device.name})`);
+        console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInput.name} (device: ${device.name})`);
     }
 
     /**

@@ -32,8 +32,8 @@ export class SceneManager {
         // Without this, sequencers won't work until you view the scene first!
         this.initializeSequencerInstances();
 
-        // Initialize persistent Fire scenes so they work immediately on startup
-        this.initializePersistentFireScenes();
+        // NOTE: initializePersistentFireScenes() is now called AFTER loadScenesFromStorage()
+        // See index.html initialization sequence
     }
 
     /**
@@ -68,12 +68,24 @@ export class SceneManager {
      * This allows persistent Fire scenes to work immediately on startup
      */
     initializePersistentFireScenes() {
-        // console.log('[SceneManager] Initializing persistent Fire scenes...');
+        console.log('[SceneManager] Initializing persistent Fire scenes...');
         let count = 0;
+        let fireSceneCount = 0;
+        let persistentFireSceneCount = 0;
 
         for (const [sceneId, scene] of this.scenes.entries()) {
+            if (scene.type === 'fire-sequencer') {
+                fireSceneCount++;
+                console.log(`[SceneManager] Found Fire scene: ${scene.name} (${sceneId}), persistent=${scene.persistent}, hasInstance=${!!scene.fireInstance}`);
+
+                if (scene.persistent === true) {
+                    persistentFireSceneCount++;
+                }
+            }
+
             if (scene.type === 'fire-sequencer' && scene.persistent === true && !scene.fireInstance) {
                 if (window.FireSequencerScene) {
+                    console.log(`[SceneManager] Creating persistent Fire instance: ${scene.name} (${sceneId}), midiInputDevice: ${scene.midiInputDevice}, linked: ${!!scene.linkedSequencer}`);
                     // Create instance in background (will attach MIDI listeners and initialize hardware)
                     scene.fireInstance = new window.FireSequencerScene(this, sceneId);
 
@@ -88,7 +100,7 @@ export class SceneManager {
                         scene.fireInstance.initializeFireDisplayAdapter();
                     }
 
-                    // console.log(`[SceneManager] ✓ Pre-initialized persistent Fire scene: ${scene.name}`);
+                    console.log(`[SceneManager] ✓ Pre-initialized persistent Fire scene: ${scene.name}`);
                     count++;
                 } else {
                     console.error('[SceneManager] FireSequencerScene class not available - cannot initialize persistent Fire scenes');
@@ -97,7 +109,7 @@ export class SceneManager {
             }
         }
 
-        // console.log(`[SceneManager] ✓ Initialized ${count} persistent Fire scene(s) in background`);
+        console.log(`[SceneManager] Summary: ${fireSceneCount} total Fire scenes, ${persistentFireSceneCount} with persistent=true, ${count} initialized`);
     }
 
     setupOrientationListener() {

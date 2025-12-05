@@ -832,7 +832,13 @@ class MeisterController {
                 if (pad.display.sceneId) {
                     document.getElementById('pad-display-source-type').value = 'scene';
                     this.populateDisplayScenes();
-                    document.getElementById('pad-display-scene').value = pad.display.sceneId;
+                    // Set value after populating to ensure option exists
+                    const sceneSelect = document.getElementById('pad-display-scene');
+                    sceneSelect.value = pad.display.sceneId;
+                    // Verify it was set correctly
+                    if (sceneSelect.value !== pad.display.sceneId) {
+                        console.warn(`[PadEditor] Failed to set scene value to "${pad.display.sceneId}", available options:`, Array.from(sceneSelect.options).map(o => o.value));
+                    }
                     document.getElementById('pad-display-scene-select-container').style.display = 'block';
                     document.getElementById('pad-display-device-select-container').style.display = 'none';
                 } else {
