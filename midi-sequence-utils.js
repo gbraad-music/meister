@@ -413,11 +413,11 @@ export function parseSequenceStateResponse(data) {
  * @returns {Object|null} - Parsed program state or null if invalid
  */
 export function parseProgramStateResponse(data) {
-    // Format: F0 7D <dev> 65 <76 bytes of state> F7
-    // Total: 4 header + 76 data + 1 end = 81 bytes
+    // Format: F0 7D <dev> 65 <80 bytes of state> F7
+    // Total: 4 header + 80 data + 1 end = 85 bytes
 
-    if (data.length < 81) {
-        console.warn(`[ProgramState] Message too short: ${data.length} bytes (expected 81)`);
+    if (data.length < 85) {
+        console.warn(`[ProgramState] Message too short: ${data.length} bytes (expected 85)`);
         return null;
     }
 
@@ -441,22 +441,28 @@ export function parseProgramStateResponse(data) {
     // Program state
     const numPrograms = data[8];
 
-    // Program mute bits (4 bytes for 32 programs)
+    // Program mute bits (4 bytes for 32 programs, bytes 5-8 of state)
     const muteByte0 = data[9];
     const muteByte1 = data[10];
     const muteByte2 = data[11];
     const muteByte3 = data[12];
 
-    // Parse program volumes (32 bytes)
+    // Program FX enable bits (4 bytes for 32 programs, bytes 9-12 of state)
+    const fxByte0 = data[13];
+    const fxByte1 = data[14];
+    const fxByte2 = data[15];
+    const fxByte3 = data[16];
+
+    // Parse program volumes (32 bytes, bytes 13-44 of state)
     const programVolumes = [];
     for (let i = 0; i < numPrograms; i++) {
-        programVolumes.push(data[13 + i]);
+        programVolumes.push(data[17 + i]);
     }
 
-    // Parse program panning (32 bytes)
+    // Parse program panning (32 bytes, bytes 45-76 of state)
     const programPans = [];
     for (let i = 0; i < numPrograms; i++) {
-        programPans.push(data[45 + i]);
+        programPans.push(data[49 + i]);
     }
 
     // Parse mute states for each program
@@ -469,19 +475,25 @@ export function parseProgramStateResponse(data) {
         programMutes.push(muted);
     }
 
-    // NOTE: PROGRAM_STATE_RESPONSE does NOT include FX enable bits
-    // Per SAMPLECRATE_SYSEX.md, bytes 73-75 are Reserved (0x00)
-    // FX enable must be tracked client-side or queried per-program via FX_GET_ALL_STATE (0x7E)
+    // Parse FX enable states for each program
+    const programFxEnabled = [];
+    for (let i = 0; i < numPrograms; i++) {
+        const byteIndex = Math.floor(i / 8);
+        const bitIndex = i % 8;
+        const fxByte = [fxByte0, fxByte1, fxByte2, fxByte3][byteIndex];
+        const fxEnabled = (fxByte & (1 << bitIndex)) !== 0;
+        programFxEnabled.push(fxEnabled);
+    }
 
-    // Build program array (without FX enable - not available in this response)
+    // Build program array with FX enable status
     const programs = [];
     for (let i = 0; i < numPrograms; i++) {
         programs.push({
             program: i,
             volume: programVolumes[i],
             pan: programPans[i],
-            muted: programMutes[i]
-            // fxEnabled: NOT available in PROGRAM_STATE_RESPONSE
+            muted: programMutes[i],
+            fxEnabled: programFxEnabled[i]
         });
     }
 

@@ -2471,8 +2471,10 @@ export class SceneManager {
             // Update mute state
             fader.setAttribute('muted', programData.muted.toString());
 
-            // NOTE: FX enable is NOT in PROGRAM_STATE_RESPONSE
-            // It must be tracked client-side or queried per-program via FX_GET_ALL_STATE
+            // Update FX enable state (now included in PROGRAM_STATE_RESPONSE)
+            if (programData.fxEnabled !== undefined) {
+                fader.setAttribute('fx', programData.fxEnabled ? 'true' : 'false');
+            }
         });
 
         // Update MASTER fader for this device (if showing master volume)
