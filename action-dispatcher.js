@@ -46,7 +46,7 @@ export class ActionDispatcher {
         const meetsThreshold = event.meetsThreshold();
 
         // Log action for debugging
-        console.log(`[ActionDispatcher] Handling action ${event.action} (cat: ${category}, val: ${event.value}, param: ${event.parameter}, threshold: ${meetsThreshold})`);
+        // console.log(`[ActionDispatcher] Handling action ${event.action} (cat: ${category}, val: ${event.value}, param: ${event.parameter}, threshold: ${meetsThreshold})`);
 
         switch (event.action) {
             // === REGROOVE TRANSPORT CONTROL ===

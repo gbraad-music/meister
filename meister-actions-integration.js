@@ -45,7 +45,7 @@ export function integrateActionSystem(controller) {
 
     // === EXTEND PAD PRESS HANDLING ===
     controller.handlePadPress = function(detail, padElement, padIndex) {
-        console.log(`[handlePadPress] Called with padIndex=${padIndex}, detail=`, detail);
+        // console.log(`[handlePadPress] Called with padIndex=${padIndex}, detail=`, detail);
 
         // Get pad config from the correct location (split scene vs default pads)
         const isCustomScene = this.currentPadSceneId && this.currentPadSceneId !== 'pads';
@@ -53,10 +53,10 @@ export function integrateActionSystem(controller) {
         if (isCustomScene) {
             const scene = this.sceneManager?.scenes.get(this.currentPadSceneId);
             padConfig = scene?.pads?.[padIndex];
-            console.log(`[handlePadPress] Split scene pad - scene="${this.currentPadSceneId}", padConfig=`, padConfig);
+            // console.log(`[handlePadPress] Split scene pad - scene="${this.currentPadSceneId}", padConfig=`, padConfig);
         } else {
             padConfig = this.config.pads[padIndex];
-            console.log(`[handlePadPress] Default pad - padConfig=`, padConfig);
+            // console.log(`[handlePadPress] Default pad - padConfig=`, padConfig);
         }
 
         if (!padConfig) {
