@@ -56,22 +56,17 @@
         const deviceType = device.type || 'generic';
         let adapter = null;
 
-        // Choose adapter based on device type
-        if (deviceType === 'regroove' || deviceType === 'samplecrate' || deviceType === 'generic') {
-            // Basic text display adapter
+        // Only register displays for devices that support polling
+        // akai-fire: Cannot be polled, requires specific MIDI messages
+        // generic: No display adapter needed
+        if (deviceType === 'regroove' || deviceType === 'samplecrate') {
+            // Basic text display adapter for polled devices
             if (window.BasicTextDisplayAdapter) {
                 adapter = new window.BasicTextDisplayAdapter(device);
                 console.log(`[DisplaySystem] Registered BasicTextDisplayAdapter for: ${device.name || device.id}`);
             }
-        } else if (deviceType === 'akai-fire') {
-            // Fire OLED adapter (physical mode)
-            if (window.FireOLEDAdapter) {
-                adapter = new window.FireOLEDAdapter(device, 'physical');
-                console.log(`[DisplaySystem] Registered FireOLEDAdapter (physical) for: ${device.name || device.id}`);
-            } else {
-                console.warn(`[DisplaySystem] FireOLEDAdapter not found for ${device.name}`);
-            }
         }
+        // Note: akai-fire and generic devices do not get auto-registered displays
 
         // Register with display manager
         if (adapter && window.displayManager) {

@@ -469,7 +469,11 @@ export function parseProgramStateResponse(data) {
         programMutes.push(muted);
     }
 
-    // Build program array
+    // NOTE: PROGRAM_STATE_RESPONSE does NOT include FX enable bits
+    // Per SAMPLECRATE_SYSEX.md, bytes 73-75 are Reserved (0x00)
+    // FX enable must be tracked client-side or queried per-program via FX_GET_ALL_STATE (0x7E)
+
+    // Build program array (without FX enable - not available in this response)
     const programs = [];
     for (let i = 0; i < numPrograms; i++) {
         programs.push({
@@ -477,6 +481,7 @@ export function parseProgramStateResponse(data) {
             volume: programVolumes[i],
             pan: programPans[i],
             muted: programMutes[i]
+            // fxEnabled: NOT available in PROGRAM_STATE_RESPONSE
         });
     }
 

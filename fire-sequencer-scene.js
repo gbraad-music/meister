@@ -1183,16 +1183,16 @@ class FireSequencerScene {
     initializeFireDisplayAdapter() {
         // Only create if not already created
         if (this.fireDisplayAdapter) {
-            console.log('[FireSequencer] Fire display adapter already exists, skipping initialization');
+            // console.log('[FireSequencer] Fire display adapter already exists, skipping initialization');
             return;
         }
 
         if (!window.FireOLEDAdapter) {
-            console.warn('[FireSequencer] FireOLEDAdapter class not available');
+            // console.warn('[FireSequencer] FireOLEDAdapter class not available');
             return;
         }
 
-        console.log('[FireSequencer] Initializing Fire display adapter...');
+        // console.log('[FireSequencer] Initializing Fire display adapter...');
         const renderMode = this.scene.renderMode || 'text';
 
         // Check if we have a valid physical device
@@ -1663,11 +1663,11 @@ class FireSequencerScene {
     initializeFireHardware() {
         const midiOutput = this.getFireControllerOutput();
         if (!midiOutput) {
-            console.warn('[FireSequencer] No MIDI output available for Fire hardware initialization');
+            // console.warn('[FireSequencer] No MIDI output available for Fire hardware initialization');
             return;
         }
 
-        console.log(`[FireSequencer] Initializing Fire hardware on output: ${midiOutput.name}`);
+        // console.log(`[FireSequencer] Initializing Fire hardware on output: ${midiOutput.name}`);
 
         // Clear LED state cache to avoid stale data
         this.ledStates.clear();
@@ -1772,7 +1772,7 @@ class FireSequencerScene {
 
         // Attach listener
         midiInput.addEventListener('midimessage', this.midiInputListener);
-        console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInput.name} (device: ${device.name})`);
+        // console.log(`[FireSequencer] ✓ Listening to MIDI input: ${midiInput.name} (device: ${device.name})`);
     }
 
     /**

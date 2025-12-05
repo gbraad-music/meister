@@ -80,10 +80,7 @@ class RegrooveStateManager {
 
     // Request player state from device
     requestPlayerState(deviceId) {
-        // Commented out to reduce console clutter
-        // console.log(`[RegrooveState] requestPlayerState called for device ${deviceId}`);
         if (this.sendSysExCallback) {
-            // console.log(`[RegrooveState] Calling sendSysExCallback(${deviceId}, 0x60, [])`);
             // Send GET_PLAYER_STATE (0x60)
             this.sendSysExCallback(deviceId, 0x60, []);
         } else {

@@ -253,6 +253,7 @@ class MeisterController {
             // Find device by deviceId number
             const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
             if (device) {
+                // console.log(`[SysEx 0x63] SEQUENCE_STATE_RESPONSE from device ${device.name} (ID ${deviceId})`);
                 this.actionDispatcher.handleSequenceStateResponse(device.id, data);
             } else {
                 console.warn(`[SysEx] Received sequence state from unknown device ${deviceId}`);
@@ -264,6 +265,7 @@ class MeisterController {
             // Find device by deviceId number
             const device = this.deviceManager?.getDeviceByDeviceId(deviceId);
             if (device) {
+                // console.log(`[SysEx 0x65] PROGRAM_STATE_RESPONSE from device ${device.name} (ID ${deviceId})`);
                 this.actionDispatcher.handleProgramStateResponse(device.id, data);
             } else {
                 console.warn(`[SysEx] Received program state from unknown device ${deviceId}`);
@@ -836,9 +838,9 @@ class MeisterController {
                     const sceneSelect = document.getElementById('pad-display-scene');
                     sceneSelect.value = pad.display.sceneId;
                     // Verify it was set correctly
-                    if (sceneSelect.value !== pad.display.sceneId) {
-                        console.warn(`[PadEditor] Failed to set scene value to "${pad.display.sceneId}", available options:`, Array.from(sceneSelect.options).map(o => o.value));
-                    }
+                    // if (sceneSelect.value !== pad.display.sceneId) {
+                    //     console.warn(`[PadEditor] Failed to set scene value to "${pad.display.sceneId}", available options:`, Array.from(sceneSelect.options).map(o => o.value));
+                    // }
                     document.getElementById('pad-display-scene-select-container').style.display = 'block';
                     document.getElementById('pad-display-device-select-container').style.display = 'none';
                 } else {
@@ -3004,6 +3006,16 @@ class MeisterController {
     // SysEx: FX_GET_ALL_STATE (0x7E) - Request complete effects state
     sendSysExFxGetAllState(deviceId, programId = 0) {
         this.sendSysEx(deviceId, 0x7E, [programId & 0x7F]);
+    }
+
+    // SysEx: GET_PROGRAM_STATE (0x64) - Request program/mixer state (SampleCrate)
+    sendSysExGetProgramState(deviceId) {
+        this.sendSysEx(deviceId, 0x64, []);
+    }
+
+    // SysEx: GET_SEQUENCE_STATE (0x62) - Request sequence slot state (SampleCrate)
+    sendSysExGetSequenceState(deviceId) {
+        this.sendSysEx(deviceId, 0x62, []);
     }
 
     /**

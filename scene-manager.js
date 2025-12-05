@@ -68,7 +68,7 @@ export class SceneManager {
      * This allows persistent Fire scenes to work immediately on startup
      */
     initializePersistentFireScenes() {
-        console.log('[SceneManager] Initializing persistent Fire scenes...');
+        // console.log('[SceneManager] Initializing persistent Fire scenes...');
         let count = 0;
         let fireSceneCount = 0;
         let persistentFireSceneCount = 0;
@@ -76,7 +76,7 @@ export class SceneManager {
         for (const [sceneId, scene] of this.scenes.entries()) {
             if (scene.type === 'fire-sequencer') {
                 fireSceneCount++;
-                console.log(`[SceneManager] Found Fire scene: ${scene.name} (${sceneId}), persistent=${scene.persistent}, hasInstance=${!!scene.fireInstance}`);
+                // console.log(`[SceneManager] Found Fire scene: ${scene.name} (${sceneId}), persistent=${scene.persistent}, hasInstance=${!!scene.fireInstance}`);
 
                 if (scene.persistent === true) {
                     persistentFireSceneCount++;
@@ -85,7 +85,7 @@ export class SceneManager {
 
             if (scene.type === 'fire-sequencer' && scene.persistent === true && !scene.fireInstance) {
                 if (window.FireSequencerScene) {
-                    console.log(`[SceneManager] Creating persistent Fire instance: ${scene.name} (${sceneId}), midiInputDevice: ${scene.midiInputDevice}, linked: ${!!scene.linkedSequencer}`);
+                    // console.log(`[SceneManager] Creating persistent Fire instance: ${scene.name} (${sceneId}), midiInputDevice: ${scene.midiInputDevice}, linked: ${!!scene.linkedSequencer}`);
                     // Create instance in background (will attach MIDI listeners and initialize hardware)
                     scene.fireInstance = new window.FireSequencerScene(this, sceneId);
 
@@ -100,7 +100,7 @@ export class SceneManager {
                         scene.fireInstance.initializeFireDisplayAdapter();
                     }
 
-                    console.log(`[SceneManager] ✓ Pre-initialized persistent Fire scene: ${scene.name}`);
+                    // console.log(`[SceneManager] ✓ Pre-initialized persistent Fire scene: ${scene.name}`);
                     count++;
                 } else {
                     console.error('[SceneManager] FireSequencerScene class not available - cannot initialize persistent Fire scenes');
@@ -109,7 +109,7 @@ export class SceneManager {
             }
         }
 
-        console.log(`[SceneManager] Summary: ${fireSceneCount} total Fire scenes, ${persistentFireSceneCount} with persistent=true, ${count} initialized`);
+        // console.log(`[SceneManager] Summary: ${fireSceneCount} total Fire scenes, ${persistentFireSceneCount} with persistent=true, ${count} initialized`);
     }
 
     setupOrientationListener() {
@@ -642,26 +642,15 @@ export class SceneManager {
         // Resolve device IDs from bindings at runtime (so they update when device IDs change)
         const resolvedDeviceIds = this.resolveSceneDeviceIds(scene);
 
-        // Start polling for this scene using regrooveState
+        // Start device-type-aware polling for this scene
         if (resolvedDeviceIds.length > 0) {
             // Scene has device bindings - start polling for those devices
             const pollInterval = scene.pollInterval || 500; // Default to 500ms if not specified
-            // console.log(`[Scene] "${scene.name}" (type: ${scene.type}) polling Regroove devices [${resolvedDeviceIds.join(', ')}] every ${pollInterval}ms`);
 
-            if (this.controller.regrooveState && this.controller.midiOutput) {
-                // Update polling interval
-                this.controller.regrooveState.pollingIntervalMs = pollInterval;
-                // Start polling through regrooveState
-                this.controller.regrooveState.startPolling(resolvedDeviceIds);
-            } else {
-                console.warn(`[Scene] Cannot start polling: regrooveState=${!!this.controller.regrooveState}, midiOutput=${!!this.controller.midiOutput}`);
-            }
+            this.startScenePolling(resolvedDeviceIds, pollInterval);
         } else {
             // Scene has no device bindings - stop polling
-            // console.log(`[Scene] "${scene.name}" (type: ${scene.type}) has no Regroove device bindings, stopping polling`);
-            if (this.controller.regrooveState) {
-                this.controller.regrooveState.stopPolling();
-            }
+            this.stopScenePolling();
         }
 
         // Update scene selector if it exists
@@ -691,12 +680,10 @@ export class SceneManager {
         if (scene.deviceBinding) {
             const device = this.controller.deviceManager.getDevice(scene.deviceBinding);
             // console.log(`[Scene] Checking scene.deviceBinding: device=${device?.name}, type=${device?.type}, deviceId=${device?.deviceId}`);
-            // Only poll for Regroove devices, not generic or undefined
-            if (device && device.type === 'regroove') {
+            // Include ALL device types (regroove, samplecrate, etc)
+            if (device && device.deviceId !== undefined) {
                 deviceIds.push(device.deviceId);
-                // console.log(`[Scene] Added deviceId ${device.deviceId} from scene.deviceBinding (Regroove)`);
-            } else if (device) {
-                // console.log(`[Scene] Skipping deviceId ${device.deviceId} from scene.deviceBinding (type: ${device.type}, not Regroove)`);
+                // console.log(`[Scene] Added deviceId ${device.deviceId} from scene.deviceBinding (${device.type})`);
             }
         }
 
@@ -706,8 +693,8 @@ export class SceneManager {
             scene.slots.forEach(slot => {
                 if (slot && slot.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(slot.deviceBinding);
-                    // Only poll for Regroove devices, not generic or undefined
-                    if (device && device.type === 'regroove') {
+                    // Include ALL device types (regroove, samplecrate, etc)
+                    if (device && device.deviceId !== undefined) {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -721,8 +708,8 @@ export class SceneManager {
             scene.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    // Only poll for Regroove devices, not generic or undefined
-                    if (device && device.type === 'regroove') {
+                    // Include ALL device types (regroove, samplecrate, etc)
+                    if (device && device.deviceId !== undefined) {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -736,8 +723,8 @@ export class SceneManager {
             this.controller.config.pads.forEach(pad => {
                 if (pad && pad.deviceBinding) {
                     const device = this.controller.deviceManager.getDevice(pad.deviceBinding);
-                    // Only poll for Regroove devices, not generic or undefined
-                    if (device && device.type === 'regroove') {
+                    // Include ALL device types (regroove, samplecrate, etc)
+                    if (device && device.deviceId !== undefined) {
                         uniqueDeviceIds.add(device.deviceId);
                     }
                 }
@@ -746,17 +733,109 @@ export class SceneManager {
         }
 
         // Fallback to pollDevices if no bindings resolved (backward compat)
-        // But still filter out non-Regroove devices
         if (deviceIds.length === 0 && scene.pollDevices && scene.pollDevices.length > 0) {
-            // Filter pollDevices to only include Regroove devices
-            const filteredDeviceIds = scene.pollDevices.filter(deviceId => {
+            // Include all devices from pollDevices array
+            return scene.pollDevices.filter(deviceId => {
                 const device = this.controller.deviceManager.getAllDevices().find(d => d.deviceId === deviceId);
-                return device && device.type === 'regroove';
+                return device && device.deviceId !== undefined;
             });
-            return filteredDeviceIds;
         }
 
         return deviceIds;
+    }
+
+    /**
+     * Start device-type-aware polling for scene
+     */
+    startScenePolling(deviceIds, pollInterval) {
+        // Stop any existing polling
+        this.stopScenePolling();
+
+        if (!this.controller.deviceManager || !this.controller.midiOutput) {
+            console.warn(`[Scene] Cannot start polling: deviceManager=${!!this.controller.deviceManager}, midiOutput=${!!this.controller.midiOutput}`);
+            return;
+        }
+
+        this.currentPollingDeviceIds = deviceIds;
+        this.currentPollingInterval = pollInterval;
+
+        console.log(`[Scene] Starting device-type-aware polling for devices [${deviceIds.join(', ')}] every ${pollInterval}ms`);
+
+        // Request immediately for all devices
+        this.pollAllDevices();
+
+        // Set up interval
+        this.scenePollingInterval = setInterval(() => {
+            this.pollAllDevices();
+        }, pollInterval);
+    }
+
+    /**
+     * Poll all devices with type-specific status requests
+     */
+    pollAllDevices() {
+        if (!this.currentPollingDeviceIds) return;
+
+        this.currentPollingDeviceIds.forEach(deviceId => {
+            const device = this.controller.deviceManager.getAllDevices().find(d => d.deviceId === deviceId);
+            if (!device) {
+                console.warn(`[Scene] Device ID ${deviceId} not found in device manager`);
+                return;
+            }
+
+            if (device.type === 'regroove') {
+                // Regroove: GET_PLAYER_STATE (0x60)
+                if (this.controller.regrooveState) {
+                    this.controller.regrooveState.requestPlayerState(deviceId);
+                }
+
+                // Also request FX state if current scene is effects
+                const currentScene = this.scenes.get(this.currentScene);
+                if (currentScene && currentScene.type === 'effects' && currentScene.deviceBinding) {
+                    const effectsDevice = this.controller.deviceManager.getDevice(currentScene.deviceBinding);
+                    if (effectsDevice && effectsDevice.deviceId === deviceId) {
+                        const programId = currentScene.programId || 0;
+                        this.controller.sendSysExFxGetAllState(deviceId, programId);
+                    }
+                }
+            } else if (device.type === 'samplecrate') {
+                // SampleCrate: GET_PROGRAM_STATE (0x64) for volumes/mixer
+                this.controller.sendSysExGetProgramState(deviceId);
+                // Also request sequence state for play/stop pad colors
+                this.controller.sendSysExGetSequenceState(deviceId);
+
+                // Also request FX state if current scene is effects
+                const currentScene = this.scenes.get(this.currentScene);
+                if (currentScene && currentScene.type === 'effects' && currentScene.deviceBinding) {
+                    const effectsDevice = this.controller.deviceManager.getDevice(currentScene.deviceBinding);
+                    if (effectsDevice && effectsDevice.deviceId === deviceId) {
+                        const programId = currentScene.programId || 0;
+                        this.controller.sendSysExFxGetAllState(deviceId, programId);
+                    }
+                }
+            } else {
+                console.warn(`[Scene] Unknown device type "${device.type}" for device ${device.name} (ID ${deviceId})`);
+            }
+            // Add more device types here as needed
+        });
+    }
+
+    /**
+     * Stop scene polling
+     */
+    stopScenePolling() {
+        if (this.scenePollingInterval) {
+            clearInterval(this.scenePollingInterval);
+            this.scenePollingInterval = null;
+        }
+
+        // Also stop old regrooveState polling
+        if (this.controller.regrooveState) {
+            this.controller.regrooveState.stopPolling();
+        }
+
+        this.currentPollingDeviceIds = null;
+        this.currentPollingInterval = null;
     }
 
     /**
@@ -2378,6 +2457,7 @@ export class SceneManager {
 
             const programNum = parseInt(fader.getAttribute('program'));
             const programData = programState.programs[programNum];
+
             if (!programData) return;
 
             // Update volume (convert wire 0-127 to percentage 0-100)
@@ -2390,6 +2470,9 @@ export class SceneManager {
 
             // Update mute state
             fader.setAttribute('muted', programData.muted.toString());
+
+            // NOTE: FX enable is NOT in PROGRAM_STATE_RESPONSE
+            // It must be tracked client-side or queried per-program via FX_GET_ALL_STATE
         });
 
         // Update MASTER fader for this device (if showing master volume)

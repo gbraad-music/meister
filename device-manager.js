@@ -14,6 +14,23 @@ export class DeviceManager {
     }
 
     /**
+     * Format device type name for display
+     * @param {string} type - Device type (e.g., 'akai-fire', 'generic', 'mixxx')
+     * @returns {string} Formatted name (e.g., 'Akai Fire', 'Generic', 'Mixxx')
+     */
+    static formatDeviceTypeName(type) {
+        const typeNames = {
+            'generic': 'Generic',
+            'regroove': 'Regroove',
+            'samplecrate': 'SampleCrate',
+            'akai-fire': 'Akai Fire',
+            'novation-launchpad-mini': 'Novation Launchpad Mini',
+            'mixxx': 'Mixxx'
+        };
+        return typeNames[type] || type;
+    }
+
+    /**
      * Add or update a device instance
      */
     addDevice(id, config) {
@@ -34,6 +51,18 @@ export class DeviceManager {
 
         const channelStr = device.midiChannel === 'omni' ? 'Omni' : `Ch ${device.midiChannel + 1}`;
         console.log(`[Devices] Added/updated device: ${device.name} (Type: ${device.type}, ${channelStr}, ID ${device.deviceId}, Out: ${device.midiOutputName || 'default'}, In: ${device.midiInputName || 'same'})`);
+
+        // Auto-enable device MIDI input if specified
+        if (device.midiInputName && this.controller.enabledMidiInputs) {
+            if (!this.controller.enabledMidiInputs.has(device.midiInputName)) {
+                this.controller.enabledMidiInputs.add(device.midiInputName);
+                console.log(`[Devices] Auto-enabled MIDI input: ${device.midiInputName} for device ${device.name}`);
+                // Re-setup MIDI inputs to start listening to this input
+                if (this.controller.setupMIDIInputs) {
+                    this.controller.setupMIDIInputs();
+                }
+            }
+        }
 
         // Notify Display System to register adapter for this device
         if (window.registerDisplayForDevice) {
@@ -200,7 +229,7 @@ export class DeviceManager {
                 // Restore devices
                 if (data.devices && Array.isArray(data.devices)) {
                     data.devices.forEach(device => {
-                        this.devices.set(device.id, {
+                        const deviceConfig = {
                             id: device.id,
                             name: device.name,
                             type: device.type || 'generic', // Restore type field!
@@ -209,10 +238,25 @@ export class DeviceManager {
                             color: device.color || '#CF1A37',
                             midiOutputName: device.midiOutputName || device.midiOutputId || null, // Support legacy midiOutputId
                             midiInputName: device.midiInputName || null // Optional separate input
-                        });
+                        };
+                        this.devices.set(device.id, deviceConfig);
+
                         const channelStr = device.midiChannel === 'omni' ? 'Omni' : `Ch ${device.midiChannel + 1}`;
                         console.log(`[Devices] Loaded: ${device.name} (Type: ${device.type || 'generic'}) - ${channelStr}, Device ID ${device.deviceId}, Out: ${device.midiOutputName || device.midiOutputId || 'default'}, In: ${device.midiInputName || 'same'}`);
+
+                        // Auto-enable device MIDI input if specified
+                        if (deviceConfig.midiInputName && this.controller.enabledMidiInputs) {
+                            if (!this.controller.enabledMidiInputs.has(deviceConfig.midiInputName)) {
+                                this.controller.enabledMidiInputs.add(deviceConfig.midiInputName);
+                                console.log(`[Devices] Auto-enabled MIDI input: ${deviceConfig.midiInputName} for device ${device.name}`);
+                            }
+                        }
                     });
+
+                    // Re-setup MIDI inputs to start listening to all auto-enabled inputs
+                    if (this.controller.setupMIDIInputs) {
+                        this.controller.setupMIDIInputs();
+                    }
                 }
 
                 // Restore default device
@@ -468,13 +512,8 @@ export class DeviceManager {
                 }
             }
 
-            // Device type labels
-            const typeLabels = {
-                'generic': 'Generic',
-                'regroove': 'Regroove',
-                'samplecrate': 'SampleCrate'
-            };
-            const typeLabel = typeLabels[device.type] || device.type;
+            // Format device type for display
+            const typeLabel = DeviceManager.formatDeviceTypeName(device.type);
 
             return `
                 <tr>

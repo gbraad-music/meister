@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v579';
+const CACHE_NAME = 'meister-v594';
 const ASSETS = [
     './',
     './index.html',
@@ -87,6 +87,14 @@ self.addEventListener('fetch', (event) => {
             if (event.request.destination === 'document') {
                 return caches.match('./index.html');
             }
+            // Return a proper Response for non-document requests when offline
+            return new Response('Offline', {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers({
+                    'Content-Type': 'text/plain'
+                })
+            });
         })
     );
 });
