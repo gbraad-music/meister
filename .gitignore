@@ -6,6 +6,11 @@ dist/
 out/
 build/
 
+# Capacitor/Android build output
+android/
+ios/
+.capacitor/
+
 # OS files
 .DS_Store
 Thumbs.db

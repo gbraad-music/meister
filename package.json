@@ -1,6 +1,6 @@
 {
   "name": "meister",
-  "author": "Gerard Braad (me@gbraad.nl)",
+  "author": "Gerard Braad <me@gbraad.nl>",
   "license": "MIT",
   "version": "1.0.0",
   "description": "Regroove Meister - MIDI Controller Suite for Live/DJ Performance",
@@ -12,7 +12,12 @@
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder -mwl"
+    "build:all": "electron-builder -mwl",
+    "cap:init": "npx cap init",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "build:android": "npx cap sync && npx cap open android"
   },
   "keywords": [
     "midi",
@@ -23,7 +28,12 @@
   ],
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.0"
+    "electron-builder": "^24.9.0",
+    "@capacitor/cli": "^5.5.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^5.5.0",
+    "@capacitor/android": "^5.5.0"
   },
   "build": {
     "appId": "nl.gbraad.meister",
