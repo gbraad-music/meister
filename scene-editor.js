@@ -69,6 +69,11 @@ export class SceneEditor {
             this.openPadSceneEditor();
         });
 
+        // New knobs grid button (control-grid scene)
+        document.getElementById('new-knobs-scene-btn')?.addEventListener('click', () => {
+            this.openControlGridSceneEditor();
+        });
+
         // New piano scene button
         document.getElementById('new-piano-scene-btn')?.addEventListener('click', () => {
             this.openPianoSceneEditor();
@@ -368,6 +373,40 @@ export class SceneEditor {
         document.getElementById('control-grid-scene-editor-overlay').classList.add('active');
     }
 
+    /**
+     * Open control-grid scene editor (create new or edit existing)
+     */
+    openControlGridSceneEditor(sceneId = null) {
+        if (sceneId) {
+            // Edit existing control-grid scene
+            const scene = this.sceneManager.scenes.get(sceneId);
+            if (scene && scene.type === 'control-grid') {
+                this.currentSceneId = sceneId;
+
+                document.getElementById('control-grid-scene-name').value = scene.name;
+                document.getElementById('control-grid-scene-rows').value = scene.rows || 5;
+                document.getElementById('control-grid-scene-cols').value = scene.cols || 12;
+
+                this.populateControlGridDeviceDropdown(scene.deviceBinding);
+
+                document.getElementById('control-grid-scene-editor-title').textContent = 'EDIT CONTROL GRID SCENE';
+            }
+        } else {
+            // New control-grid scene
+            this.currentSceneId = 'control-grid-' + Date.now();
+
+            document.getElementById('control-grid-scene-name').value = 'Control Grid';
+            document.getElementById('control-grid-scene-rows').value = 5;
+            document.getElementById('control-grid-scene-cols').value = 12;
+
+            this.populateControlGridDeviceDropdown();
+
+            document.getElementById('control-grid-scene-editor-title').textContent = 'NEW CONTROL GRID SCENE';
+        }
+
+        document.getElementById('control-grid-scene-editor-overlay').classList.add('active');
+    }
+
     closeControlGridSceneEditor() {
         document.getElementById('control-grid-scene-editor-overlay').classList.remove('active');
     }
@@ -389,9 +428,6 @@ export class SceneEditor {
     saveControlGridScene() {
         if (!this.currentSceneId) return;
 
-        const scene = this.sceneManager.scenes.get(this.currentSceneId);
-        if (!scene) return;
-
         const name = document.getElementById('control-grid-scene-name').value.trim();
         const deviceBinding = document.getElementById('control-grid-scene-device').value || null;
         const rows = parseInt(document.getElementById('control-grid-scene-rows').value);
@@ -402,11 +438,28 @@ export class SceneEditor {
             return;
         }
 
-        // Update scene
-        scene.name = name;
-        scene.deviceBinding = deviceBinding;
-        scene.rows = rows;
-        scene.cols = cols;
+        const scene = this.sceneManager.scenes.get(this.currentSceneId);
+
+        if (scene) {
+            // Update existing scene
+            scene.name = name;
+            scene.deviceBinding = deviceBinding;
+            scene.rows = rows;
+            scene.cols = cols;
+        } else {
+            // Create new scene
+            const sceneConfig = {
+                name: name,
+                type: 'control-grid',
+                rows: rows,
+                cols: cols,
+                deviceBinding: deviceBinding,
+                cells: Array(rows * cols).fill(null),
+                render: () => this.sceneManager.renderControlGridScene(this.currentSceneId)
+            };
+
+            this.sceneManager.addScene(this.currentSceneId, sceneConfig);
+        }
 
         // Save and refresh
         this.saveScenesToStorage();
@@ -1043,12 +1096,29 @@ export class SceneEditor {
 
         // console.log(`[SceneEditor] Saving pad scene "${name}" with ${layout} layout, ${pollingInterval}ms polling`);
 
-        // Collect all device IDs from device manager for polling
-        const deviceIds = new Set();
-        if (this.sceneManager.controller.deviceManager) {
-            const devices = this.sceneManager.controller.deviceManager.getAllDevices();
-            devices.forEach(device => {
-                deviceIds.add(device.deviceId);
+        // Get existing scene if editing, to preserve pads
+        const existingScene = this.sceneManager.scenes.get(this.currentSceneId);
+
+        // Calculate grid size
+        const [rows, cols] = layout.split('x').map(Number);
+        const gridSize = rows * cols;
+
+        // Preserve existing pads array or initialize with correct size
+        const pads = existingScene?.pads || Array(gridSize).fill(null);
+
+        // Ensure pads array is the right size for new layout
+        if (pads.length !== gridSize) {
+            pads.length = gridSize;
+            pads.fill(null, existingScene?.pads?.length || 0);
+        }
+
+        // Auto-detect which devices to poll based on pad deviceBindings
+        const pollDevices = new Set();
+        if (pads) {
+            pads.forEach(pad => {
+                if (pad && pad.deviceBinding) {
+                    pollDevices.add(pad.deviceBinding);
+                }
             });
         }
 
@@ -1057,7 +1127,8 @@ export class SceneEditor {
             name: this.padSceneConfig.name,
             type: 'grid',
             layout: this.padSceneConfig.layout,
-            pollDevices: Array.from(deviceIds),
+            pads: pads,
+            pollDevices: Array.from(pollDevices),
             pollInterval: pollingInterval
         };
 

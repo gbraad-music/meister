@@ -614,6 +614,7 @@ export class SceneManager {
 
         if (config.type === 'grid') {
             scene.layout = config.layout || '4x4';
+            scene.pads = config.pads || []; // Pad configurations for custom grid scenes
             scene.pollDevices = config.pollDevices || []; // Optional - uses global polling if empty
             scene.pollInterval = config.pollInterval || null; // Optional - uses global polling if null
             scene.render = () => this.renderPadsScene(id);
@@ -920,6 +921,9 @@ export class SceneManager {
         // Get scene config
         const scene = this.scenes.get(sceneId);
         const isBuiltIn = sceneId === 'pads';
+
+        // console.log(`[renderPadsScene] sceneId=${sceneId}, isBuiltIn=${isBuiltIn}, scene=`, scene);
+        // console.log(`[renderPadsScene] scene.pads=`, scene?.pads);
 
         // Get layout from scene, fallback to config
         const layout = scene?.layout || this.controller.config.gridLayout || '4x4';

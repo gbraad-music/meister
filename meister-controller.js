@@ -1618,6 +1618,15 @@ class MeisterController {
                 };
             }
             hasMessage = true;
+        } else if (messageType === 'ccknob') {
+            // CC Knob (Embedded) - check if knob is actually enabled
+            const knobEnabled = document.getElementById('pad-knob-enabled').checked;
+            if (knobEnabled) {
+                const knobCC = parseInt(document.getElementById('pad-knob-cc').value);
+                if (!isNaN(knobCC) && knobCC >= 0 && knobCC <= 127) {
+                    hasMessage = true;
+                }
+            }
         }
 
         // Check for secondary action
@@ -1695,7 +1704,17 @@ class MeisterController {
             // Save to scene's pads array
             const scene = this.sceneManager.scenes.get(this.currentPadSceneId);
             if (scene) {
-                if (!scene.pads) scene.pads = [];
+                // Ensure pads array exists and is properly sized
+                if (!scene.pads) {
+                    const [rows, cols] = (scene.layout || '4x4').split('x').map(Number);
+                    const gridSize = rows * cols;
+                    scene.pads = Array(gridSize).fill(null);
+                }
+
+                // Ensure array is large enough for this index
+                while (scene.pads.length <= this.editingPadIndex) {
+                    scene.pads.push(null);
+                }
 
                 // Check if we have at least a message type (cc, note, or mmc)
                 // If not, treat as empty pad
@@ -1705,6 +1724,15 @@ class MeisterController {
                     scene.pads[this.editingPadIndex] = padConfig;
                     // console.log(`[Pad Save] ✓ Saved to scene.pads[${this.editingPadIndex}]`);
                 }
+
+                // Auto-update pollDevices based on all pad deviceBindings in the scene
+                const pollDevices = new Set();
+                scene.pads.forEach(pad => {
+                    if (pad && pad.deviceBinding) {
+                        pollDevices.add(pad.deviceBinding);
+                    }
+                });
+                scene.pollDevices = Array.from(pollDevices);
 
                 // Save scene config to localStorage
                 this.sceneEditor.saveScenesToStorage();
@@ -1789,6 +1817,8 @@ class MeisterController {
      * @returns {HTMLElement} The created pad element
      */
     createSinglePad(index, padConfig) {
+        // console.log(`[createSinglePad] Index ${index}, padConfig=`, padConfig);
+
         // Check if this is a display widget instead of a pad
         if (padConfig && padConfig.display) {
             let displayElement;
@@ -1849,6 +1879,13 @@ class MeisterController {
             // Store original label for later replacement
             padElement._originalLabel = padConfig.label;
             padElement._originalSublabel = padConfig.sublabel;
+
+            // For knob-only pads, set label on the pad element itself
+            if (padConfig.ccKnob && !padConfig.cc && !padConfig.note && !padConfig.mmc && !padConfig.sysex && !padConfig.action) {
+                if (padConfig.label) {
+                    padElement.setAttribute('label', padConfig.label);
+                }
+            }
 
             // Set label with appropriate prefix for sequencer buttons
             if (padConfig.label) {
@@ -1998,6 +2035,21 @@ class MeisterController {
 
             // Add CC knob if configured
             if (padConfig.ccKnob) {
+                // Check if this is a knob-only pad (no other message types)
+                const hasOtherMessage = padConfig.cc !== undefined ||
+                                       padConfig.note !== undefined ||
+                                       padConfig.mmc !== undefined ||
+                                       padConfig.sysex !== undefined ||
+                                       padConfig.action !== undefined;
+
+                // console.log(`[createSinglePad] Pad ${index} has knob, hasOtherMessage=${hasOtherMessage}, ccKnob=`, padConfig.ccKnob);
+
+                if (!hasOtherMessage) {
+                    // Mark as knob-only for transparent background styling
+                    padElement.setAttribute('knob-only', '');
+                    // console.log(`[createSinglePad] Set knob-only attribute on pad ${index}`);
+                }
+
                 const knob = document.createElement('pad-knob');
                 knob.setAttribute('label', padConfig.label || 'CC');
                 knob.setAttribute('sublabel', sublabel || '');
@@ -2005,6 +2057,7 @@ class MeisterController {
                 knob.setAttribute('value', padConfig.ccKnob.value !== undefined ? padConfig.ccKnob.value : '64');
                 knob.setAttribute('min', padConfig.ccKnob.min !== undefined ? padConfig.ccKnob.min : '0');
                 knob.setAttribute('max', padConfig.ccKnob.max !== undefined ? padConfig.ccKnob.max : '127');
+                // console.log(`[createSinglePad] Created knob element for pad ${index}`, knob);
 
                 // Handle CC changes from knob
                 knob.addEventListener('cc-change', (e) => {

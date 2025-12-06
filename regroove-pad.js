@@ -8,7 +8,7 @@ class RegroovePad extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'sysex', 'action', 'active', 'state', 'color'];
+        return ['label', 'sublabel', 'cc', 'note', 'mmc', 'sysex', 'action', 'active', 'state', 'color', 'knob-only'];
     }
 
     connectedCallback() {
@@ -60,6 +60,9 @@ class RegroovePad extends HTMLElement {
         const hasSysEx = this.getAttribute('sysex') !== null;
         const hasAction = this.getAttribute('action') !== null;
         const isEmpty = !hasCC && !hasNote && !hasMMC && !hasSysEx && !hasAction;
+
+        // Check if this is a knob-only pad (marked with knob-only attribute)
+        const hasKnob = this.hasAttribute('knob-only');
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -184,6 +187,13 @@ class RegroovePad extends HTMLElement {
                     cursor: default;
                 }
 
+                /* Knob-only pad styling - transparent background */
+                .pad.knob-only {
+                    background: transparent;
+                    border: none;
+                    cursor: default;
+                }
+
                 /* Slot for embedded knob */
                 ::slotted(pad-knob) {
                     position: absolute;
@@ -194,8 +204,8 @@ class RegroovePad extends HTMLElement {
                 }
             </style>
 
-            <div class="pad ${isEmpty ? 'empty' : ''}">
-                ${!isEmpty ? `
+            <div class="pad ${isEmpty && !hasKnob ? 'empty' : ''} ${hasKnob && isEmpty ? 'knob-only' : ''}">
+                ${!isEmpty || hasKnob ? `
                     ${label ? `<div class="label">${label}</div>` : ''}
                     ${sublabel ? `<div class="sublabel">${sublabel}</div>` : ''}
                 ` : ''}
