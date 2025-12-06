@@ -939,6 +939,7 @@ export class SceneManager {
         container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
         container.style.gap = '10px';
         container.style.padding = '10px 10px 4px 10px';
+        container.style.boxSizing = 'border-box';
         container.style.height = 'calc(100vh - 60px)';
 
         // For built-in 'pads' scene, use global config pads

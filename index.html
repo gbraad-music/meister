@@ -38,9 +38,10 @@
             grid-template-rows: repeat(4, 1fr);
             gap: 10px;
             padding: 10px 10px 4px 10px;
+            box-sizing: border-box; /* Include padding in height calculation */
             min-height: 0; /* Important for flex children with grid */
             max-height: 100%; /* Prevent overflow */
-            overflow: auto; /* Allow scrolling if needed */
+            overflow: hidden; /* Prevent scrollbars */
         }
 
         /* Position Sequencer */
