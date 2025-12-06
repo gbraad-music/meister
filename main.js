@@ -1,23 +1,35 @@
-const { app, BrowserWindow } = require('electron');
-//const path = require('path');
+const { app, BrowserWindow, Menu, nativeTheme } = require('electron');
+const path = require('path');
+
+// Force sRGB color space to fix color rendering (purple instead of blue issue)
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
+
+// Force dark theme globally
+nativeTheme.themeSource = 'dark';
 
 let mainWindow;
 
 function createWindow() {
+  // Remove menu bar completely
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
+    icon: path.join(__dirname, 'icon-512x512.png'),  // Application icon
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       // Enable Web MIDI API in Electron
       enableBlinkFeatures: 'WebMIDIAPI'
     },
-    // Uncomment for fullscreen/kiosk mode
-    fullscreen: true,
-    // kiosk: true,
     backgroundColor: '#000000',
-    title: 'Meister - MIDI Controller Suite for DJ Performance'
+    title: 'Regroove Meister - MIDI Controller Suite for DJ Performance',
+    autoHideMenuBar: true,  // Hide menu bar but keep window controls
+    // Dark window frame (platform-specific)
+    titleBarStyle: 'default',  // macOS: shows title bar
+    frame: true,  // Keep window frame/controls
+    darkTheme: true  // Request dark theme on supported platforms
   });
 
   mainWindow.loadFile('index.html');
@@ -27,10 +39,20 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
-  // Toggle DevTools with F12
+  // Keyboard shortcuts
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12' && input.type === 'keyDown') {
-      mainWindow.webContents.toggleDevTools();
+    if (input.type === 'keyDown') {
+      // F11 - Toggle fullscreen
+      if (input.key === 'F11') {
+        const isFullScreen = mainWindow.isFullScreen();
+        mainWindow.setFullScreen(!isFullScreen);
+        console.log(`[RegrooveMeister] Fullscreen: ${!isFullScreen}`);
+      }
+
+      // F12 - Toggle DevTools
+      if (input.key === 'F12') {
+        mainWindow.webContents.toggleDevTools();
+      }
     }
   });
 

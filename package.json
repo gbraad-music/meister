@@ -3,7 +3,7 @@
   "author": "Gerard Braad (me@gbraad.nl)",
   "license": "MIT",
   "version": "1.0.0",
-  "description": "Meister - MIDI Controller Suite for DJ Performance",
+  "description": "Regroove Meister - MIDI Controller Suite for Live/DJ Performance",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "nl.gbraad.meister",
-    "productName": "Meister",
+    "productName": "Regroove Meister",
     "files": [
       "main.js",
       "index.html",
@@ -31,11 +31,22 @@
       "components/**/*",
       "utils/**/*",
       "manifest.json",
-      "icon.svg"
+      "icon.svg",
+      "*.png"
     ],
     "extraFiles": [],
     "directories": {
       "output": "dist"
+    },
+    "linux": {
+      "icon": "icon-512x512.png",
+      "category": "AudioVideo"
+    },
+    "win": {
+      "icon": "icon-512x512.png"
+    },
+    "mac": {
+      "icon": "icon-512x512.png"
     }
   }
 }

@@ -3,6 +3,7 @@
 # Development files
 meister-start.sh
 meister-start.bat
+SHORTCUTS.md
 .gitignore
 
 # Build artifacts

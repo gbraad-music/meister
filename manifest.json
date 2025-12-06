@@ -1,7 +1,7 @@
 {
   "name": "Regroove Meister",
   "short_name": "Meister",
-  "description": "WebMIDI Controller Interface for Regroove",
+  "description": "Regroove Meister - MIDI Controller Suite for Live/DJ Performance",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
