@@ -2268,8 +2268,14 @@
     </script>
 
     <script>
-        // Register Service Worker for PWA functionality
-        if ('serviceWorker' in navigator) {
+        // Register Service Worker for PWA functionality (skip in Electron)
+        const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
+
+        if (isElectron) {
+            console.log(`[Meister] Running in Electron v${process.versions.electron}`);
+        }
+
+        if ('serviceWorker' in navigator && !isElectron) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./service-worker.js')
                     .then((registration) => {
