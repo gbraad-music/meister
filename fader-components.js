@@ -668,6 +668,107 @@ class ProgramFader extends BaseFader {
 }
 
 /**
+ * DECK Fader Component (for Mixxx DJ Decks)
+ * Format: Deck Label (colored), Volume, Mute
+ * No pan slider - simplified for DJ deck control
+ */
+class DeckFader extends BaseFader {
+    constructor() {
+        super();
+        this.render();
+    }
+
+    static get observedAttributes() {
+        return ['deck', 'volume', 'muted'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue) return;
+
+        // ALWAYS just update slider directly for volume changes
+        if (name === 'volume') {
+            const slider = this.shadowRoot?.getElementById('volume-slider');
+            if (slider) {
+                // Convert percentage (0-100) to wire format (0-127) for slider
+                const wireValue = Math.round((parseInt(newValue) / 100) * 127);
+                slider.setAttribute('value', wireValue);
+            }
+            return;
+        }
+
+        // For muted or deck changes, re-render
+        this.render();
+    }
+
+    render() {
+        const deck = parseInt(this.getAttribute('deck') || '1');
+        const volumePercent = parseInt(this.getAttribute('volume') || '100'); // 0-100 percentage
+        const volume = Math.round((volumePercent / 100) * 127); // Convert to 0-127 for slider
+        const muted = this.getAttribute('muted') === 'true';
+
+        // Deck labels: A, B, C, D
+        const deckLabels = { 1: 'DECK A', 2: 'DECK B', 3: 'DECK C', 4: 'DECK D' };
+        const deckLabel = deckLabels[deck] || `DECK ${deck}`;
+
+        // Deck colors: RED for A, BLUE for B, default for C/D
+        const deckColors = { 1: '#FF0000', 2: '#0000FF', 3: '#00FF00', 4: '#FFFF00' };
+        const borderColor = deckColors[deck] || '#CF1A37';
+
+        this.shadowRoot.innerHTML = `
+            <style>
+                ${this.getBaseStyles()}
+
+                .fader-label {
+                    border: 2px solid ${borderColor};
+                }
+            </style>
+            <div class="fader-label">${deckLabel}</div>
+            <div class="slider-container">
+                <svg-slider id="volume-slider" min="0" max="127" value="${volume}" width="60"></svg-slider>
+            </div>
+            <button class="fader-button ${muted ? 'active' : ''}" id="mute-btn">M</button>
+        `;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const deck = parseInt(this.getAttribute('deck') || '1');
+        const volumeSlider = this.shadowRoot.getElementById('volume-slider');
+        const muteBtn = this.shadowRoot.getElementById('mute-btn');
+
+        volumeSlider?.addEventListener('input', (e) => {
+            const wireValue = e.detail?.value ?? e.target?.value; // Slider sends 0-127
+            const percentValue = Math.round((wireValue / 127) * 100); // Convert to 0-100 percentage
+            this.setAttribute('volume', percentValue); // Store as percentage
+
+            // Mark that we're actively changing the volume
+            this.dataset.volumeChanging = 'true';
+            clearTimeout(this._volumeChangeTimeout);
+            this._volumeChangeTimeout = setTimeout(() => {
+                delete this.dataset.volumeChanging;
+            }, 300); // 300ms debounce to prevent state updates during drag
+
+            this.dispatchEvent(new CustomEvent('volume-change', {
+                detail: { deck, value: parseInt(wireValue) }, // Send wire value
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        muteBtn?.addEventListener('click', () => {
+            const newState = !muteBtn.classList.contains('active');
+            this.setAttribute('muted', newState);
+            this.dispatchEvent(new CustomEvent('mute-toggle', {
+                detail: { deck, muted: newState },
+                bubbles: true,
+                composed: true
+            }));
+        });
+    }
+}
+
+/**
  * CC Fader Component
  * Generic MIDI CC fader for any CC number
  * Supports both vertical (default) and horizontal orientation
@@ -867,6 +968,7 @@ customElements.define('channel-fader', ChannelFader);
 customElements.define('tempo-fader', TempoFader);
 customElements.define('stereo-fader', StereoFader);
 customElements.define('program-fader', ProgramFader);
+customElements.define('deck-fader', DeckFader);
 customElements.define('cc-fader', CCFader);
 
-export { MixFader, ChannelFader, TempoFader, CCFader };
+export { MixFader, ChannelFader, TempoFader, DeckFader, CCFader };

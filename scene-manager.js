@@ -233,14 +233,14 @@ export class SceneManager {
         const controlGridDeviceBinding = existingControlGrid?.deviceBinding;
 
         // Control Grid scene (flexible grid with multiple control types)
-        // Demo: DJ Double Deck layout
+        // Demo: DJ Double Deck layout for Mixxx
         this.scenes.set('control-grid', {
             name: controlGridName || 'DJ Decks',
             type: 'control-grid',
             enabled: true,
             rows: 5,
             cols: 12,
-            deviceBinding: controlGridDeviceBinding || null,  // Preserve device binding
+            deviceBinding: controlGridDeviceBinding || null,  // User must set device binding via scene editor
             cells: this.createDemoDoubleDeckCells(),
             render: () => this.renderControlGridScene('control-grid')
         });
@@ -361,14 +361,14 @@ export class SceneManager {
             colSpan: 1,
             control: {
                 type: 'display',
-                deviceId: 'mixxx-device-id',
                 deviceType: 'mixxx',
                 deckId: 1,
                 updateInterval: 100
+                // deviceId inherited from scene
             }
         });
 
-        // Deck A VOLUME fader (col 5, rows 1-3, vertical) - 3 rows instead of 4
+        // Deck A VOLUME fader (col 5, rows 1-3, vertical) - includes mute button
         cells.push({
             row: 1,
             col: 5,
@@ -376,12 +376,9 @@ export class SceneManager {
             colSpan: 1,
             control: {
                 type: 'fader',
-                faderType: 'cc-fader',
-                label: 'VOL A',
-                midiType: 'cc',
-                midiChannel: 0,
-                midiNumber: 17,
-                midiValue: 100
+                faderType: 'deck-fader',
+                deck: 1
+                // deviceBinding inherited from scene
             }
         });
 
@@ -393,14 +390,14 @@ export class SceneManager {
             colSpan: 1,
             control: {
                 type: 'display',
-                deviceId: 'mixxx-device-id',
                 deviceType: 'mixxx',
                 deckId: 2,
                 updateInterval: 100
+                // deviceId inherited from scene
             }
         });
 
-        // Deck B VOLUME fader (col 6, rows 1-3, vertical) - 3 rows instead of 4
+        // Deck B VOLUME fader (col 6, rows 1-3, vertical) - includes mute button
         cells.push({
             row: 1,
             col: 6,
@@ -408,12 +405,9 @@ export class SceneManager {
             colSpan: 1,
             control: {
                 type: 'fader',
-                faderType: 'cc-fader',
-                label: 'VOL B',
-                midiType: 'cc',
-                midiChannel: 0,
-                midiNumber: 18,
-                midiValue: 100
+                faderType: 'deck-fader',
+                deck: 2
+                // deviceBinding inherited from scene
             }
         });
 
@@ -1742,6 +1736,42 @@ export class SceneManager {
                     this.handleInputMute(deviceId, e.detail.muted);
                 });
 
+            } else if (column.type === 'DECK') {
+                // Mixxx DJ Deck fader (volume + mute)
+                fader = document.createElement('deck-fader');
+                const deck = column.deck || 1; // 1 or 2
+                fader.setAttribute('deck', deck);
+                fader.setAttribute('volume', '100');
+                fader.setAttribute('muted', 'false');
+                fader.dataset.deviceId = deviceConfig.deviceId;
+                fader.dataset.deviceBinding = column.deviceBinding || '';
+                fader.dataset.deck = deck;
+
+                // Sync with Mixxx deck state if available
+                if (this.controller.mixxxDeckState) {
+                    const mixxxDeviceId = column.deviceBinding || 'mixxx';
+                    const deviceState = this.controller.mixxxDeckState.get(mixxxDeviceId);
+                    if (deviceState && deviceState.decks) {
+                        const deckState = deviceState.decks[deck - 1]; // Convert 1-based to 0-based
+                        if (deckState) {
+                            const volumePercent = Math.round((deckState.volume / 127) * 100);
+                            fader.setAttribute('volume', volumePercent.toString());
+                            fader.setAttribute('muted', deckState.mute.toString());
+                        }
+                    }
+                }
+
+                // Event listeners for deck fader
+                fader.addEventListener('volume-change', (e) => {
+                    const deviceBinding = fader.dataset.deviceBinding || column.deviceBinding || 'mixxx';
+                    this.handleDeckVolume(deviceBinding, deck, e.detail.value);
+                });
+
+                fader.addEventListener('mute-toggle', (e) => {
+                    const deviceBinding = fader.dataset.deviceBinding || column.deviceBinding || 'mixxx';
+                    this.handleDeckMute(deviceBinding, deck, e.detail.muted);
+                });
+
             } else if (column.type === 'TEMPO') {
                 fader = document.createElement('tempo-fader');
                 fader.setAttribute('bpm', this.controller.config.bpm || '120');
@@ -2097,6 +2127,84 @@ export class SceneManager {
             this.controller.sendSysExInputMute(deviceId, muted ? 1 : 0);
         } else {
             console.warn(`[Dev${deviceId}] Input mute SysEx command not available`);
+        }
+    }
+
+    /**
+     * Handle Mixxx deck volume
+     */
+    handleDeckVolume(deviceBinding, deck, volume) {
+        // Send CC message to Mixxx for deck volume
+        // CC mapping: Deck 1=0x11, Deck 2=0x12, Deck 3=0x40, Deck 4=0x41
+        const ccMap = {
+            1: 0x11,  // Channel 1 volume
+            2: 0x12,  // Channel 2 volume
+            3: 0x40,  // Channel 3 volume
+            4: 0x41   // Channel 4 volume
+        };
+        const cc = ccMap[deck] || 0x11;
+
+        // Get MIDI output (same pattern as sendControlMIDI)
+        let midiOutput = this.controller.midiOutput; // Fallback to default
+        let midiChannel = 0;
+
+        if (deviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(deviceBinding);
+            if (device) {
+                const deviceOutput = this.controller.deviceManager.getMidiOutput(device.id);
+                if (deviceOutput) {
+                    midiOutput = deviceOutput;
+                    midiChannel = device.midiChannel || 0;
+                }
+            }
+        }
+
+        if (midiOutput) {
+            const status = 0xB0 + midiChannel; // Control Change on device's channel
+            const message = [status, cc, volume];
+            midiOutput.send(message);
+        } else {
+            console.warn(`[Mixxx] MIDI output not available for deck ${deck} volume (device: ${deviceBinding})`);
+        }
+    }
+
+    /**
+     * Handle Mixxx deck mute
+     */
+    handleDeckMute(deviceBinding, deck, muted) {
+        // Send CC message to Mixxx for deck mute toggle
+        // CC mapping: Deck 1=0x25, Deck 2=0x26, Deck 3=0x54, Deck 4=0x55 (volume +20)
+        const ccMap = {
+            1: 0x25,  // Channel 1 mute (0x11 + 20)
+            2: 0x26,  // Channel 2 mute (0x12 + 20)
+            3: 0x54,  // Channel 3 mute (0x40 + 20)
+            4: 0x55   // Channel 4 mute (0x41 + 20)
+        };
+        const cc = ccMap[deck] || 0x25;
+
+        // Get MIDI output (same pattern as sendControlMIDI)
+        let midiOutput = this.controller.midiOutput; // Fallback to default
+        let midiChannel = 0;
+
+        if (deviceBinding && this.controller.deviceManager) {
+            const device = this.controller.deviceManager.getDevice(deviceBinding);
+            if (device) {
+                const deviceOutput = this.controller.deviceManager.getMidiOutput(device.id);
+                if (deviceOutput) {
+                    midiOutput = deviceOutput;
+                    midiChannel = device.midiChannel || 0;
+                }
+            }
+        }
+
+        if (midiOutput) {
+            const status = 0xB0 + midiChannel; // Control Change on device's channel
+            const value = muted ? 127 : 0; // Toggle value
+            const message = [status, cc, value];
+            midiOutput.send(message);
+            // console.log(`[Mixxx Deck ${deck}] Mute: ${muted} (CC 0x${cc.toString(16)})`);
+        } else {
+            console.warn(`[Mixxx] MIDI output not available for deck ${deck} mute (device: ${deviceBinding})`);
         }
     }
 
@@ -3811,6 +3919,43 @@ export class SceneManager {
                 const deviceId = parseInt(fader.dataset.deviceId || 0);
                 this.handleProgramMute(deviceId, e.detail.program, e.detail.muted);
             });
+        } else if (faderType === 'deck-fader') {
+            // Mixxx DJ Deck fader (volume + mute)
+            const scene = this.scenes.get(sceneId);
+            const deck = control.deck || 1; // 1 = Deck A, 2 = Deck B
+            fader.setAttribute('deck', deck);
+            fader.setAttribute('volume', '100');
+            fader.setAttribute('muted', 'false');
+
+            // Use control deviceBinding if set, otherwise fall back to scene deviceBinding
+            const deviceBinding = control.deviceBinding || scene?.deviceBinding || null;
+            const deviceConfig = this.resolveDeviceBinding(deviceBinding);
+            fader.dataset.deviceId = deviceConfig.deviceId;
+            fader.dataset.deviceBinding = deviceBinding || '';
+            fader.dataset.deck = deck;
+
+            // Sync with Mixxx deck state if available
+            if (this.controller.mixxxDeckState && deviceBinding) {
+                const deviceState = this.controller.mixxxDeckState.get(deviceBinding);
+                if (deviceState && deviceState.decks) {
+                    const deckState = deviceState.decks[deck - 1];
+                    if (deckState) {
+                        const volumePercent = Math.round((deckState.volume / 127) * 100);
+                        fader.setAttribute('volume', volumePercent.toString());
+                        fader.setAttribute('muted', deckState.mute.toString());
+                    }
+                }
+            }
+
+            fader.addEventListener('volume-change', (e) => {
+                const binding = fader.dataset.deviceBinding || deviceBinding;
+                this.handleDeckVolume(binding, deck, e.detail.value);
+            });
+
+            fader.addEventListener('mute-toggle', (e) => {
+                const binding = fader.dataset.deviceBinding || deviceBinding;
+                this.handleDeckMute(binding, deck, e.detail.muted);
+            });
         }
 
         fader.style.cssText = `
@@ -4045,10 +4190,16 @@ export class SceneManager {
                         <option value="cc-fader" ${control.faderType === 'cc-fader' || !control.faderType ? 'selected' : ''}>CC Fader (Generic)</option>
                         <option value="channel-fader" ${control.faderType === 'channel-fader' ? 'selected' : ''}>Channel Fader (Volume/Pan/Solo/Mute)</option>
                         <option value="mix-fader" ${control.faderType === 'mix-fader' ? 'selected' : ''}>Mix Fader (Master Volume/Pan/FX/Mute)</option>
+                        <option value="deck-fader" ${control.faderType === 'deck-fader' ? 'selected' : ''}>Deck Fader (Mixxx Deck Volume/Mute)</option>
                         <option value="tempo-fader" ${control.faderType === 'tempo-fader' ? 'selected' : ''}>Tempo Fader (BPM)</option>
                         <option value="stereo-fader" ${control.faderType === 'stereo-fader' ? 'selected' : ''}>Stereo Fader (Separation)</option>
                         <option value="program-fader" ${control.faderType === 'program-fader' ? 'selected' : ''}>Program Fader (Samplecrate)</option>
                     </select>
+                </div>
+
+                <div id="deck-number-section" style="display: ${control.faderType === 'deck-fader' ? 'block' : 'none'}; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #888;">Deck Number (1-4):</label>
+                    <input type="number" id="deck-number" min="1" max="4" value="${control.deck || 1}" style="width: 100%; padding: 8px; background: #0a0a0a; color: #ccc; border: 1px solid #555; border-radius: 4px;">
                 </div>
 
                 <div id="control-settings" style="display: ${control.type !== 'empty' ? 'block' : 'none'};">
@@ -4130,9 +4281,20 @@ export class SceneManager {
             const settingsDiv = document.getElementById('control-settings');
             const faderTypeSection = document.getElementById('fader-type-section');
 
+            const deckNumberSection = document.getElementById('deck-number-section');
+            const faderTypeSelect = document.getElementById('fader-type');
+
             typeSelect?.addEventListener('change', () => {
                 settingsDiv.style.display = typeSelect.value === 'empty' ? 'none' : 'block';
                 faderTypeSection.style.display = typeSelect.value === 'fader' ? 'block' : 'none';
+                // Hide deck number section if not fader type
+                if (typeSelect.value !== 'fader') {
+                    deckNumberSection.style.display = 'none';
+                }
+            });
+
+            faderTypeSelect?.addEventListener('change', () => {
+                deckNumberSection.style.display = faderTypeSelect.value === 'deck-fader' ? 'block' : 'none';
             });
 
             // Handle color preset buttons
@@ -4211,7 +4373,15 @@ export class SceneManager {
 
                     // Add faderType if this is a fader
                     if (type === 'fader') {
-                        newCell.control.faderType = document.getElementById('fader-type').value;
+                        const faderType = document.getElementById('fader-type').value;
+                        newCell.control.faderType = faderType;
+
+                        // Add deck number for deck-fader
+                        if (faderType === 'deck-fader') {
+                            newCell.control.deck = parseInt(document.getElementById('deck-number').value) || 1;
+                            // Use scene's deviceBinding if available, otherwise null
+                            newCell.control.deviceBinding = scene.deviceBinding || null;
+                        }
                     }
 
                     if (cellIndex >= 0) {
@@ -4592,6 +4762,32 @@ export class SceneManager {
             // GAIN B (CC 47) - Deck 2 Pregain
             else if (cc === 47 && state.decks[1]) {
                 // Pregain not in state yet - need to add it
+            }
+        });
+
+        // Update deck-fader elements (volume + mute)
+        const deckFaders = container.querySelectorAll('deck-fader');
+        // console.log(`[Scene] Found ${deckFaders.length} deck-faders`);
+        deckFaders.forEach(fader => {
+            // Skip update if user is currently changing this fader
+            if (fader.dataset.volumeChanging === 'true') {
+                return;
+            }
+
+            const deck = parseInt(fader.dataset.deck || fader.getAttribute('deck'));
+            const deckIndex = deck - 1; // Convert 1-based to 0-based
+
+            if (deckIndex >= 0 && deckIndex < state.decks.length) {
+                const deckState = state.decks[deckIndex];
+
+                // Update volume (convert 0-127 to 0-100 percentage)
+                const volumePercent = Math.round((deckState.volume / 127) * 100);
+                fader.setAttribute('volume', volumePercent.toString());
+
+                // Update mute state
+                fader.setAttribute('muted', deckState.mute.toString());
+
+                // console.log(`[Scene] Updated Deck ${deck} fader: volume=${volumePercent}%, muted=${deckState.mute}`);
             }
         });
     }
