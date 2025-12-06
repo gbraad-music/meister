@@ -14,6 +14,10 @@ physical devices, like a Volca FM, etc.
 While this works for me... it might not for you.
 
 
+> [!NOTE]
+> Regroove and the 'regrooved' extensions (eg. for Mixxx) make use of SPP for beat alignment/matching.
+
+
 ### Supported platforms
 
 The following platforms have been tested
