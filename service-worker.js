@@ -1,11 +1,11 @@
-const CACHE_NAME = 'meister-v696';
+const CACHE_NAME = 'meister-v697';
 const ASSETS = [
     './',
     './index.html',
     './meister-controller.js',
     './regroove-pad.js',
     './manifest.json',
-    './icon.svg',
+    './favicon.svg',
     // Action system files (v2.0)
     './input-actions.js',
     './action-dispatcher.js',
