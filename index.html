@@ -259,6 +259,16 @@
             transition: opacity 0.3s;
         }
 
+        .status-bar > div:first-child {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .status-bar > button {
+            flex-shrink: 1;
+            min-width: 0;
+        }
+
         .status-bar.visible {
             opacity: 1;
         }
@@ -267,6 +277,8 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .midi-indicator::before {
@@ -569,7 +581,7 @@
 </head>
 <body>
     <div class="status-bar" id="status-bar">
-        <div>MEISTER</div>
+        <div>REGROOVE MEISTER</div>
         <button id="scene-selector" style="background: transparent; color: #CF1A37; border: none; padding: 0; font-size: 0.75em; cursor: pointer; font-family: inherit; font-weight: bold; text-transform: uppercase;">
             Pads
         </button>

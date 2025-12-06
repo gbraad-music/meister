@@ -20,10 +20,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Development/documentation files (not needed in builds)
-meister-start.sh
-meister-start.bat
-
 # Package lock files (optional - uncomment if you want to ignore)
 # package-lock.json
 # yarn.lock
