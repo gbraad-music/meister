@@ -281,6 +281,7 @@ class DisplayWidget extends HTMLElement {
                             sync: deckState.sync,
                             cue: deckState.cue,
                             pfl: deckState.pfl,
+                            mute: deckState.mute,
                             fx1: deckState.fx1,
                             fx2: deckState.fx2,
                             fx3: deckState.fx3,
@@ -306,6 +307,8 @@ class DisplayWidget extends HTMLElement {
                 looping: false,
                 sync: false,
                 cue: false,
+                pfl: false,
+                mute: false,
                 bpm: 0,
                 volume: 0,
                 position: 0

@@ -189,6 +189,7 @@ class DisplayMessageManager {
         const looping = (state.playing && state.looping) ? ' LOOP' : '';
         const sync = state.sync ? ' S' : '';
         const pfl = state.pfl ? ' PFL' : '';
+        const mute = state.mute ? ' M' : ''; // Mute indicator on first line
 
         // FX indicators (show which FX units are enabled)
         const fx = [];
@@ -209,13 +210,9 @@ class DisplayMessageManager {
         // Format BPM with 2 decimal places
         const bpm = state.bpm ? state.bpm.toFixed(2) : '0.00';
 
-        // Volume bar (10 chars)
-        const volLevel = Math.round((state.volume / 127) * 10);
-        const volBar = '█'.repeat(volLevel) + '░'.repeat(10 - volLevel);
-
-        // Position bar (10 chars)
-        const posLevel = Math.round((state.position / 100) * 10);
-        const posBar = '█'.repeat(posLevel) + '░'.repeat(10 - posLevel);
+        // Position bar (14 chars to fit better)
+        const posLevel = Math.round((state.position / 100) * 14);
+        const posBar = '█'.repeat(posLevel) + '░'.repeat(14 - posLevel);
 
         // Format time as M:SS
         const formatTime = (seconds) => {
@@ -227,8 +224,14 @@ class DisplayMessageManager {
         const currentTime = formatTime((state.position / 100) * (state.duration || 0));
         const totalTime = formatTime(state.duration || 0);
 
-        // Line 1: Play status, loop (if playing), sync, PFL, and BPM
-        const statusLine = `${playing}${looping}${sync}${pfl} ${bpm} BPM`.padEnd(20);
+        // Line 1: Play status, loop (if playing), sync, PFL, mute, and BPM
+        const statusLine = `${playing}${looping}${sync}${pfl}${mute} BPM: ${bpm}`.padEnd(20);
+
+        // Line 2: Time position
+        const timeLine = `${currentTime} / ${totalTime}`.padEnd(20);
+
+        // Line 3: Progress bar
+        const progressLine = `${posBar}`.padEnd(20);
 
         return {
             type: 'display_message',
@@ -236,14 +239,15 @@ class DisplayMessageManager {
             deviceType: 'mixxx',
             lines: [
                 statusLine,
-                fxStr.padEnd(20),
-                `VOL ${volBar}`.padEnd(20),
-                `${posBar} ${currentTime}/${totalTime}`.padEnd(20)
+                timeLine,
+                progressLine,
+                fxStr.padEnd(20)
             ],
             metadata: {
                 category: 'status',
                 priority: 'normal',
                 pfl: state.pfl,
+                mute: state.mute, // Add mute to metadata for coloring
                 fx: fx.length > 0,
                 fxColors: fxColors
             }

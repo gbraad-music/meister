@@ -566,6 +566,7 @@ export function parseDeckStateResponse(data) {
             sync: (flags & 0x04) !== 0,
             cue: (flags & 0x08) !== 0,
             pfl: (flags & 0x10) !== 0, // PFL (headphone cue)
+            mute: (flags & 0x20) !== 0, // Mute
             fx1: (fx & 0x01) !== 0, // Effect Unit 1 enabled
             fx2: (fx & 0x02) !== 0, // Effect Unit 2 enabled
             fx3: (fx & 0x04) !== 0, // Effect Unit 3 enabled

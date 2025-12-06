@@ -53,9 +53,9 @@ class WebDisplayAdapter {
             lineDiv.style.display = 'block';
             lineDiv.style.overflow = 'hidden';
 
-            // Check for PFL, LOOP, and FX indicators to color them
-            if (idx === 0 && (line.includes('PFL') || line.includes('LOOP'))) {
-                // Color PFL green and LOOP yellow
+            // Check for PFL, LOOP, and MUTE indicators to color them
+            if (idx === 0 && (line.includes('PFL') || line.includes('LOOP') || (message.metadata?.mute && line.includes(' M ')))) {
+                // Color PFL green, LOOP yellow, and M red
                 let coloredLine = line;
 
                 // Replace LOOP with yellow
@@ -68,9 +68,14 @@ class WebDisplayAdapter {
                     coloredLine = coloredLine.replace('PFL', '<span style="color: #00ff00; font-weight: bold;">PFL</span>');
                 }
 
+                // Replace M with red (check for mute in metadata)
+                if (message.metadata?.mute && line.includes(' M ')) {
+                    coloredLine = coloredLine.replace(' M ', ' <span style="color: #FF0000; font-weight: bold;">M</span> ');
+                }
+
                 // Wrap rest in default color
                 lineDiv.innerHTML = `<span style="color: #4a9eff">${coloredLine}</span>`;
-            } else if (message.metadata?.fx && idx === 1 && line.includes('FX:')) {
+            } else if (message.metadata?.fx && idx === 3 && line.includes('FX:')) {
                 // Render FX indicators as green highlighted boxes
                 const fxMatch = line.match(/FX:([1-4]+)/);
                 if (fxMatch) {
