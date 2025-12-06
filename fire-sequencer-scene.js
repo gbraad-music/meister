@@ -1471,7 +1471,7 @@ class FireSequencerScene {
         let sequencerName = 'N/A';
         let playing = false;
         let currentRow = 0;
-        let playbackLength = 16;
+        let totalRows = 64;
 
         if (this.isLinkedMode()) {
             const sequencer = this.getLinkedSequencer();
@@ -1479,31 +1479,73 @@ class FireSequencerScene {
                 bpm = sequencer.engine?.bpm || 120;
                 playing = sequencer.engine?.playing || false;
                 currentRow = sequencer.engine?.currentRow || 0;
-                playbackLength = sequencer.engine?.playbackLength || 64;
+                totalRows = sequencer.engine?.pattern?.rows || 64;
                 const linkedScene = this.sceneManager.scenes.get(this.scene.linkedSequencer);
                 sequencerName = linkedScene?.name || 'Unknown';
             }
         }
 
-        const message = {
-            type: 'display_message',
-            deviceId: this.fireDisplayDeviceId,
-            deviceType: 'fire',
-            lines: [
-                `${this.scene.name}`,
-                this.isLinkedMode() ? `> ${sequencerName}` : 'Fire Compatible',
-                `BPM: ${bpm}  Step: ${currentRow}/${playbackLength}`,
-                `Offset: ${String(this.gridOffset).padStart(2, '0')}  Mode: ${this.knobMode}`
-            ],
-            metadata: { category: 'status', priority: 'normal' }
+        // Build state object for DisplayMessageManager
+        const state = {
+            bpm,
+            playing,
+            currentRow,
+            totalRows,
+            gridOffset: this.gridOffset,
+            trackMutes: this.trackMutes,
+            trackSolos: this.trackSolos,
+            sceneName: this.scene.name || 'Fire',
+            linkedSequencer: sequencerName !== 'N/A' ? sequencerName : null
         };
 
-        // Try to send through Display Message Manager
+        // Use DisplayMessageManager to create formatted message
+        let message;
         if (window.displayManager) {
+            message = window.displayManager.createStatusMessage(
+                this.fireDisplayDeviceId,
+                'fire',
+                state
+            );
             window.displayManager.sendMessage(message);
         } else if (this.fireDisplayAdapter) {
-            // Fallback: send directly to adapter if Display Manager not ready (virtual Fire only)
+            // Fallback: create message manually and send directly to adapter
+            const header = state.linkedSequencer ? `${state.sceneName} > ${state.linkedSequencer}` : state.sceneName;
+            const playGlyph = playing ? '\u25B6' : '\u25A0';
+            const status = playing ? 'PLAY' : 'STOP';
+            const gridView = `${String(this.gridOffset).padStart(2, '0')}-${String(this.gridOffset + 15).padStart(2, '0')}`;
+            let trackLine = '';
+            this.trackMutes.forEach((m, i) => {
+                const solo = this.trackSolos[i];
+                if (solo) trackLine += `S${i+1} `;
+                else if (m) trackLine += `[M${i+1}]`;
+                else trackLine += `T${i+1} `;
+            });
+
+            message = {
+                type: 'display_message',
+                deviceId: this.fireDisplayDeviceId,
+                deviceType: 'fire',
+                lines: [
+                    header,
+                    `${playGlyph} ${status}  Pos:${String(currentRow).padStart(2, '0')}/${totalRows}  BPM:${bpm}`,
+                    `View:${gridView}`,
+                    trackLine.trim()
+                ],
+                metadata: {
+                    category: 'status',
+                    priority: 'normal',
+                    trackMutes: this.trackMutes,
+                    trackSolos: this.trackSolos
+                }
+            };
             this.fireDisplayAdapter.sendMessage(message);
+        }
+
+        // Update BANK LED to indicate knob mode (blink pattern: CHANNEL=off, others=on)
+        if (this.knobMode !== 'CHANNEL') {
+            this.sendFireLED(0x1A, 127);  // BANK LED on for MIXER/USER1/USER2
+        } else {
+            this.sendFireLED(0x1A, 0);  // BANK LED off for CHANNEL mode
         }
     }
 

@@ -256,25 +256,55 @@ class DisplayMessageManager {
 
     /**
      * Create Fire sequencer status message
+     * Format matches web UI (fire-display.js)
      */
     createFireStatusMessage(deviceId, state) {
-        const bpm = String(state.bpm || 128).padStart(3, ' ');
-        const track = String(state.track || 1);
-        const step = String(state.step || 1).padStart(2, ' ');
-        const steps = String(state.steps || 16);
-        const status = state.playing ? 'Playing' : 'Stopped';
+        const bpm = String(state.bpm || 128);
+        const currentRow = String(state.currentRow || 0).padStart(2, '0');
+        const totalRows = String(state.totalRows || 64);
+        const playGlyph = state.playing ? '\u25B6' : '\u25A0';  // ▶ or ■
+        const status = state.playing ? 'PLAY' : 'STOP';
+
+        // Header: Scene name + linked sequencer (or standalone)
+        const sceneName = state.sceneName || 'Fire';
+        const linkedName = state.linkedSequencer || null;
+        const header = linkedName ? `${sceneName} > ${linkedName}` : sceneName;
+
+        // Fire grid offset (visible window)
+        const gridOffset = state.gridOffset || 0;
+        const gridEnd = gridOffset + 15;
+        const gridView = `${String(gridOffset).padStart(2, '0')}-${String(gridEnd).padStart(2, '0')}`;
+
+        // Track indicators with markup for graphical rendering
+        const trackMutes = state.trackMutes || [false, false, false, false];
+        const trackSolos = state.trackSolos || [false, false, false, false];
+        let trackLine = '';
+        for (let i = 0; i < 4; i++) {
+            if (trackSolos[i]) {
+                trackLine += `S${i+1} `;  // Solo - plain text
+            } else if (trackMutes[i]) {
+                trackLine += `[M${i+1}]`;  // Muted - boxed
+            } else {
+                trackLine += `T${i+1} `;   // Normal - plain text
+            }
+        }
 
         return {
             type: 'display_message',
             deviceId,
             deviceType: 'fire',
             lines: [
-                `Fire Sequencer`,
-                `Track ${track}: ${status}`,
-                `BPM: ${bpm}`,
-                `Step: ${step}/${steps}`
+                header,
+                `${playGlyph} ${status}  Pos:${currentRow}/${totalRows}  BPM:${bpm}`,
+                `View:${gridView}`,
+                trackLine.trim()
             ],
-            metadata: { category: 'status', priority: 'normal' }
+            metadata: {
+                category: 'status',
+                priority: 'normal',
+                trackMutes,
+                trackSolos
+            }
         };
     }
 

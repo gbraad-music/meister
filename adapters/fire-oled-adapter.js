@@ -101,16 +101,36 @@ class FireOLEDAdapter {
     }
 
     /**
-     * Render as text (default mode)
+     * Render as text (default mode) with graphical enhancements
      */
     renderAsText(message) {
-        this.ctx.fillStyle = '#FFF';
         this.ctx.font = '8px monospace';
+        this.ctx.imageSmoothingEnabled = false;
 
-        // Render text lines
-        message.lines.forEach((line, idx) => {
-            this.ctx.fillText(line, 2, 10 + (idx * 14));
-        });
+        if (message.lines.length > 0) {
+            // Header text (LEFT aligned)
+            const header = message.lines[0] || '';
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.fillText(header, 2, 8);
+
+            // GRAPHICAL: Separator line below header
+            this.ctx.fillRect(0, 10, this.width, 1);
+
+            // Line 2: Status, position, BPM (y=20)
+            if (message.lines[1]) {
+                this.ctx.fillText(message.lines[1], 2, 20);
+            }
+
+            // Line 3: View (y=30)
+            if (message.lines[2]) {
+                this.ctx.fillText(message.lines[2], 2, 30);
+            }
+
+            // Line 4: Track indicators with boxes (y=45, raised up)
+            if (message.lines[3]) {
+                this.renderTrackIndicators(message.lines[3], 47, message.metadata);
+            }
+        }
 
         // Render graphics primitives
         if (message.graphics) {
@@ -125,14 +145,33 @@ class FireOLEDAdapter {
      * This mode renders text as graphical bitmaps similar to how physical Fire would display it
      */
     renderAsGraphic(message) {
-        this.ctx.fillStyle = '#FFF';
         this.ctx.font = '8px monospace';
         this.ctx.imageSmoothingEnabled = false;
 
-        // Render text lines (same as text mode for virtual display)
-        message.lines.forEach((line, idx) => {
-            this.ctx.fillText(line, 2, 10 + (idx * 14));
-        });
+        if (message.lines.length > 0) {
+            // Header text (LEFT aligned)
+            const header = message.lines[0] || '';
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.fillText(header, 2, 8);
+
+            // GRAPHICAL: Separator line below header
+            this.ctx.fillRect(0, 10, this.width, 1);
+
+            // Line 2: Status, position, BPM (y=20)
+            if (message.lines[1]) {
+                this.ctx.fillText(message.lines[1], 2, 20);
+            }
+
+            // Line 3: View (y=30)
+            if (message.lines[2]) {
+                this.ctx.fillText(message.lines[2], 2, 30);
+            }
+
+            // Line 4: Track indicators with boxes (y=45, raised up)
+            if (message.lines[3]) {
+                this.renderTrackIndicators(message.lines[3], 47, message.metadata);
+            }
+        }
 
         // Render graphics primitives
         if (message.graphics) {
@@ -140,6 +179,71 @@ class FireOLEDAdapter {
                 this.renderGraphic(gfx);
             });
         }
+    }
+
+    /**
+     * Render track indicators with boxes for all tracks
+     */
+    renderTrackIndicators(trackLine, baselineY, metadata) {
+        const trackMutes = metadata?.trackMutes || [false, false, false, false];
+        const trackSolos = metadata?.trackSolos || [false, false, false, false];
+
+        let x = 5;  // Starting x position (moved 3 pixels right from 2)
+        const boxWidth = 28;  // Box width
+        const boxHeight = 12;  // Box height
+        const spacing = 2;
+        const boxY = baselineY - 9;  // Box top position
+
+        for (let i = 0; i < 4; i++) {
+            const label = trackSolos[i] ? `S${i+1}` : trackMutes[i] ? `M${i+1}` : `T${i+1}`;
+
+            if (trackMutes[i]) {
+                // MUTED: Rounded white border, black interior, WHITE text
+                this.drawRoundedBox(x, boxY, boxWidth, boxHeight, 2);
+                this.ctx.fillStyle = '#FFF';
+                this.ctx.fillText(label, x + 9, baselineY);  // Text moved 3px right
+            } else {
+                // NORMAL/ACTIVE/SOLO: Solid WHITE rounded box, BLACK text
+                this.drawSolidRoundedBox(x, boxY, boxWidth, boxHeight, 2);
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillText(label, x + 9, baselineY);
+            }
+
+            x += boxWidth + spacing;
+        }
+    }
+
+    /**
+     * Draw solid rounded corner rectangle (WHITE filled)
+     */
+    drawSolidRoundedBox(x, y, width, height, radius) {
+        this.ctx.fillStyle = '#FFF';
+
+        // Main rectangle (minus corners)
+        this.ctx.fillRect(x + radius, y, width - 2 * radius, height);  // Horizontal strip
+        this.ctx.fillRect(x, y + radius, width, height - 2 * radius);  // Vertical strip
+
+        // Rounded corners (approximate with pixels)
+        // Top-left
+        this.ctx.fillRect(x + 1, y + 1, radius - 1, radius - 1);
+        // Top-right
+        this.ctx.fillRect(x + width - radius, y + 1, radius - 1, radius - 1);
+        // Bottom-left
+        this.ctx.fillRect(x + 1, y + height - radius, radius - 1, radius - 1);
+        // Bottom-right
+        this.ctx.fillRect(x + width - radius, y + height - radius, radius - 1, radius - 1);
+    }
+
+    /**
+     * Draw hollow rounded corner rectangle (white border, black interior)
+     */
+    drawRoundedBox(x, y, width, height, radius) {
+        // First draw solid white rounded box
+        this.drawSolidRoundedBox(x, y, width, height, radius);
+
+        // Then draw black interior (leave 2px border)
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(x + 2, y + 2, width - 4, height - 4);
     }
 
     /**
