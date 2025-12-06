@@ -23,8 +23,13 @@ class FireSequencerScene {
         // Track state - REMOVED: Fire should use engine's arrays directly, not maintain copies
         // this.trackMutes and this.trackSolos are now getters/setters that reference engine
 
-        // Knob values
-        this.topKnobs = [64, 64, 64, 64, 64];  // Volume, Pan, Filter, Resonance, Select
+        // Knob values - stored per mode to preserve state when switching
+        this.topKnobsByMode = {
+            'CHANNEL': [64, 64, 64, 64, 64],  // Volume, Pan, Filter, Resonance, Select
+            'MIXER': [64, 64, 64, 64, 64],    // Volume, Pan, Low, High, Select
+            'USER1': [64, 64, 64, 64, 64],    // U1-1, U1-2, U1-3, U1-4, Select
+            'USER2': [64, 64, 64, 64, 64]     // U2-1, U2-2, U2-3, U2-4, Select
+        };
         this.trackKnobs = [64, 64, 64, 64];
 
         // LED state cache (note -> velocity) to avoid flooding MIDI output
@@ -243,16 +248,38 @@ class FireSequencerScene {
             align-items: center;
         `;
 
-        const knobLabels = this.userMode
-            ? ['VOL', 'PAN', 'LOW', 'HIGH']
-            : ['VOL', 'PAN', 'FILT', 'RES'];
+        // Get knob labels based on current knob mode
+        let knobLabels;
+        switch (this.knobMode) {
+            case 'CHANNEL':
+                knobLabels = ['VOL', 'PAN', 'FILT', 'RES'];
+                break;
+            case 'MIXER':
+                knobLabels = ['VOL', 'PAN', 'LOW', 'HIGH'];
+                break;
+            case 'USER1':
+                knobLabels = ['U1-1', 'U1-2', 'U1-3', 'U1-4'];
+                break;
+            case 'USER2':
+                knobLabels = ['U2-1', 'U2-2', 'U2-3', 'U2-4'];
+                break;
+            default:
+                knobLabels = ['VOL', 'PAN', 'FILT', 'RES'];
+        }
 
         // First 4 knobs (VOL, PAN, FILT, RES or VOL, PAN, LOW, HIGH)
+        const currentModeKnobs = this.topKnobsByMode[this.knobMode];
         for (let i = 0; i < 4; i++) {
-            const knobCell = this.createKnob(knobLabels[i], this.topKnobs[i], (value) => {
-                this.topKnobs[i] = value;
+            const knobCell = this.createKnob(knobLabels[i], currentModeKnobs[i], (value) => {
+                this.topKnobsByMode[this.knobMode][i] = value;
                 this.handleTopKnobChange(i, value);
             });
+            // Add class to distinguish top knobs from track knobs
+            const knobElement = knobCell.querySelector('pad-knob');
+            if (knobElement) {
+                knobElement.classList.add('top-knob');
+                knobElement.dataset.knobIndex = i;
+            }
             topSection.appendChild(knobCell);
         }
 
@@ -281,10 +308,16 @@ class FireSequencerScene {
         topSection.appendChild(lcdDisplay);
 
         // 5th knob (SELECT) - rotary encoder
-        const selectKnob = this.createKnob('SEL', this.topKnobs[4], (value) => {
-            this.topKnobs[4] = value;
+        const selectKnob = this.createKnob('SEL', currentModeKnobs[4], (value) => {
+            this.topKnobsByMode[this.knobMode][4] = value;
             this.handleTopKnobChange(4, value);
         });
+        // Add class to SELECT knob too for mode switching
+        const selectKnobElement = selectKnob.querySelector('pad-knob');
+        if (selectKnobElement) {
+            selectKnobElement.classList.add('top-knob');
+            selectKnobElement.dataset.knobIndex = 4;
+        }
         topSection.appendChild(selectKnob);
 
         // ENTER button (SELECT knob press equivalent - Note 0x19)
@@ -661,14 +694,30 @@ class FireSequencerScene {
                 knobLabels = ['VOL', 'PAN', 'FILT', 'RES'];
         }
 
-        // Find and update the first 4 knobs
-        const knobs = document.querySelectorAll('pad-knob');
-        for (let i = 0; i < Math.min(4, knobs.length); i++) {
-            knobs[i].setAttribute('label', knobLabels[i]);
-        }
+        // Find and update the top 4 knobs (not track knobs)
+        const knobs = document.querySelectorAll('pad-knob.top-knob');
+        knobs.forEach((knob, i) => {
+            if (i < 4) {
+                knob.setAttribute('label', knobLabels[i]);
+            }
+        });
 
         // Update LCD display to show current mode
         this.updateFireDisplay();
+    }
+
+    /**
+     * Update top knob values based on current knobMode (restore saved values)
+     */
+    updateTopKnobValues() {
+        const currentModeKnobs = this.topKnobsByMode[this.knobMode];
+        const knobs = document.querySelectorAll('pad-knob.top-knob');
+
+        knobs.forEach((knob, i) => {
+            if (i < 5) {  // 4 knobs + SELECT
+                knob.setAttribute('value', currentModeKnobs[i]);
+            }
+        });
     }
 
     /**
@@ -972,8 +1021,10 @@ class FireSequencerScene {
             const modes = ['CHANNEL', 'MIXER', 'USER1', 'USER2'];
             const currentIndex = modes.indexOf(this.knobMode);
             this.knobMode = modes[(currentIndex + 1) % 4];
-            // console.log(`[FireSequencer] MODE: ${this.knobMode}`);
+
+            // Update labels and restore knob values for new mode
             this.updateTopKnobLabels();
+            this.updateTopKnobValues();
             return;
         }
 
@@ -1541,12 +1592,16 @@ class FireSequencerScene {
             this.fireDisplayAdapter.sendMessage(message);
         }
 
-        // Update BANK LED to indicate knob mode (blink pattern: CHANNEL=off, others=on)
-        if (this.knobMode !== 'CHANNEL') {
-            this.sendFireLED(0x1A, 127);  // BANK LED on for MIXER/USER1/USER2
-        } else {
-            this.sendFireLED(0x1A, 0);  // BANK LED off for CHANNEL mode
-        }
+        // Update BANK LED to indicate knob mode (CC 0x1B with bitmask)
+        // Base: 0x10 (16), bits: Channel=1, Mixer=2, User1=4, User2=8
+        // 0x11 = Channel only, 0x12 = Mixer only, 0x14 = User1 only, 0x18 = User2 only
+        const bankLEDMap = {
+            'CHANNEL': 0x11,  // 0001'0001 = Channel LED on only
+            'MIXER': 0x12,    // 0001'0010 = Mixer LED on only
+            'USER1': 0x14,    // 0001'0100 = User 1 LED on only
+            'USER2': 0x18     // 0001'1000 = User 2 LED on only
+        };
+        this.sendFireLED(0x1B, bankLEDMap[this.knobMode] || 0x10);
     }
 
     /**
@@ -1738,8 +1793,8 @@ class FireSequencerScene {
             this.sendFireLED(note, 0);
         }
 
-        // Bottom right: MODE, BRWSR, PTRN, PLAY, STOP, REC (0x1A, 0x21, 0x32-0x35)
-        this.sendFireLED(0x1A, 0);  // MODE
+        // Bottom right: BANK, BRWSR, PTRN, PLAY, STOP, REC (0x1B, 0x21, 0x32-0x35)
+        this.sendFireLED(0x1B, 0x10);  // BANK (4-position LED: all off)
         this.sendFireLED(0x21, 0);  // BRWSR
         this.sendFireLED(0x32, 0);  // PTRN
         this.sendFireLED(0x33, 0);  // PLAY
@@ -1909,7 +1964,7 @@ class FireSequencerScene {
             const topKnobMap = [0x10, 0x11, 0x12, 0x13, 0x76];
             const knobIndex = topKnobMap.indexOf(cc);
             if (knobIndex !== -1) {
-                this.topKnobs[knobIndex] = value;
+                this.topKnobsByMode[this.knobMode][knobIndex] = value;
                 this.handleTopKnobChange(knobIndex, value);
                 return;
             }

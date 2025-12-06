@@ -22,9 +22,11 @@ class PadKnob extends HTMLElement {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue && this.shadowRoot) {
+        if (oldValue !== newValue) {
             if (name === 'value') {
                 this.updateKnob();
+            } else if (name === 'label') {
+                this.updateLabel();
             }
         }
     }
@@ -159,6 +161,19 @@ class PadKnob extends HTMLElement {
         if (valueDisplay) {
             valueDisplay.textContent = value;
         }
+    }
+
+    updateLabel() {
+        // Ensure shadow DOM is rendered before updating
+        const labelDisplay = this.shadowRoot?.querySelector('.knob-label');
+
+        if (!labelDisplay) {
+            // Shadow DOM not ready yet - will be rendered in connectedCallback
+            return;
+        }
+
+        const label = this.getAttribute('label') || 'CC';
+        labelDisplay.textContent = label;
     }
 
     setupEventListeners() {
