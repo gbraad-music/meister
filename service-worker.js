@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meister-v697';
+const CACHE_NAME = 'meister-v699';
 const ASSETS = [
     './',
     './index.html',
@@ -70,30 +70,55 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - CACHE FIRST (offline-first, reliable on flaky networks)
 self.addEventListener('fetch', (event) => {
+    // Skip caching external resources
+    if (!event.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+
     event.respondWith(
-        caches.match(event.request).then((response) => {
-            // Return cached version or fetch from network
-            return response || fetch(event.request).then((fetchResponse) => {
-                // Cache new resources
-                return caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, fetchResponse.clone());
-                    return fetchResponse;
+        // Try cache FIRST for instant response
+        caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+                // Serve from cache immediately (offline-first)
+                console.log('[ServiceWorker] Serving from cache:', event.request.url);
+
+                // Update cache in background (stale-while-revalidate)
+                fetch(event.request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, networkResponse.clone());
+                        });
+                    }
+                }).catch(() => {
+                    // Network failed, but we already served from cache, so ignore
                 });
-            });
-        }).catch(() => {
-            // Fallback for offline
-            if (event.request.destination === 'document') {
-                return caches.match('./index.html');
+
+                return cachedResponse;
             }
-            // Return a proper Response for non-document requests when offline
-            return new Response('Offline', {
-                status: 503,
-                statusText: 'Service Unavailable',
-                headers: new Headers({
-                    'Content-Type': 'text/plain'
-                })
+
+            // Not in cache, try network
+            return fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            }).catch(() => {
+                // Network failed and not in cache - offline fallback
+                if (event.request.destination === 'document') {
+                    return caches.match('./index.html');
+                }
+                return new Response('Offline', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: new Headers({
+                        'Content-Type': 'text/plain'
+                    })
+                });
             });
         })
     );

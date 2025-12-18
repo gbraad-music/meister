@@ -2293,6 +2293,20 @@
                     .then((registration) => {
                         console.log('Service Worker registered:', registration.scope);
 
+                        // Check for updates every time the page loads
+                        registration.update();
+
+                        // Auto-reload when new service worker takes over
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                                    console.log('New service worker activated - reloading page');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+
                         // Display cache version in About section
                         if ('caches' in window) {
                             caches.keys().then(cacheNames => {
@@ -2318,6 +2332,11 @@
                             versionSpan.style.color = '#a44';
                         }
                     });
+
+                // Listen for service worker updates
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    console.log('Service worker updated');
+                });
             });
         }
     </script>
